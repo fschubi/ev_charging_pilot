@@ -178,6 +178,10 @@ Erst danach wird `cp_failsafe_verified = true` gesetzt; ohne diesen Wert bleibt 
 
 Planner berechnen, was sein soll; ein Executor setzt das unter Guards gegen den Ist-Zustand um; Health läuft getrennt daneben. Damit gibt es keine flache Zustandsliste mehr, in der Laden, Klima, Override und Fehler gegeneinander konkurrieren.
 
+&#91;embedded content: Architektur · Planner, Arbiter, Executor, Health, Adapter\]
+
+Planner liefern Wünsche, der Arbiter macht daraus ein Soll, nur der Executor schreibt über die Adapter; Health kann ihn sperren.
+
 ### 4.1 Schichten
 
 | Schicht | Aufgabe | Schreibt Hardware? |
@@ -307,6 +311,10 @@ empfohlener_start = abfahrt − ready_buffer − ladedauer − sicherheitsreserv
 ## 6. Executor und Wakeup-Kaskade
 
 Der Executor kennt nur ein Ziel: das Soll herstellen. Will das Soll Laden, aber es fließt keine stabile Leistung, eskaliert er genau einmal über OVMS und einmal über CP und meldet sonst einen Fehler.
+
+&#91;embedded content: Wakeup-Kaskade · 4 Prüfpunkte, 2 Fehlerausgänge\]
+
+Ohne OVMS springt die Kaskade direkt vom ersten Prüfpunkt zum CP-Puls; jeder Schritt landet im Event Log.
 
 ### 6.1 Zustände
 
@@ -663,3 +671,261 @@ costs:
 ```
 
 Kennzahlen: Kosten pro Session, Monat, Jahr; €/100 km (Heim + Fremd, dokumentierte Energie); Kosten nur Heimladen für die Hausabrechnung.
+
+## 12. HA-Entities, Services, Frontend
+
+Die Integration stellt alles Bedienbare als normale HA-Entities und Services bereit; ein Standard-Dashboard funktioniert damit ab v0.2. Die eigene Oberfläche kommt erst, wenn die Logik steht, und holt Historien über die WebSocket-API statt über Attribute.
+
+### 12.1 Sensoren
+
+| Gruppe | Entities |
+| --- | --- |
+| Status | `sensor.smart_eq_executor_state`, `sensor.smart_eq_desired_reason`, `sensor.smart_eq_system_health`, `sensor.smart_eq_last_event`, `sensor.smart_eq_last_charge_result` |
+| Laden | `sensor.smart_eq_charge_power`, `sensor.smart_eq_session_energy`, `sensor.smart_eq_next_charge_start`, `sensor.smart_eq_next_departure`, `sensor.smart_eq_expected_departure_soc`, `sensor.smart_eq_estimated_finish` |
+| Fahrzeug (ab v0.4) | `sensor.smart_eq_soc`, `_soh`, `_range`, `_odometer`, `_battery_temperature`, `_hv_contactor_cycles` (jeweils mit Attribut `quality`) |
+| Energie & Kosten | `sensor.smart_eq_home_energy_total` (energy, kWh, `total_increasing`), `_month_home_energy`, `_month_external_energy`, `_month_distance`, `_month_cost`, `_month_cost_per_100km`, `_month_grid_consumption`, `_year_*` |
+
+Power und Temperaturen: `state_class: measurement`. Monatswerte, die zurückgesetzt werden: `state_class: total` mit `last_reset`.
+
+### 12.2 Binary Sensors, Steuer-Entities
+
+- `binary_sensor.smart_eq_vehicle_connected`, `_charging`, `_charge_problem`, `_cp_failsafe_ok`, `_charger_available`, `_vehicle_available`, `_data_conflict`, `_soc_stale`, `_charge_plan_feasible`, `_manual_override`, `_hvcycle_warning`
+- `switch.smart_eq_automation` (Automatik an/aus), `switch.smart_eq_dry_run`
+- `select.smart_eq_override_mode`, `number.smart_eq_minimum_departure_soc`, `number.smart_eq_preferred_departure_soc`, `time.smart_eq_departure`
+- Buttons: `start_charge`, `stop_charge`, `vehicle_wakeup`, `cp_wakeup`, `reset_error`, `climate_5/10/15min`, `climate_stop`, `one_shot_tonight`
+
+### 12.3 Services
+
+```text
+smart_eq_charging.start_charging / stop_charging
+smart_eq_charging.set_override / clear_override
+smart_eq_charging.start_one_shot / cancel_one_shot
+smart_eq_charging.vehicle_wakeup / cp_wakeup / reset_error
+smart_eq_charging.start_climate / stop_climate
+smart_eq_charging.add_external_charge / add_manual_odometer
+smart_eq_charging.export (format: csv | json, range)
+smart_eq_charging.start_replay / stop_replay
+```
+
+Alle Services laufen durch Arbiter und Executor, nie direkt auf die Hardware.
+
+### 12.4 WebSocket-API
+
+`get_sessions`, `get_trips`, `get_external_charges`, `get_month_statistics`, `get_year_statistics`, `get_temperature_statistics`, `get_events`, `get_health`, `get_plan_preview` (Prognose der nächsten Nacht). Große Listen nie als Attribute.
+
+### 12.5 Frontend
+
+Reihenfolge: zuerst ein YAML-Dashboard aus Standardkarten (v0.2), dann eine eigene Lit-Karte bzw. ein `panel_custom` (ab v0.5). Ansichten:
+
+| Ansicht | Inhalt |
+| --- | --- |
+| Cockpit | Status, SOC, Leistung, nächste Abfahrt, Prognose, Health, Schnellaktionen |
+| Ladeplan | Wochenplan, One-Shot, Override, Mindest-/Wunsch-SOC, Klima |
+| Hausstrom → Smart EQ | Monat wählen: Heim-kWh, Kosten, Sessions, Monatsvergleich |
+| Drive & Energy | Verbrauch über Zeit, Temperatur-/Saisonvergleich, Trips |
+| Diagnose | Geräte, CP/Failsafe, Datenqualität je Wert, Event Log, HV-Zyklen, 12 V |
+
+Die Oberfläche enthält keine Steuerlogik; jede Aktion ruft einen Service.
+
+## 13. Konfigurationsparameter
+
+Der Config Flow fragt nur Entities und Grundwerte ab; alle Zeit- und Schwellwerte liegen im Options Flow und sind mit vorläufigen Defaults belegt, die nach Phase 0 überschrieben werden.
+
+### 13.1 Config Flow (Ersteinrichtung)
+
+1. Name, Dry-Run (Default an)
+2. Halo: Pflicht `enable`, `cable_connected`, `power`, `total_energy`; optional `status`, `max_current`, `cable_lock`, `schedule`, Phasenwerte
+3. Shelly: `cp_relay`, optional Shelly-Host für RPC (`toggle_after`, Config-Drift-Check)
+4. Benachrichtigungsziel (`notify.mobile_app_*`)
+5. OVMS: überspringbar, später im Options Flow
+
+### 13.2 Options Flow (alle Werte)
+
+```yaml
+settings_version: 3
+mode: dry_run                     # dry_run | live | replay
+
+cp:
+  pulse_s: 10                     # 5–15, wird als toggle_after gesendet
+  mask_grace_s: 30
+  failsafe_verified: false
+
+charging:
+  power_threshold_w: 300
+  stable_samples: 2
+  stable_min_s: 20
+  loss_timeout_s: 180
+  min_switch_interval_s: 120
+
+wakeup:
+  start_detection_wait_s: 60
+  ovms_enabled: false
+  ovms_wait_s: 45
+  cp_fallback_enabled: true
+  post_cp_wait_s: 60
+  max_ovms_attempts_per_window: 1
+  max_cp_attempts_per_window: 1
+  min_gap_between_wakeups_s: 120
+
+planning:
+  usable_capacity_kwh: 16.7       # Smart EQ 453, nach Messung kalibrieren
+  charge_efficiency: 0.88
+  max_power_kw: 11.0
+  grid_limit_kw: null             # z. B. 4.2 bei §14a-Dimmung
+  safety_margin_min: 20
+  ready_buffer_min: 30
+
+climate:
+  enabled: false
+  min_soc_pct: 35
+  after_target_soc: allow_topup   # allow_topup | battery_only | enforce_target
+  profiles: siehe 9.3
+
+quality:
+  max_age_s: siehe 7.3
+
+notifications:
+  evening_plug_reminder: "21:00"
+  categories: {start_failed: true, cp: true, plan_infeasible: true, plug_reminder: true, health: true, hv_cycles: true}
+
+monitor:
+  odometer_source: manual         # manual | ovms
+  trip_merge_gap_min: 10
+  event_retention_days: 90
+
+costs: siehe 11
+```
+
+`usable_capacity_kwh` ist ein Startwert aus der Fahrzeugangabe und wird aus Sessions mit ΔSOC kalibriert.
+
+## 14. Teststrategie
+
+Der HA-freie Kern wird mit `pytest` und simulierter Uhr getestet; jede Nacht aus Phase 0 wird zum Replay-Datensatz und damit zum Regressionstest. Hardware wird nur in den manuellen Testgruppen berührt.
+
+### 14.1 Automatisierte Tests (Kern)
+
+| Gruppe | Pflichtfälle |
+| --- | --- |
+| Ladeerkennung | 2 kW für einen Messwert, dann 0 W → kein `CHARGING`; N stabile Werte → `CHARGING` |
+| Kaskade | Start ohne Leistung → OVMS → CP → `START_FAILED`; Versuchslimits je Fenster |
+| CP-Maskierung | `cable_connected` fällt während Puls → kein `DISCONNECTED`, Session läuft weiter; echter Abzug danach wird erkannt |
+| Cooldown | Halo aus, Auto-Start nach 30 s → blockiert |
+| Ziel-SOC | 79 % → laden; 80 % GOOD → Halo aus, CP unverändert; 80 % STALE → keine Abschaltung |
+| LAST\_KNOWN\_VALID | SOC von gestern, keine Aktivität → Planung nutzt ihn; nach Energiefluss → STALE |
+| Klima | Ziel erreicht + Klima → Verhalten je `after_target_soc` |
+| Arbiter | Override schlägt Plan; Health ERROR schlägt Override |
+| Neustart | Neustart mitten in Kaskade → keine Befehlswiederholung, Soll neu berechnet |
+| Zeit | Sommer-/Winterzeitwechsel, Session über Mitternacht und Monatswechsel |
+| Statistik | Monatsbilanz mit ΔSOC, Fremdladung ändert Hausabrechnung nicht, Preiswechsel ändert alte Monate nicht |
+| Replay/Dry-Run | Port protokolliert nur, keine Hardware-Calls |
+
+### 14.2 Integrationstests
+
+Mit `pytest-homeassistant-custom-component`: Config Flow, Options Flow, Entity-Anlage, Services, Diagnostics (mit Redaction des API-Keys).
+
+### 14.3 Manuelle Hardwaretests
+
+- [ ] Halo per Service ein/aus, Latenz gemessen
+- [ ] CP-Puls per `toggle_after`, Halo-Verhalten protokolliert
+- [ ] HA während Puls gestoppt → Shelly schließt selbst
+- [ ] Shelly stromlos → Fehlstart wird korrekt gemeldet
+- [ ] Kabel während Session gezogen
+- [ ] Internet getrennt während Ladefenster → Health/Push korrekt
+- [ ] OVMS: Wakeup, SOC während Laden, Klima 5/10/15 min (ab Phase 5)
+- [ ] Ziel-SOC-Abschaltung real
+- [ ] Klima nach Ziel-SOC real (lädt der Smart nach?)
+
+## 15. Roadmap und Definition of Done
+
+Zuerst lädt eine einfache Automation das Auto zuverlässig und sammelt dabei die Messwerte, die der Plan bisher nur schätzt; erst danach entsteht die Integration in fünf Stufen. Jede Stufe hat ein Gate, das vor der nächsten erfüllt sein muss.
+
+&#91;embedded content: Roadmap · 6 Stufen, 5 Gates\]
+
+Phase 0 läuft sofort und parallel zur Entwicklung von v0.1; v0.4 hängt zusätzlich an der Lieferung des OVMS-Moduls.
+
+### Phase 0 – Automation und Messphase (vor der Integration)
+
+Ziel: Ab sofort nächtliches Laden mit Wakeup, dazu 2–3 Wochen Messdaten.
+
+- [ ] Shelly konfiguriert und Checkliste 3.6 abgearbeitet
+- [ ] Halo-interner Zeitplan aus, evcc steuert die Halo nicht
+- [ ] HA-Automation: Halo zur Startzeit an → Leistung prüfen → sonst CP-Puls per `toggle_after` → erneut prüfen → Push bei Misserfolg; Halo morgens aus
+- [ ] `utility_meter` Monat/Jahr + Halo-Zähler im Energy Dashboard
+- [ ] Recorder hält Halo- und Shelly-Entities in voller Auflösung
+- [ ] Gemessen: Poll-Intervall der Halo, Latenz Schaltbefehl → Zustand, Zeit bis Ladestart mit/ohne Wakeup, Halo-Verhalten beim CP-Puls, Werte von `status_raw`, RFID bei deaktiviertem Connector
+
+**Gate:** Messwerte dokumentiert, Zeitkonstanten in 13.2 eingetragen, mindestens 5 aufgezeichnete Nächte als Replay-Daten.
+
+### v0.1 – Kern, Read-only, Dry-Run
+
+- [ ] Paketstruktur mit HA-freiem Kern
+- [ ] Config Flow, Entity-Auswahl
+- [ ] Adapter lesen Halo und Shelly mit Wertmodell (Quelle, Alter, Qualität)
+- [ ] Planner (Wochenplan fixed\_start), Arbiter, Executor im Dry-Run
+- [ ] Event Log, Health-Grundmodell, Diagnostics
+- [ ] Replay der Phase-0-Nächte reproduziert die realen Abläufe
+- [ ] Tests aus 14.1 für Ladeerkennung, Kaskade, Maskierung, Neustart
+
+**Gate:** 7 Nächte Dry-Run parallel zur Phase-0-Automation, Entscheidungen stimmen mit der Realität überein.
+
+### v0.2 – Live-Basis und manuelle Bedienung
+
+- [ ] Halo-Schalten über Executor (Cooldown, Bestätigung)
+- [ ] CP-Puls über Executor, Prüfung danach
+- [ ] Manual Override, One-Shot, Buttons, Services
+- [ ] Push-Benachrichtigungen und Actionable Notification beim Einstecken
+- [ ] YAML-Standard-Dashboard
+
+**Gate:** `cp_failsafe_verified = true`, alle manuellen Tests aus 14.3 ohne OVMS bestanden.
+
+### v0.3 – Automatischer Ladeplan
+
+- [ ] Phase-0-Automation abgeschaltet, Integration übernimmt
+- [ ] Wochenplan live, Kaskade (CP-Fallback), Versuchslimits
+- [ ] Ladeende vs. Abbruch
+- [ ] Session-Erfassung mit Energieintervallen und Kosten (Festpreis)
+- [ ] Config-Drift-Check
+
+**Gate:** 14 Nächte live ohne unbemerkten Fehlstart.
+
+### v0.4 – OVMS (nach Lieferung und Einbau)
+
+- [ ] OVMS→HA-Datenweg entschieden und eingerichtet (16)
+- [ ] Mapping SOC, SOH, Reichweite, Odometer, Ladestatus, Temperaturen, HV-Zyklen
+- [ ] LAST\_KNOWN\_VALID, Konflikterkennung
+- [ ] OVMS-Wakeup vor CP
+- [ ] Ziel-SOC-Abschaltung, abfahrtsbasierter Plan, Machbarkeitsprognose
+- [ ] Vorklimatisierung mit Profilen, Verhalten nach Ziel-SOC real geprüft
+- [ ] HV-Zyklen-Überwachung mit Warnung
+
+**Gate:** OVMS-Werte 2 Wochen plausibel, kein zusätzlicher Wakeup ohne Ladeanlass im Event Log.
+
+### v0.5 – Drive & Energy Monitor und eigene Oberfläche
+
+- [ ] Trips mit Fahrtgrenzen, manuelles Odometer als Rückfall
+- [ ] Fremdladen erfassen
+- [ ] Monats-/Jahresbilanz mit ΔSOC, Ladeverluste, €/100 km, Qualitätskennzeichnung
+- [ ] Temperatur- und Saisonstatistik
+- [ ] CSV/JSON-Export
+- [ ] Eigene Karte bzw. Panel mit den Ansichten aus 12.5
+
+### Später
+
+Tibber bzw. dynamischer Tarif (nur neue Preisquelle + Planner „günstigste Intervalle“), OCPP lokal (falls 16 positiv), PDF-Monatsbericht, automatische Fremdladeerkennung.
+
+## 16. Offene Punkte und Messaufgaben
+
+Zehn Fragen sind vor oder während der Umsetzung zu klären; die ersten sechs beantwortet Phase 0.
+
+| # | Frage | Wann | Auswirkung |
+| --- | --- | --- | --- |
+| 1 | Wie oft aktualisiert die Halo Leistung und Status, wie lang ist die Schaltlatenz? | Phase 0 | Alle Zeitkonstanten, Stabilitätsregel |
+| 2 | Was meldet die Halo während und nach dem CP-Puls? Neue Autorisierung nötig? Kabellock? | Phase 0 | Maskierung, Session-Logik |
+| 3 | Wie lange braucht der Smart bis zum Ladestart, mit und ohne Wakeup? | Phase 0 | `start_detection_wait_s` |
+| 4 | Welche Werte nimmt `status_raw` an (lädt, wartet, fertig, Fehler)? | Phase 0 | Ladeende vs. Abbruch |
+| 5 | Funktioniert RFID bei deaktiviertem Connector, und meldet die Halo den Start? | Phase 0 | RFID-Variante A/C |
+| 6 | Startet der Smart beim Einstecken mit freigegebener Halo sofort? | Phase 0 | Default-Soll „Halo aus“ |
+| 7 | Wie kommen OVMS-Daten unterwegs zu HA (Mobilfunk → eigener MQTT-Broker über VPN/Port, OVMS-Server, nur Heim-WLAN)? | vor v0.4 | Trips unterwegs, Klima von unterwegs |
+| 8 | Welche OVMS-Werte und -Befehle erscheinen tatsächlich als HA-Entities/Services? | v0.4 | Mapping 2.3 |
+| 9 | Lässt sich die Halo auf ein eigenes OCPP-Backend umstellen, und was passiert dann mit App, RFID und Cloud? | Prüfauftrag | Lokale Steuerung ohne Cloud |
+| 10 | Ist die Halo beim Netzbetreiber nach §14a EnWG angemeldet, und welches Modul gilt? | vor v0.4 | `grid_limit_kw`, Prognose |

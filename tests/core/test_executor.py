@@ -225,7 +225,7 @@ def test_charge_end_reported_by_halo_status():
 def test_interruption_gets_one_restart_then_fails():
     rig = charging_rig()
     rig.sample(0)
-    rig.tick(130)
+    rig.tick(190)
     assert rig.state is ExecState.INTERRUPTED
     rig.tick(1)
     assert rig.state is ExecState.WAITING_FOR_CHARGE

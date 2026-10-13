@@ -49,7 +49,7 @@ class ExecutorConfig:
     power_threshold_w: float = 300.0
     stable_samples: int = 2
     charging_stable_min_s: float = 20.0
-    charging_loss_timeout_s: float = 120.0
+    charging_loss_timeout_s: float = 180.0
     start_detection_wait_s: float = 60.0
     ovms_wait_s: float = 45.0
     post_cp_wait_s: float = 60.0

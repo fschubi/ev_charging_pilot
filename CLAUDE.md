@@ -88,10 +88,11 @@ CI: `.github/workflows/tests.yaml` (pytest + ruff), `validate.yaml` (hassfest, H
 
 ## Offene Punkte / Entscheidungen
 
-- **Masterplan v1.3 endet bei §11.** §12 (WebSocket-API/Frontend), §16
-  (offene Prüfaufträge: OVMS-Anbindung, OCPP) und die Roadmap fehlen in der
-  Datei. `docs/ROADMAP.md` ist eine **abgeleitete** Roadmap – mit Frank
-  abgleichen, sobald die vollständige Fassung vorliegt.
+- Masterplan ist jetzt **vollständig** (§1–§16, 2026-10-13 ersetzt).
+  Umsetzungsstand und Abweichungen (Entity-Namen §12, Options §13.2,
+  Replay, Phase-0-Wakeup-Automation) stehen in `docs/ROADMAP.md`.
+- Laut §15 ist v0.1 nur Read-only/Dry-Run mit `fixed_start`; der Code kann
+  mehr, schaltet aber nichts, solange Dry-Run an ist. Live erst nach Gate v0.1.
 - OVMS-Wakeup/Klima: Port wirft `PortError`, `ovms_available=False` fest im
   Coordinator, bis die Befehle am Fahrzeug getestet sind.
 - RFID-Variante (§5.4): Arbeitsannahme C (Button/Push), Messung M6/M7 offen.
@@ -105,3 +106,6 @@ CI: `.github/workflows/tests.yaml` (pytest + ruff), `validate.yaml` (hassfest, H
   CP-Maskierung, Health, Kosten) mit 50+ Tests inkl. DST und Neustart.
   Integration mit Config-/Options-Flow, Entitäten, Dry-Run-Default, Push,
   Event-Log (90 Tage), Diagnostics. Phase-0-Package mit Messprotokoll.
+- **2026-10-13 – Masterplan vollständig.** Fassung mit §12–§16 übernommen,
+  Defaults an §13.2 angeglichen (Wirkungsgrad 0,88, Reserve 20 min,
+  Ladeverlust-Timeout 180 s), Roadmap auf §15 umgestellt.

@@ -37,16 +37,16 @@ class VehicleParams:
     """Physical parameters for the feasibility estimate (§5.6).
 
     Defaults: smart EQ fortwo 453 with 17.6 kWh gross / ~16.7 kWh usable and
-    the standard 4.6 kW on-board charger. ``grid_limit_kw`` models a §14a
-    EnWG dimming (4.2 kW) when it is active.
+    the standard 4.6 kW on-board charger; the rest follows masterplan §13.2.
+    ``grid_limit_kw`` models a §14a EnWG dimming (4.2 kW) when it is active.
     """
 
     usable_capacity_kwh: float = 16.7
-    charge_efficiency: float = 0.9
+    charge_efficiency: float = 0.88
     halo_limit_kw: float = 11.0
     vehicle_charger_kw: float = 4.6
     grid_limit_kw: float | None = None
-    safety_reserve_min: int = 30
+    safety_reserve_min: int = 20
 
     @property
     def expected_power_kw(self) -> float:

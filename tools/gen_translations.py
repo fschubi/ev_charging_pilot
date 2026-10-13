@@ -362,6 +362,10 @@ SERVICES = {
     "create_report": (T("PDF-Bericht erstellen", "Create PDF report"),
                       T("Monats- oder Jahresbericht nach /config/smart_eq_charging/reports.",
                         "Monthly or yearly report into /config/smart_eq_charging/reports.")),
+    "configure_shelly": (T("Shelly konfigurieren", "Configure Shelly"),
+                         T("Setzt am Shelly die Failsafe-Werte aus §3.1: Einschaltzustand an, "
+                           "Auto-On nach der CP-Pulsdauer.",
+                           "Writes the §3.1 failsafe settings to the Shelly.")),
     "refresh_prices": (T("Preise aktualisieren", "Refresh prices"),
                        T("Dynamische Preise sofort neu abrufen.", "Fetch dynamic prices now.")),
     "create_replay_dataset": (T("Replay-Datensatz erstellen", "Create replay dataset"),

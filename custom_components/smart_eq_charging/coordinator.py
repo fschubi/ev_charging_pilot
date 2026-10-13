@@ -60,7 +60,7 @@ from .core.ports import CommandRecorder
 from .core.prices import PriceSlot
 from .core.replay import ReplayDataset, run_replay
 from .core.settings import OPT_MODE, RunMode, Settings
-from .ha_ports import HaPorts, shelly_config_ok
+from .ha_ports import HaPorts, PortError, shelly_deviations
 from .notifications import Notifier
 from .price_source import PriceFetcher
 from .reports import async_create_report, previous_month
@@ -114,6 +114,7 @@ class ChargingCenter:
         # One sample per minute for the cockpit chart (24 h, not persisted).
         self.history: deque[tuple[str, float | None, float | None]] = deque(maxlen=1440)
         self.last_replay: dict[str, Any] | None = None
+        self.shelly_deviations: list[dict[str, Any]] | None = None
         self._listeners: list[CALLBACK_TYPE] = []
         self._unsubs: list[CALLBACK_TYPE] = []
         self._lock = asyncio.Lock()
@@ -190,9 +191,29 @@ class ChargingCenter:
 
     async def _drift_check(self) -> None:
         config = await self.ports.shelly_switch_config()
-        self.engine.shelly_config_ok = (
-            None if config is None else shelly_config_ok(config, self.settings.cp_pulse_s)
-        )
+        if config is None:
+            self.shelly_deviations = None
+            self.engine.shelly_config_ok = None
+        else:
+            self.shelly_deviations = shelly_deviations(config, self.settings.cp_pulse_s)
+            self.engine.shelly_config_ok = not self.shelly_deviations
+        self._notify_listeners()
+
+    async def async_configure_shelly(self) -> dict[str, Any]:
+        """User button: write the failsafe settings to the Shelly, then re-check."""
+        try:
+            result = await self.ports.configure_shelly(self.settings.cp_pulse_s)
+        except (PortError, OSError, TimeoutError) as err:
+            self._log(Event(dt_util.utcnow(), Category.CP, Severity.ERROR,
+                            "SHELLY_CONFIG_FAILED", f"Shelly-Konfiguration fehlgeschlagen: {err}"))
+            raise
+        await self._drift_check()
+        self._log(Event(dt_util.utcnow(), Category.CP, Severity.INFO, "SHELLY_CONFIGURED",
+                        "Shelly auf Failsafe-Werte gesetzt (Einschaltzustand an, Auto-On "
+                        f"nach {self.settings.cp_pulse_s} s)", data={"restart": result}))
+        self._schedule_save()
+        return {"ok": bool(self.engine.shelly_config_ok),
+                "deviations": self.shelly_deviations or []}
 
     # ---------------------------------------------------------------- prices
 

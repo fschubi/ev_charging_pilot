@@ -797,6 +797,10 @@
         }
       }
     },
+    "configure_shelly": {
+      "name": "Shelly konfigurieren",
+      "description": "Setzt am Shelly die Failsafe-Werte aus §3.1: Einschaltzustand an, Auto-On nach der CP-Pulsdauer."
+    },
     "refresh_prices": {
       "name": "Preise aktualisieren",
       "description": "Dynamische Preise sofort neu abrufen."

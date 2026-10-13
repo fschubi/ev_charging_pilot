@@ -96,6 +96,7 @@ SCHEMAS: dict[str, vol.Schema] = {
         vol.Optional("month"): vol.All(vol.Coerce(int), vol.Range(min=1, max=12)),
     }),
     "refresh_prices": vol.Schema({}),
+    "configure_shelly": vol.Schema({}),
     "create_replay_dataset": vol.Schema({
         vol.Required("start"): cv.datetime,
         vol.Required("end"): cv.datetime,
@@ -105,7 +106,7 @@ SCHEMAS: dict[str, vol.Schema] = {
     }),
 }
 RESPONSE = {"add_external_charge", "export", "start_replay", "create_replay_dataset",
-            "create_report", "refresh_prices"}
+            "create_report", "refresh_prices", "configure_shelly"}
 
 
 def _center(hass: HomeAssistant) -> ChargingCenter:
@@ -198,6 +199,11 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 if data["period"] == "month":
                     month = data.get("month", today.month)
                 return await async_create_report(center, year, month)
+            case "configure_shelly":
+                try:
+                    return await center.async_configure_shelly()
+                except Exception as err:  # noqa: BLE001 – shown to the user as is
+                    raise ServiceValidationError(str(err)) from err
             case "refresh_prices":
                 slots = await center.price_fetcher.async_refresh()
                 return {"slots": len(slots), "error": center.price_fetcher.last_error}

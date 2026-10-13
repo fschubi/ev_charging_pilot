@@ -114,6 +114,27 @@ class HaPorts:
         else:
             raise PortError("kein OVMS-Befehlsweg konfiguriert")
 
+    async def configure_shelly(self, pulse_s: int) -> dict[str, Any]:
+        """Write the §3.1 failsafe settings via ``Switch.SetConfig`` (user action only)."""
+        if not self.shelly_host:
+            raise PortError("kein Shelly-Host konfiguriert")
+        session = async_get_clientsession(self.hass)
+        payload = {"id": 0, "method": "Switch.SetConfig",
+                   "params": {"id": 0, "config": shelly_expected(pulse_s)}}
+        timeout = aiohttp.ClientTimeout(total=SHELLY_TIMEOUT_S)
+        async with session.post(f"http://{self.shelly_host}/rpc", json=payload,
+                                timeout=timeout) as response:
+            if response.status == 401:
+                raise PortError("Shelly verlangt ein Passwort – bitte in der Shelly-App "
+                                "einstellen: Einschaltzustand an, Auto-On nach "
+                                f"{pulse_s} s")
+            if response.status != 200:
+                raise PortError(f"Shelly antwortet HTTP {response.status}")
+            data = await response.json(content_type=None)
+            if isinstance(data, dict) and data.get("error"):
+                raise PortError(str(data["error"].get("message", data["error"])))
+            return data.get("result", {}) if isinstance(data, dict) else {}
+
     async def shelly_switch_config(self) -> dict[str, Any] | None:
         """Read ``Switch.GetConfig`` for the config-drift check (§7.5)."""
         if not self.shelly_host:
@@ -130,10 +151,23 @@ class HaPorts:
             return None
 
 
+def shelly_expected(pulse_s: int) -> dict[str, Any]:
+    """The failsafe configuration of §3.1: the Shelly closes the CP on its own."""
+    return {"initial_state": "on", "auto_on": True, "auto_on_delay": float(pulse_s)}
+
+
+def shelly_deviations(config: dict[str, Any], pulse_s: int) -> list[dict[str, Any]]:
+    """Every setting that differs from §3.1, with actual and expected value."""
+    out = []
+    for key, expected in shelly_expected(pulse_s).items():
+        actual = config.get(key)
+        same = (float(actual) == expected) if key == "auto_on_delay" and \
+            isinstance(actual, (int, float)) else actual == expected
+        if not same:
+            out.append({"key": key, "actual": actual, "expected": expected})
+    return out
+
+
 def shelly_config_ok(config: dict[str, Any], pulse_s: int) -> bool:
     """Auto-on and power-on default must back up the pulse (§3.1)."""
-    return (
-        config.get("initial_state") == "on"
-        and config.get("auto_on") is True
-        and float(config.get("auto_on_delay", -1)) == float(pulse_s)
-    )
+    return not shelly_deviations(config, pulse_s)

@@ -97,7 +97,9 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             },
         },
         "health": {"status": str(engine.health.status), "reasons": list(engine.health.reasons),
-                   "shelly_config_ok": engine.shelly_config_ok},
+                   "shelly_config_ok": engine.shelly_config_ok,
+                   "shelly_deviations": center.shelly_deviations,
+                   "shelly_host": bool(center.ports.shelly_host)},
         "data_conflict": engine.data_conflict,
         "values": {k.value: _value(v, now) for k, v in engine.values.items()
                    if k in center.entity_ids},

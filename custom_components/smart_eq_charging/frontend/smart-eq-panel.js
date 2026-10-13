@@ -60,6 +60,17 @@ const HEALTH_TEXT = {
   SOC_STALE: "SOC ist veraltet – SOC-Funktionen pausieren.",
   TEMPERATURE_MISSING: "Keine Außentemperatur – automatische Klimaprofile pausieren.",
 };
+const CLIMATE_BLOCKED = {
+  CLIMATE_DISABLED: "Vorklimatisierung ist in den Optionen aus",
+  OVMS_DISABLED: "OVMS ist noch nicht aktiv – Klima wird erst mit OVMS ausgeführt",
+  HEALTH_NOT_HEALTHY: "pausiert, solange das System eingeschränkt ist",
+  SOC_UNKNOWN: "kein gültiger SOC",
+  SOC_TOO_LOW: "SOC zu niedrig für Klima",
+};
+const SHELLY_LABELS = { initial_state: "Einschaltzustand", auto_on: "Auto-On", auto_on_delay: "Auto-On-Verzögerung" };
+const fmtShelly = (v) => v === true ? "an" : v === false ? "aus" : v === null || v === undefined ? "–" : typeof v === "number" ? `${v} s` : String(v);
+const shellyRows = (devs) => (devs || []).map((d) =>
+  `<div class="row"><span>${esc(SHELLY_LABELS[d.key] || d.key)}</span><span><span class="pill bad">${esc(fmtShelly(d.actual))}</span> → <span class="pill ok">${esc(fmtShelly(d.expected))}</span></span></div>`).join("");
 const SEASON_LABELS = { winter: "Winter", spring: "Frühling", summer: "Sommer", autumn: "Herbst" };
 
 const socColor = (soc) =>
@@ -68,61 +79,86 @@ const socColor = (soc) =>
     : soc < 50 ? "var(--warning-color, #ffa600)"
     : "var(--success-color, #43a047)";
 
-/** The smart fortwo 453 (side view) with wallbox and cable. */
+/** smart fortwo 453 (side view, facing left), 1 m ≈ 100 units, with wallbox and cable. */
 function carSvg({ plugged, charging, error, soc, kw }) {
   const led = error ? "var(--error-color, #db4437)" : charging ? "var(--success-color, #43a047)"
     : plugged ? "var(--info-color, #039be5)" : "var(--disabled-text-color, #777)";
   const fill = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-  const width = 76 * fill / 100;
+  const width = 74 * fill / 100;
+  const tri = "#1e2227";
+  const wheel = (x) => `
+    <circle cx="${x}" cy="150" r="29" fill="#16181b"/>
+    <circle cx="${x}" cy="150" r="19" fill="#b9c0c7"/>
+    ${[0, 72, 144, 216, 288].map((a) => {
+      const r = (a * Math.PI) / 180;
+      return `<line x1="${x}" y1="150" x2="${(x + Math.cos(r) * 17).toFixed(1)}" y2="${(150 + Math.sin(r) * 17).toFixed(1)}" stroke="#7d868f" stroke-width="5" stroke-linecap="round"/>`;
+    }).join("")}
+    <circle cx="${x}" cy="150" r="5" fill="#4b5157"/>`;
   return `
-  <svg class="car" viewBox="0 0 370 170" role="img" aria-label="smart fortwo ${plugged ? "eingesteckt" : "nicht eingesteckt"}">
+  <svg class="car" viewBox="0 0 380 190" role="img" aria-label="smart fortwo 453 ${plugged ? "eingesteckt" : "nicht eingesteckt"}">
     <defs>
-      <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#7d93ab"/><stop offset="1" stop-color="#2f3d4d"/>
+      <linearGradient id="g453" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#7f95ad"/><stop offset="1" stop-color="#26313d"/>
       </linearGradient>
-      <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#fbfcfd"/><stop offset="1" stop-color="#cfd5dc"/>
+      <linearGradient id="b453" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#eef1f4"/><stop offset="1" stop-color="#c9d0d7"/>
       </linearGradient>
     </defs>
-    <ellipse cx="155" cy="152" rx="135" ry="7" fill="rgba(0,0,0,.28)"/>
-    <!-- wallbox -->
-    <rect x="318" y="38" width="32" height="64" rx="8" fill="#2a2f36" stroke="#4a5260"/>
-    <circle cx="334" cy="62" r="10" fill="none" stroke="${led}" stroke-width="3" class="${charging ? "pulse" : ""}"/>
-    <rect x="331" y="102" width="6" height="48" fill="#3a404a"/>
-    <!-- body -->
-    <path d="M30 128 C26 118 27 106 34 100 C44 92 60 88 74 86 L82 84 C92 66 104 48 118 40
-             C124 36 132 34 142 34 L236 34 C250 34 258 38 262 46 C270 62 274 84 274 104
-             C274 116 272 124 266 128 L262 128 A30 30 0 0 0 202 128 L108 128 A30 30 0 0 0 48 128 Z"
-          fill="url(#body)" stroke="#9aa3ad" stroke-width="1.2"/>
-    <!-- windows -->
-    <path d="M120 45 L196 42 C200 42 202 45 201 49 L197 82 L104 83 Z" fill="url(#glass)"/>
-    <path d="M220 44 L241 44 C248 44 251 49 251 55 L253 80 L212 82 Z" fill="url(#glass)"/>
-    <!-- tridion safety cell -->
-    <path d="M85 92 L117 41 C123 37 131 35.5 142 35.5 L236 35.5 C247 35.5 254 40 257 50"
-          fill="none" stroke="#2b2f36" stroke-width="8" stroke-linecap="round"/>
-    <path d="M214 38 C207 70 202 98 199 125" fill="none" stroke="#2b2f36" stroke-width="12" stroke-linecap="round"/>
-    <path d="M110 125 L199 125" stroke="#2b2f36" stroke-width="6" stroke-linecap="round"/>
-    <!-- details -->
-    <path d="M104 86 L104 122" stroke="#aab2bb" stroke-width="1.2"/>
-    <rect x="176" y="90" width="14" height="3.5" rx="1.7" fill="#8e979f"/>
-    <path d="M100 68 L110 66 L110 74 L101 75 Z" fill="#2b2f36"/>
-    <ellipse cx="40" cy="101" rx="9" ry="5.5" fill="#fff7d6" stroke="#b9b29a"/>
-    <rect x="267" y="66" width="6" height="24" rx="3" fill="#c62828"/>
-    <!-- battery on the door -->
-    <rect x="114" y="98" width="80" height="16" rx="4" fill="rgba(0,0,0,.18)" stroke="#9aa3ad"/>
-    <rect x="194" y="102" width="3" height="8" rx="1" fill="#9aa3ad"/>
-    <rect x="116" y="100" width="${width.toFixed(1)}" height="12" rx="3" fill="${socColor(soc)}"/>
-    <text x="154" y="110" text-anchor="middle" class="carsoc">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
-    <!-- wheels -->
-    ${[78, 232].map((x) => `<circle cx="${x}" cy="128" r="23" fill="#1d1f22"/>
-      <circle cx="${x}" cy="128" r="14" fill="#9ea6ae"/><circle cx="${x}" cy="128" r="5" fill="#5d646b"/>`).join("")}
-    <!-- charge port and cable -->
-    <rect x="255" y="86" width="11" height="13" rx="3" fill="${plugged ? "#2b2f36" : "#bfc6cd"}" stroke="#8e979f"/>
+    <ellipse cx="158" cy="180" rx="150" ry="6" fill="rgba(0,0,0,.3)"/>
+
+    <!-- wallbox on its post -->
+    <rect x="349" y="118" width="6" height="62" fill="#3a404a"/>
+    <rect x="336" y="54" width="32" height="64" rx="9" fill="#2a2f36" stroke="#4a5260"/>
+    <circle cx="352" cy="78" r="10" fill="none" stroke="${led}" stroke-width="3" class="${charging ? "pulse" : ""}"/>
+
+    <!-- body: very short, tall, wheels at the corners -->
+    <path d="M28 150 C21 146 19 133 20 121 C21 111 24 103 32 98 C43 92 58 89 72 87
+             L127 23 C131 16 137 12 147 12 L262 12 C276 12 284 18 287 30
+             C290 50 292 90 292 118 C292 136 291 146 286 150
+             L284 150 A35 35 0 0 0 214 150 L97 150 A35 35 0 0 0 27 150 Z"
+          fill="url(#b453)" stroke="#a3acb5" stroke-width="1.2"/>
+
+    <!-- glass: long raked windscreen line, big door window, small rear quarter -->
+    <path d="M93 82 L131 26 L215 24 C219 24 221 27 221 31 L219 72 C174 75 130 79 93 82 Z" fill="url(#g453)"/>
+    <path d="M252 26 L265 26 C272 26 276 31 277 39 L278 64 L252 66 Z" fill="url(#g453)"/>
+    <path d="M80 88 L129 23" stroke="${tri}" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- tridion safety cell: the big "C" – roof frame, wide spine behind the door, sill -->
+    <path d="M127 22 C131 15 138 12.5 148 12.5 L240 12.5 C246 12.5 249 16 249 23
+             L247 108 C246 132 236 147 212 147 L102 147 C98 147 97 140 101 139
+             L204 139 C216 139 223 130 224 112 L225 32 C225 25 222 21 215 21 L130 22 Z"
+          fill="${tri}"/>
+    <path d="M249 16 L262 13 C274 13 281 18 284 28" fill="none" stroke="${tri}" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- door, handle, mirror -->
+    <path d="M88 89 C90 108 93 125 99 137" fill="none" stroke="#aeb6be" stroke-width="1.2"/>
+    <rect x="198" y="86" width="15" height="4" rx="2" fill="#8e979f"/>
+    <path d="M90 73 L104 69 L106 80 L92 82 Z" fill="${tri}"/>
+
+    <!-- front: headlight high at the bonnet edge, lower bumper -->
+    <path d="M22 108 C28 98 44 92 68 88 C63 95 50 104 25 112 Z" fill="#fff6d2" stroke="#b3ad95"/>
+    <path d="M20 122 C27 125 35 125 42 122 L41 133 C33 136 25 135 21 132 Z" fill="${tri}"/>
+    <path d="M27 150 A35 35 0 0 1 97 150" fill="none" stroke="#9aa3ad" stroke-width="3"/>
+    <path d="M214 150 A35 35 0 0 1 284 150" fill="none" stroke="#9aa3ad" stroke-width="3"/>
+
+    <!-- rear: tall tail light -->
+    <rect x="285" y="42" width="7" height="60" rx="3.5" fill="#c62828"/>
+
+    <!-- battery gauge on the door -->
+    <rect x="116" y="100" width="78" height="16" rx="4" fill="rgba(0,0,0,.18)" stroke="#9aa3ad"/>
+    <rect x="194" y="104" width="3" height="8" rx="1" fill="#9aa3ad"/>
+    <rect x="118" y="102" width="${width.toFixed(1)}" height="12" rx="3" fill="${socColor(soc)}"/>
+    <text x="155" y="112" text-anchor="middle" class="carsoc">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
+
+    ${wheel(62)}${wheel(249)}
+
+    <!-- charge port above the rear wheel, cable to the wallbox -->
+    <rect x="258" y="86" width="12" height="14" rx="3" fill="${plugged ? tri : "#c3cad1"}" stroke="#8e979f"/>
     ${plugged ? `
-      <path d="M262 96 C278 152 312 154 326 102" fill="none" stroke="#2b2f36" stroke-width="5" stroke-linecap="round"/>
-      ${charging ? `<path d="M262 96 C278 152 312 154 326 102" fill="none" stroke="var(--success-color, #43a047)"
+      <path d="M266 98 C282 172 324 172 344 118" fill="none" stroke="${tri}" stroke-width="5" stroke-linecap="round"/>
+      ${charging ? `<path d="M266 98 C282 172 324 172 344 118" fill="none" stroke="var(--success-color, #43a047)"
             stroke-width="3" stroke-linecap="round" stroke-dasharray="3 9" class="flow"/>` : ""}` : ""}
-    ${charging ? `<text x="334" y="30" text-anchor="middle" class="kw">${num(kw, 1, "kW")}</text>` : ""}
+    ${charging ? `<text x="352" y="46" text-anchor="middle" class="kw">${(kw || 0).toFixed(1).replace(".", ",")} kW</text>` : ""}
   </svg>`;
 }
 
@@ -511,6 +547,8 @@ class SmartEqPanel extends HTMLElement {
         this._createReport(el.dataset.month ? Number(el.dataset.month) : null); break;
       case "open-report":
         this._openReport(el.dataset.url); break;
+      case "configure-shelly":
+        this._configureShelly(); break;
       case "external-cost":
         this._completeExternal(el.dataset.id); break;
       default: break;
@@ -547,6 +585,19 @@ class SmartEqPanel extends HTMLElement {
     const data = this._form("odometer");
     if (!data.odometer_km) { this._toast("Kilometerstand angeben"); return; }
     this._call("add_manual_odometer", data, "Kilometerstand erfasst");
+  }
+
+  async _configureShelly() {
+    if (!confirm("Am Shelly werden die Failsafe-Werte gesetzt:\n• Einschaltzustand: an\n• Auto-On: an\n• Auto-On-Verzögerung = CP-Pulsdauer\n\nDamit schließt der Shelly die CP-Leitung immer von selbst. Fortfahren?")) return;
+    try {
+      // callService(domain, service, data, target, notifyOnError, returnResponse)
+      const result = await this._hass.callService(DOMAIN, "configure_shelly", {}, undefined, false, true);
+      const ok = result && result.response && result.response.ok;
+      this._toast(ok ? "Shelly konfiguriert – Prüfung bestanden" : "Shelly gesetzt, die Prüfung zeigt noch Abweichungen");
+    } catch (err) {
+      this._toast(`Fehler: ${err.message || err}`);
+    }
+    await this._refresh();
   }
 
   async _createReport(month) {
@@ -671,7 +722,9 @@ class SmartEqPanel extends HTMLElement {
         <div class="big"><span class="pill ${healthClass}">${esc(HEALTH_LABELS[health] || health)}</span></div>
         ${reasons || `<p class="sub">alles erreichbar</p>`}
         ${s.data_conflict ? `<p><span class="pill bad">Datenkonflikt Halo/OVMS</span></p>` : ""}
-        ${s.climate ? `<p class="sub">Klima ${s.climate.duration_min} min ab ${time(s.climate.start_at)}${s.climate.blocked ? ` – gesperrt: ${esc(s.climate.blocked)}` : ""}</p>` : ""}
+        ${s.health.shelly_deviations && s.health.shelly_deviations.length ? `${shellyRows(s.health.shelly_deviations)}
+          <div class="actions" style="margin-top:8px"><button class="act primary" data-action="configure-shelly">Shelly konfigurieren</button></div>` : ""}
+        ${s.climate ? `<p class="sub">Klima ${s.climate.duration_min} min ab ${time(s.climate.start_at)}${s.climate.blocked ? ` – ${esc(CLIMATE_BLOCKED[s.climate.blocked] || s.climate.blocked)}` : ""}</p>` : ""}
         ${s.prices.error ? `<p><span class="pill warn">${esc(s.prices.error)}</span></p>` : ""}
       </div>
       <div class="card">
@@ -863,6 +916,9 @@ class SmartEqPanel extends HTMLElement {
       <div class="card"><h2>CP / Failsafe</h2>
         <div class="row"><span>Checkliste §3.6</span>${this._yesNo(s.settings.cp_failsafe_verified)}</div>
         <div class="row"><span>Shelly-Konfiguration</span>${this._yesNo(s.health.shelly_config_ok)}</div>
+        ${shellyRows(s.health.shelly_deviations)}
+        ${s.health.shelly_config_ok === null && s.health.shelly_host ? `<p class="sub">Shelly-Konfiguration nicht lesbar (Shelly offline oder passwortgeschützt).</p>` : ""}
+        ${s.health.shelly_host ? `<div class="actions" style="margin-top:8px"><button class="act ${s.health.shelly_config_ok === false ? "primary" : ""}" data-action="configure-shelly">Shelly konfigurieren</button></div>` : ""}
         <div class="row"><span>Puls-Maskierung aktiv</span><span>${s.executor.cp_masked ? "ja" : "nein"}</span></div></div>
       <div class="card"><h2>Fahrzeug</h2>
         <div class="row"><span>OVMS-Funktionen</span><span>${s.settings.ovms_enabled ? "aktiv" : "gesperrt"}</span></div>

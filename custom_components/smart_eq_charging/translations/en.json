@@ -797,6 +797,10 @@
         }
       }
     },
+    "configure_shelly": {
+      "name": "Configure Shelly",
+      "description": "Writes the §3.1 failsafe settings to the Shelly."
+    },
     "refresh_prices": {
       "name": "Refresh prices",
       "description": "Fetch dynamic prices now."

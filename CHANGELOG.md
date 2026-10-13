@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.3 – 2026-10-13
+
+- **Shelly-Konfiguration:** Die Prüfung zeigt jetzt jede Abweichung mit Ist- und
+  Sollwert (Einschaltzustand, Auto-On, Auto-On-Verzögerung). Neuer Button
+  „Shelly konfigurieren“ (Cockpit/Diagnose) bzw. Service `configure_shelly` setzt die
+  Failsafe-Werte aus §3.1 per RPC und prüft sofort neu. Passwortgeschützte Shellys
+  bekommen eine klare Meldung.
+- **Fahrzeuggrafik:** Neu gezeichnet als smart fortwo 453 – echte Proportionen
+  (2,70 m × 1,55 m, Räder an den Ecken), lange flache Frontscheibe, Tridion-Zelle als
+  „C“ aus Dachrahmen, breitem Rücken und Schweller.
+- Klima-Sperrgründe im Klartext (z. B. „OVMS ist noch nicht aktiv“).
+
 ## 0.6.2 – 2026-10-13
 
 - **Grafisches Cockpit:** smart-fortwo-Illustration mit Wallbox und Ladekabel

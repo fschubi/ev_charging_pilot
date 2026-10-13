@@ -156,6 +156,7 @@ create_report:
       selector:
         number: {min: 1, max: 12, mode: box}
 refresh_prices:
+configure_shelly:
 create_replay_dataset:
   fields:
     start:

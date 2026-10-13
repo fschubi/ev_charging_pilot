@@ -24,6 +24,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.core import Event as HaEvent
 from homeassistant.helpers.event import (
     async_track_state_change_event,
+    async_track_time_change,
     async_track_time_interval,
 )
 from homeassistant.helpers.storage import Store
@@ -50,16 +51,19 @@ from .const import (
     STORAGE_VERSION,
     TICK_SECONDS,
 )
-from .core.engine import Engine, EngineConfig, TickResult
+from .core.engine import Engine, EngineConfig, Notification, TickResult
 from .core.inputs import Inp, RawState
 from .core.model import Category, Event, Severity
 from .core.monitor import Monitor
 from .core.planner import OverrideMode
 from .core.ports import CommandRecorder
+from .core.prices import PriceSlot
 from .core.replay import ReplayDataset, run_replay
 from .core.settings import OPT_MODE, RunMode, Settings
 from .ha_ports import HaPorts, shelly_config_ok
 from .notifications import Notifier
+from .price_source import PriceFetcher
+from .reports import async_create_report, previous_month
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -103,6 +107,7 @@ class ChargingCenter:
             self.monitor,
         )
         self.notifier = Notifier(hass, self.conf)
+        self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
         self.recorder = CommandRecorder()
         self.events: deque[dict[str, Any]] = deque(maxlen=20000)
         self.statistics: dict[str, Any] = {}
@@ -140,11 +145,15 @@ class ChargingCenter:
         self._unsubs.append(async_track_time_interval(
             self.hass, self._on_drift_check, DRIFT_CHECK_INTERVAL))
         self._unsubs.append(self.notifier.async_listen_actions(self._on_notification_action))
+        self._unsubs.append(async_track_time_change(
+            self.hass, self._on_report_time, hour=6, minute=0, second=0))
         self.entry.async_create_background_task(
             self.hass, self._drift_check(), f"{DOMAIN} drift check")
+        self.price_fetcher.start(self.settings)
         await self.async_tick()
 
     async def async_shutdown(self) -> None:
+        self.price_fetcher.stop()
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
@@ -182,6 +191,38 @@ class ChargingCenter:
         self.engine.shelly_config_ok = (
             None if config is None else shelly_config_ok(config, self.settings.cp_pulse_s)
         )
+
+    # ---------------------------------------------------------------- prices
+
+    @callback
+    def _on_prices(self, slots: list[PriceSlot]) -> None:
+        self.engine.set_prices(slots)
+        self._schedule_save()
+        self.hass.async_create_task(self.async_tick())
+
+    @callback
+    def _on_price_problem(self, message: str) -> None:
+        self._log(Event(dt_util.utcnow(), Category.CONFIG, Severity.WARNING,
+                        "PRICE_SOURCE_PROBLEM", f"{message} – Rückfall auf Festpreis"))
+        self._notify_listeners()
+
+    # --------------------------------------------------------------- reports
+
+    @callback
+    def _on_report_time(self, now: datetime) -> None:
+        if now.astimezone(self.tz).day == 1 and self.settings.report_auto_monthly:
+            self.hass.async_create_task(self.async_monthly_report(now))
+
+    async def async_monthly_report(self, now: datetime) -> dict[str, Any]:
+        year, month = previous_month(now.astimezone(self.tz))
+        report = await async_create_report(self, year, month)
+        self._log(Event(dt_util.utcnow(), Category.CONFIG, Severity.INFO, "REPORT_CREATED",
+                        f"Monatsbericht {month:02d}/{year} erstellt", data=report))
+        if self.settings.notify.report:
+            await self.notifier.async_send(Notification(
+                "report", "normal", "Monatsbericht",
+                f"Der Bericht für {month:02d}/{year} liegt im Panel unter Hausstrom bereit."))
+        return report
 
     def apply_options(self, options: dict[str, Any]) -> None:
         """Mode change only – no reload needed (the switch writes the option)."""
@@ -246,9 +287,10 @@ class ChargingCenter:
             self._log(event)
         for notification in result.notifications:
             await self.notifier.async_send(notification)
-        if result.events or result.commands or result.sessions or result.trips:
-            self._schedule_save(monitor=bool(result.sessions or result.trips))
-        if result.sessions or result.trips:
+        monitor = bool(result.sessions or result.trips or result.external)
+        if result.events or result.commands or monitor:
+            self._schedule_save(monitor=monitor)
+        if monitor:
             self.refresh_statistics(now)
         self._notify_listeners()
 

@@ -1,10 +1,12 @@
 # Smart EQ 453 Charging Center
 
 Home-Assistant-Integration, die das Laden eines **smart EQ fortwo 453** an einer
-**Charge Amps Halo** als einziges Steuerungssystem übernimmt (ersetzt evcc):
-abfahrtsbasierte Ladeplanung, Wakeup-Kaskade (OVMS → CP-Puls über Shelly),
-Ziel-SOC, Vorklimatisierung, System-Health mit Push, Lade-Sessions mit Kosten,
-Fahrten, Monatsbilanz mit SOC-Ausgleich und ein eigenes Sidebar-Panel.
+**Charge Amps Halo** als einziges Steuerungssystem übernimmt:
+abfahrtsbasierte Ladeplanung, Laden in den günstigsten Stunden (Tibber oder
+andere dynamische Tarife), Wakeup-Kaskade (OVMS → CP-Puls über Shelly), Ziel-SOC,
+Vorklimatisierung, System-Health mit Push, Lade-Sessions mit Kosten, Fahrten,
+Monatsbilanz mit SOC-Ausgleich, automatische Fremdladeerkennung,
+PDF-Monatsberichte und ein eigenes Sidebar-Panel.
 
 Spezifikation: [Masterplan v1.3](docs/masterplan-v1.3.md) · Stand: [Roadmap](docs/ROADMAP.md)
 
@@ -32,11 +34,13 @@ Spezifikation: [Masterplan v1.3](docs/masterplan-v1.3.md) · Stand: [Roadmap](do
 | Shelly 1 Mini Gen3 in der CP-Leitung | Wakeup per CP-Puls | nein |
 | OVMS v3 (z. B. per MQTT) | SOC, Fahrten, Klima, Software-Wakeup | nein |
 | Companion-App | Push und Rückfrage beim Einstecken | empfohlen |
+| Tibber-Integration oder Preis-Sensor (Nordpool, EPEX …) | dynamischer Strompreis | nein |
 
 ## Installation
 
-1. HACS → Integrationen → ⋮ → *Benutzerdefinierte Repositories* →
-   `https://github.com/fschubi/smart453_charging_center`, Kategorie *Integration*.
+1. HACS → ⋮ (oben rechts) → *Benutzerdefinierte Repositories* →
+   Repository `https://github.com/fschubi/smart453_charging_center`,
+   Typ *Integration* → *Hinzufügen*.
 2. „Smart EQ Charging Center“ installieren, Home Assistant neu starten.
 3. Einstellungen → Geräte & Dienste → *Smart EQ Charging Center* hinzufügen.
    Fünf kurze Schritte: Name/Dry-Run → Halo → Shelly → Push-Ziel → OVMS (überspringbar).
@@ -58,6 +62,19 @@ Messphase, deren Ergebnisse die vorläufigen Zeitkonstanten ersetzen.
 | Diagnose | Health, CP/Failsafe, Datenqualität je Wert, Event Log, Replay |
 
 **Push beim Einstecken:** *Normaler Plan* · *Heute Nacht laden* · *Jetzt laden*.
+
+**Strompreis:** Optionen → *Strompreis*. Mit Tibber (offizielle Integration) oder
+einer Preis-Entität lädt ein abfahrtsbasierter Plan in den günstigsten Stunden
+vor der Abfahrt – standardmäßig in einem zusammenhängenden Block, damit das Auto
+nicht mehrfach geweckt werden muss. Ohne SOC oder ohne Preise für die ganze Nacht
+wird wie gewohnt geladen; Kosten werden je 15 Minuten mit dem echten Preis berechnet.
+
+**PDF-Berichte:** Panel → Hausstrom → *PDF Monat* / *PDF Jahr*, automatisch am
+Monatsersten um 06:00. Ablage in `/config/smart_eq_charging/reports`, Download nur
+für angemeldete Benutzer.
+
+**Fremdladen:** Ladungen außer Haus werden aus OVMS-Daten erkannt (ohne das Auto
+zu wecken) und als *geschätzt* eingetragen; Kosten und Anbieter im Panel ergänzen.
 
 **Standard-Dashboard** ohne Panel: [dashboards/smart_eq_dashboard.yaml](dashboards/smart_eq_dashboard.yaml).
 
@@ -84,6 +101,7 @@ Messphase, deren Ergebnisse die vorläufigen Zeitkonstanten ersetzen.
 `reset_error`, `start_climate`, `stop_climate`, `add_external_charge`,
 `delete_external_charge`, `add_manual_odometer`, `set_plans`,
 `export` (CSV/JSON nach `/config/smart_eq_charging/export`),
+`create_report` (PDF), `refresh_prices`,
 `create_replay_dataset`, `start_replay`, `stop_replay`.
 
 Alle Services laufen durch Arbiter und Executor – nie direkt auf die Hardware.

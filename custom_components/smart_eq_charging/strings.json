@@ -79,10 +79,12 @@
           "charging": "Charging",
           "wakeup": "Wakeup and CP",
           "planning": "Planning",
+          "prices": "Electricity price (Tibber & dynamic)",
           "climate": "Pre-climatisation",
           "quality": "Data quality",
           "notifications": "Notifications",
           "monitor": "Statistics and costs",
+          "external": "External charge detection",
           "ovms_commands": "OVMS commands"
         }
       },
@@ -128,6 +130,16 @@
           "safety_margin_min": "Safety margin"
         }
       },
+      "prices": {
+        "title": "Electricity price (Tibber & dynamic)",
+        "data": {
+          "price_source": "Price source",
+          "price_entity": "Price entity (Nordpool, EPEX, Tibber sensor …)",
+          "price_optimization": "Charge in the cheapest hours",
+          "price_blocks": "Max charging blocks per night (each may need a wakeup)"
+        },
+        "description": "Tibber: set up the official Tibber integration. Entity: any sensor with a price list in its attributes."
+      },
       "climate": {
         "title": "Pre-climatisation",
         "data": {
@@ -165,7 +177,10 @@
           "notify_plug_reminder": "Push: not plugged in",
           "notify_health": "Push: health changes",
           "notify_hv_cycles": "Push: HV contactor warning",
-          "notify_plug_in_action": "Actionable push when plugging in"
+          "notify_plug_in_action": "Actionable push when plugging in",
+          "notify_external": "Push: external charge detected",
+          "report_auto_monthly": "Create the monthly PDF report on the 1st",
+          "notify_report": "Push: monthly report created"
         }
       },
       "monitor": {
@@ -179,7 +194,17 @@
           "price_eur_kwh": "Energy price",
           "price_valid_from": "Price valid from"
         },
-        "description": "A new price with a validity date never changes past months."
+        "description": "Fixed price; also the fallback when the dynamic source fails."
+      },
+      "external": {
+        "title": "External charge detection",
+        "data": {
+          "external_detection": "Detect external charges automatically",
+          "external_min_kwh": "Minimum energy of an external charge",
+          "external_soc_jump_pct": "SOC jump without home charging from",
+          "external_price_eur_kwh": "Assumed price for detected external charges"
+        },
+        "description": "Detection only from data that arrives anyway – the car is never woken."
       },
       "ovms_commands": {
         "title": "OVMS commands",
@@ -190,6 +215,10 @@
         },
         "description": "Only enter commands tested on the car (§1.2). Empty = locked."
       }
+    },
+    "error": {
+      "price_entity_missing": "Please choose a price entity.",
+      "tibber_missing": "The Tibber integration is not set up."
     }
   },
   "selector": {
@@ -227,6 +256,19 @@
         "public": "Public",
         "workplace": "Workplace",
         "other_home": "Other home"
+      }
+    },
+    "price_source": {
+      "options": {
+        "fixed": "Fixed price",
+        "entity": "Price entity",
+        "tibber": "Tibber"
+      }
+    },
+    "report_period": {
+      "options": {
+        "month": "Month",
+        "year": "Year"
       }
     },
     "export_dataset": {
@@ -324,6 +366,12 @@
       },
       "home_energy_total": {
         "name": "Home charging total"
+      },
+      "current_price": {
+        "name": "Current electricity price"
+      },
+      "next_charge_cost": {
+        "name": "Next charge cost (estimate)"
       },
       "month_home_energy": {
         "name": "Home energy month"
@@ -680,6 +728,28 @@
     "stop_replay": {
       "name": "Stop replay",
       "description": "Stop replay"
+    },
+    "create_report": {
+      "name": "Create PDF report",
+      "description": "Monthly or yearly report into /config/smart_eq_charging/reports.",
+      "fields": {
+        "period": {
+          "name": "Period",
+          "description": "Period"
+        },
+        "year": {
+          "name": "Year",
+          "description": "Year"
+        },
+        "month": {
+          "name": "Month",
+          "description": "Month"
+        }
+      }
+    },
+    "refresh_prices": {
+      "name": "Refresh prices",
+      "description": "Fetch dynamic prices now."
     },
     "create_replay_dataset": {
       "name": "Create replay dataset",

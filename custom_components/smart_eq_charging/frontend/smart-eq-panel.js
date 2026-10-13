@@ -179,6 +179,7 @@ class SmartEqPanel extends HTMLElement {
           c.month = await this._ws("get_month_statistics", { year: this._year, month: this._month });
           c.year = await this._ws("get_year_statistics", { year: this._year });
           c.sessions = await this._ws("get_sessions", { limit: 500 });
+          c.reports = (await this._ws("list_reports")).items;
           c.monthKey = key;
         }
       } else if (this._view === "drive") {
@@ -295,6 +296,12 @@ class SmartEqPanel extends HTMLElement {
         this._eventFilter = el.value; this._refresh(); break;
       case "replay-run":
         this._runReplay(); break;
+      case "report":
+        this._createReport(el.dataset.month ? Number(el.dataset.month) : null); break;
+      case "open-report":
+        this._openReport(el.dataset.url); break;
+      case "external-cost":
+        this._completeExternal(el.dataset.id); break;
       default: break;
     }
   }
@@ -329,6 +336,41 @@ class SmartEqPanel extends HTMLElement {
     const data = this._form("odometer");
     if (!data.odometer_km) { this._toast("Kilometerstand angeben"); return; }
     this._call("add_manual_odometer", data, "Kilometerstand erfasst");
+  }
+
+  async _createReport(month) {
+    try {
+      this._toast("Bericht wird erstellt …");
+      const report = await this._ws("create_report", { year: this._year, ...(month ? { month } : {}) });
+      this._cache.monthKey = null;
+      await this._openReport(report.url);
+      await this._refresh();
+    } catch (err) {
+      this._toast(`Fehler: ${err.message || err}`);
+    }
+  }
+
+  async _openReport(url) {
+    // Reports need a login: fetch with the user's token, open as blob.
+    const response = await this._hass.fetchWithAuth(url);
+    if (!response.ok) { this._toast(`Download fehlgeschlagen (${response.status})`); return; }
+    const blob = await response.blob();
+    window.open(URL.createObjectURL(blob), "_blank");
+  }
+
+  _completeExternal(id) {
+    const item = ((this._cache.external && this._cache.external.items) || []).find((e) => e.id === id);
+    if (!item) return;
+    const cost = prompt(`Kosten in € für ${item.energy_kwh} kWh am ${dateOnly(item.date)}:`, item.cost_eur ?? "");
+    if (cost === null) return;
+    const kwh = prompt("Geladene kWh (Schätzung korrigieren):", item.energy_kwh);
+    if (kwh === null) return;
+    const provider = prompt("Anbieter (optional):", item.provider || "") || undefined;
+    const data = { id: item.id, date: item.date, source: item.source,
+      energy_kwh: Number(String(kwh).replace(",", ".")), cost_eur: Number(String(cost).replace(",", ".")) };
+    if (provider) data.provider = provider;
+    if (item.note) data.note = item.note;
+    this._call("add_external_charge", data, "Fremdladung ergänzt");
   }
 
   async _runReplay() {
@@ -400,6 +442,13 @@ class SmartEqPanel extends HTMLElement {
         ${s.data_conflict ? `<p><span class="pill bad">Datenkonflikt Halo/OVMS</span></p>` : ""}
         ${s.climate ? `<p class="sub">Klima ${s.climate.duration_min} min ab ${time(s.climate.start_at)}${s.climate.blocked ? ` – gesperrt: ${esc(s.climate.blocked)}` : ""}</p>` : ""}
       </div>
+      <div class="card">
+        <h2>Strompreis</h2>
+        <div class="big">${num(s.prices.current_eur_kwh * 100, 1, "ct/kWh")}</div>
+        <div class="sub">${s.prices.dynamic ? `dynamisch (${esc(s.prices.source)})` : "Festpreis"}${s.prices.error ? ` · <span class="pill warn">${esc(s.prices.error)}</span>` : ""}</div>
+        ${w && w.estimate.cost_eur !== null ? `<div class="row"><span>Nächste Ladung (Schätzung)</span><b>${num(w.estimate.cost_eur, 2, "€")}</b></div>` : ""}
+        ${w && w.blocks.length ? `<div class="sub">Günstigste Zeit: ${w.blocks.map((b) => `${time(b[0])}–${time(b[1])}`).join(", ")}</div>` : ""}
+      </div>
       <div class="card wide">
         <h2>Schnellaktionen</h2>
         <div class="actions">
@@ -429,7 +478,9 @@ class SmartEqPanel extends HTMLElement {
   _planView(s) {
     const plans = this._plans || [];
     const windows = (s.windows || []).map((w) => `<tr><td>${esc(w.name)}</td><td>${dateTime(w.start)}</td><td>${dateTime(w.departure)}</td>
-      <td class="n">${num(w.estimate.expected_soc_at_departure, 0, "%")}</td><td>${w.fallback_without_soc ? "fester Start" : "abfahrtsbasiert"}</td></tr>`).join("");
+      <td class="n">${num(w.estimate.expected_soc_at_departure, 0, "%")}</td>
+      <td>${w.blocks.length ? `günstig: ${w.blocks.map((b) => `${time(b[0])}–${time(b[1])}`).join(", ")}` : w.fallback_without_soc ? "fester Start" : "abfahrtsbasiert"}</td>
+      <td class="n">${num(w.estimate.cost_eur, 2, "€")}</td></tr>`).join("");
     const cards = plans.map((p, i) => `
       <div class="card wide">
         <h2>${esc(p.name)} ${p.enabled ? "" : `<span class="pill muted">aus</span>`}</h2>
@@ -453,8 +504,9 @@ class SmartEqPanel extends HTMLElement {
       </div>`).join("");
     return `<div class="grid">
       <div class="card wide"><h2>Kommende Ladefenster</h2>
-        ${windows ? `<div class="scroll"><table><tr><th>Plan</th><th>Start</th><th>Abfahrt</th><th class="n">SOC erwartet</th><th>Art</th></tr>${windows}</table></div>` : `<p class="sub">Kein Plan aktiv.</p>`}
-        <p class="sub">Abfahrtstage = Tage der Abfahrt. Ohne SOC fällt ein abfahrtsbasierter Plan auf den festen Start zurück.</p>
+        ${windows ? `<div class="scroll"><table><tr><th>Plan</th><th>Start</th><th>Abfahrt</th><th class="n">SOC erwartet</th><th>Art</th><th class="n">Kosten*</th></tr>${windows}</table></div>` : `<p class="sub">Kein Plan aktiv.</p>`}
+        <p class="sub">Abfahrtstage = Tage der Abfahrt. Ohne SOC fällt ein abfahrtsbasierter Plan auf den festen Start zurück.
+          Mit dynamischem Preis (Tibber) lädt ein abfahrtsbasierter Plan in den günstigsten Stunden. * Schätzung</p>
       </div>
       ${cards}
       <div class="card wide actions">
@@ -487,11 +539,16 @@ class SmartEqPanel extends HTMLElement {
         <b>${MONTHS[this._month - 1]} ${this._year}</b>
         <button class="act" data-action="month-next">›</button>
         <span class="sub">${m.complete ? "vollständig" : "unvollständig"} · ${esc(m.quality || "")}</span>
+        <span style="flex:1"></span>
+        <button class="act" data-action="report" data-month="${this._month}">PDF Monat</button>
+        <button class="act" data-action="report">PDF Jahr</button>
       </div>
+      ${(c.reports || []).length ? `<div class="card wide"><h2>PDF-Berichte</h2><div class="actions">
+        ${c.reports.map((r) => `<button class="act" data-action="open-report" data-url="${esc(r.url)}">${esc(r.file)}</button>`).join("")}</div></div>` : ""}
       <div class="card"><h2>Heimladen</h2><div class="big">${num(m.home_energy_kwh, 1, "kWh")}</div>
         <div class="sub">Halo-Zähler, maßgeblich für die Hausabrechnung</div></div>
       <div class="card"><h2>Kosten Heimladen</h2><div class="big">${num(m.home_cost_eur, 2, "€")}</div>
-        <div class="sub">${num(this._state?.settings.price_eur_kwh, 3, "€/kWh")} aktuell</div></div>
+        <div class="sub">${num(this._state?.prices.current_eur_kwh, 3, "€/kWh")} aktuell${this._state?.prices.dynamic ? " (dynamisch)" : ""}</div></div>
       <div class="card"><h2>Sessions</h2><div class="big">${m.sessions ?? "–"}</div>
         <div class="sub">${m.failed_sessions ? `${m.failed_sessions} fehlgeschlagen` : "keine Fehlstarts"}</div></div>
       <div class="card wide"><h2>Monatsvergleich ${this._year}</h2>
@@ -546,8 +603,9 @@ class SmartEqPanel extends HTMLElement {
         </div>
         <div class="scroll"><table><tr><th>Datum</th><th>Ort</th><th class="n">kWh</th><th class="n">€</th><th>Anbieter</th><th></th></tr>
           ${external.map((e) => `<tr><td>${dateOnly(e.date)}</td><td>${esc(e.source)}</td><td class="n">${num(e.energy_kwh, 2)}</td>
-            <td class="n">${num(e.cost_eur ?? (e.price_eur_kwh ? e.price_eur_kwh * e.energy_kwh : null), 2)}</td><td>${esc(e.provider || "")}</td>
-            <td><button class="act danger" data-service="delete_external_charge" data-payload='${esc(JSON.stringify({ id: e.id }))}' data-confirm="Fremdladung löschen?">×</button></td></tr>`).join("") || `<tr><td colspan="6" class="sub">Keine Fremdladungen.</td></tr>`}
+            <td class="n">${num(e.cost_eur ?? (e.price_eur_kwh ? e.price_eur_kwh * e.energy_kwh : null), 2)}</td>
+            <td>${esc(e.provider || "")} ${e.detected ? `<span class="pill warn">erkannt · geschätzt</span>` : ""}</td>
+            <td>${e.detected ? `<button class="act" data-action="external-cost" data-id="${esc(e.id)}">Ergänzen</button> ` : ""}<button class="act danger" data-service="delete_external_charge" data-payload='${esc(JSON.stringify({ id: e.id }))}' data-confirm="Fremdladung löschen?">×</button></td></tr>`).join("") || `<tr><td colspan="6" class="sub">Keine Fremdladungen.</td></tr>`}
         </table></div></div>
       <div class="card wide"><h2>Kilometerstand manuell</h2>
         <div class="form" data-form="odometer">

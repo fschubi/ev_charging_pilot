@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.0 – 2026-10-13
+
+- **Tibber und dynamische Tarife:** Preise aus `tibber.get_prices` oder jeder
+  Preis-Entität (Nordpool `raw_today/raw_tomorrow`, EPEX `data`, `today/tomorrow`).
+  Abfahrtsbasierte Pläne laden in den günstigsten Stunden (Standard: ein Block,
+  optional zwei). Kosten je 15-min-Intervall mit dem echten Preis. Festpreis bleibt
+  Rückfall. Neue Sensoren `current_price`, `next_charge_cost`, Service `refresh_prices`.
+- **PDF-Berichte:** Monats- und Jahresbericht (Hausabrechnung, Sessions,
+  Fremdladungen, Verbrauch, Temperaturgruppen) ohne Zusatzpakete; automatisch am 1.
+  um 06:00 mit Push; Service `create_report`; Download nur mit Login.
+- **Automatische Fremdladeerkennung:** OVMS „lädt“ ohne Halo-Leistung oder
+  SOC-Sprung ohne passende Halo-Energie → geschätzte Fremdladung mit Push; im Panel
+  ergänzbar.
+- Fix: Die erste Beobachtung des Kabelzustands nach einem Neustart galt als
+  Aktivität und machte einen alten SOC fälschlich zu STALE.
+- Fertig-Zeit bei Preisblöcken korrekt, Pläne in ganzen Minuten.
+- evcc spielt keine Rolle mehr – alle Hinweise entfernt.
+
 ## 0.5.0 – 2026-10-13
 
 Komplette Integration nach Masterplan v1.3 (v0.1–v0.5). Startet weiterhin im

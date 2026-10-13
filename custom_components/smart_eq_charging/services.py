@@ -18,6 +18,7 @@ from .core.planner import OverrideMode, WeeklySchedule
 from .core.ports import CommandKind
 from .core.statistics import ExternalCharge
 from .export import DATASETS, render, rows
+from .reports import async_create_report
 
 EXTERNAL_SOURCES = ("public", "workplace", "other_home")
 
@@ -89,6 +90,12 @@ SCHEMAS: dict[str, vol.Schema] = {
         vol.Optional("tick_s", default=5): vol.All(vol.Coerce(float), vol.Range(min=1, max=60)),
     }),
     "stop_replay": vol.Schema({}),
+    "create_report": vol.Schema({
+        vol.Optional("period", default="month"): vol.In(["month", "year"]),
+        vol.Optional("year"): vol.All(vol.Coerce(int), vol.Range(min=2020, max=2100)),
+        vol.Optional("month"): vol.All(vol.Coerce(int), vol.Range(min=1, max=12)),
+    }),
+    "refresh_prices": vol.Schema({}),
     "create_replay_dataset": vol.Schema({
         vol.Required("start"): cv.datetime,
         vol.Required("end"): cv.datetime,
@@ -97,7 +104,8 @@ SCHEMAS: dict[str, vol.Schema] = {
                                                              vol.Range(min=0, max=900)),
     }),
 }
-RESPONSE = {"add_external_charge", "export", "start_replay", "create_replay_dataset"}
+RESPONSE = {"add_external_charge", "export", "start_replay", "create_replay_dataset",
+            "create_report", "refresh_prices"}
 
 
 def _center(hass: HomeAssistant) -> ChargingCenter:
@@ -183,6 +191,16 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                                                "mismatches", "states")}
             case "stop_replay":
                 await center.async_stop_replay()
+            case "create_report":
+                today = dt_util.now(center.tz).date()
+                year = data.get("year", today.year)
+                month = None
+                if data["period"] == "month":
+                    month = data.get("month", today.month)
+                return await async_create_report(center, year, month)
+            case "refresh_prices":
+                slots = await center.price_fetcher.async_refresh()
+                return {"slots": len(slots), "error": center.price_fetcher.last_error}
             case "create_replay_dataset":
                 return await center.async_create_dataset(
                     _aware(data["start"]), _aware(data["end"]), data["name"],

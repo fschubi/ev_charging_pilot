@@ -11,7 +11,7 @@
 #   * Entity-IDs prüfen (Masterplan §2), falls sie bei dir anders heißen.
 #
 # Voraussetzungen:
-#   * evcc steuert die Halo nicht mehr (Grundsatz 1), Halo-Zeitplan aus.
+#   * Nur Home Assistant schaltet die Halo (Grundsatz 1), Halo-Zeitplan aus.
 #   * CP-Puls erst aktivieren (input_boolean.smart_eq_p0_cp_wakeup), wenn die
 #     Checkliste aus §3.6 abgehakt ist.
 #

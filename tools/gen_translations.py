@@ -119,6 +119,24 @@ OPTIONS = {
     "interval_min": T("Energie-Intervall", "Energy interval"),
     "price_eur_kwh": T("Arbeitspreis", "Energy price"),
     "price_valid_from": T("Preis gültig ab", "Price valid from"),
+    "price_source": T("Preisquelle", "Price source"),
+    "price_entity": T("Preis-Entität (Nordpool, EPEX, Tibber-Sensor …)",
+                      "Price entity (Nordpool, EPEX, Tibber sensor …)"),
+    "price_optimization": T("In den günstigsten Stunden laden", "Charge in the cheapest hours"),
+    "price_blocks": T("Max. Ladeblöcke pro Nacht (jeder Block kann einen Wakeup kosten)",
+                      "Max charging blocks per night (each may need a wakeup)"),
+    "external_detection": T("Fremdladungen automatisch erkennen",
+                            "Detect external charges automatically"),
+    "external_min_kwh": T("Mindestmenge für eine Fremdladung",
+                          "Minimum energy of an external charge"),
+    "external_soc_jump_pct": T("SOC-Sprung ohne Heimladen ab",
+                               "SOC jump without home charging from"),
+    "external_price_eur_kwh": T("Angenommener Preis für erkannte Fremdladungen",
+                                "Assumed price for detected external charges"),
+    "notify_external": T("Push: Fremdladung erkannt", "Push: external charge detected"),
+    "report_auto_monthly": T("Monatsbericht (PDF) automatisch am 1. erstellen",
+                             "Create the monthly PDF report on the 1st"),
+    "notify_report": T("Push: Monatsbericht erstellt", "Push: monthly report created"),
     "ovms_wakeup_command": T("OVMS-Wakeup-Befehl (leer = gesperrt)",
                              "OVMS wakeup command (empty = locked)"),
     "ovms_climate_command": T("OVMS-Klimabefehl ({level} = 1/2/3, {minutes})",
@@ -137,6 +155,8 @@ OPTION_STEPS = {
                "cp_failsafe_verified"]),
     "planning": (T("Planung", "Planning"), ["usable_capacity_kwh", "charge_efficiency",
                  "max_power_kw", "vehicle_charger_kw", "grid_limit_kw", "safety_margin_min"]),
+    "prices": (T("Strompreis (Tibber & dynamisch)", "Electricity price (Tibber & dynamic)"),
+               ["price_source", "price_entity", "price_optimization", "price_blocks"]),
     "climate": (T("Vorklimatisierung", "Pre-climatisation"), ["climate_enabled",
                 "climate_min_soc_pct", "climate_after_target_soc", "climate_very_cold_below_c",
                 "climate_very_cold_min", "climate_cold_below_c", "climate_cold_min",
@@ -148,10 +168,13 @@ OPTION_STEPS = {
     "notifications": (T("Benachrichtigungen", "Notifications"), ["plug_reminder_time",
                       "notify_start_failed", "notify_cp", "notify_plan_infeasible",
                       "notify_plug_reminder", "notify_health", "notify_hv_cycles",
-                      "notify_plug_in_action"]),
+                      "notify_plug_in_action", "notify_external", "report_auto_monthly",
+                      "notify_report"]),
     "monitor": (T("Statistik und Kosten", "Statistics and costs"), ["odometer_source",
                 "trip_merge_gap_min", "event_retention_days", "hv_cycles_warn_per_day",
                 "interval_min", "price_eur_kwh", "price_valid_from"]),
+    "external": (T("Fremdladeerkennung", "External charge detection"), ["external_detection",
+                 "external_min_kwh", "external_soc_jump_pct", "external_price_eur_kwh"]),
     "ovms_commands": (T("OVMS-Befehle", "OVMS commands"), ["ovms_wakeup_command",
                       "ovms_climate_command", "ovms_climate_stop_command"]),
 }
@@ -165,8 +188,17 @@ STEP_DESC = {
     "ovms_commands": T("Nur Befehle eintragen, die am Fahrzeug getestet sind (§1.2). "
                        "Leer = Funktion gesperrt.",
                        "Only enter commands tested on the car (§1.2). Empty = locked."),
-    "monitor": T("Ein neuer Preis mit Gültigkeitsdatum ändert keine alten Monate.",
-                 "A new price with a validity date never changes past months."),
+    "monitor": T("Festpreis: Ein neuer Preis mit Gültigkeitsdatum ändert keine alten Monate. "
+                 "Er gilt auch als Rückfall, wenn die dynamische Preisquelle ausfällt.",
+                 "Fixed price; also the fallback when the dynamic source fails."),
+    "prices": T("Tibber: offizielle Tibber-Integration einrichten. Entität: jeder Sensor mit "
+                "Preisliste in den Attributen (raw_today/raw_tomorrow, data, today/tomorrow). "
+                "Ohne SOC oder ohne Preise für die ganze Nacht wird wie bisher geladen.",
+                "Tibber: set up the official Tibber integration. Entity: any sensor with a "
+                "price list in its attributes."),
+    "external": T("Erkennung nur aus ohnehin vorhandenen OVMS-Daten – das Auto wird dafür nie "
+                  "geweckt. Erkannte Ladungen sind Schätzungen und können im Panel ergänzt werden.",
+                  "Detection only from data that arrives anyway – the car is never woken."),
 }
 
 STATES = {
@@ -210,6 +242,8 @@ SENSORS = {
     "battery_temperature": T("Batterietemperatur", "Battery temperature"),
     "hv_contactor_cycles": T("HV-Kontaktorzyklen", "HV contactor cycles"),
     "home_energy_total": T("Heimladen gesamt", "Home charging total"),
+    "current_price": T("Aktueller Strompreis", "Current electricity price"),
+    "next_charge_cost": T("Kosten nächste Ladung (Schätzung)", "Next charge cost (estimate)"),
 }
 for period, de, en in (("month", "Monat", "month"), ("year", "Jahr", "year")):
     SENSORS |= {
@@ -290,6 +324,11 @@ SERVICES = {
                      T("Aufgezeichnete Nacht ohne Hardware durchspielen.",
                        "Run a recorded night without hardware.")),
     "stop_replay": (T("Replay beenden", "Stop replay"), T("", "")),
+    "create_report": (T("PDF-Bericht erstellen", "Create PDF report"),
+                      T("Monats- oder Jahresbericht nach /config/smart_eq_charging/reports.",
+                        "Monthly or yearly report into /config/smart_eq_charging/reports.")),
+    "refresh_prices": (T("Preise aktualisieren", "Refresh prices"),
+                       T("Dynamische Preise sofort neu abrufen.", "Fetch dynamic prices now.")),
     "create_replay_dataset": (T("Replay-Datensatz erstellen", "Create replay dataset"),
                               T("Aus der Recorder-Historie.", "From the recorder history.")),
 }
@@ -307,6 +346,7 @@ FIELDS = {
     "start": T("Start", "Start"), "end": T("Ende", "End"), "file": T("Datei", "File"),
     "tick_s": T("Takt", "Tick"), "name": T("Name", "Name"),
     "poll_interval_s": T("Halo-Poll-Intervall (Messung M1)", "Halo poll interval (M1)"),
+    "period": T("Zeitraum", "Period"), "year": T("Jahr", "Year"), "month": T("Monat", "Month"),
 }
 SERVICE_FIELDS = {
     "start_charging": ["mode", "duration_min", "until", "target_soc"],
@@ -321,6 +361,7 @@ SERVICE_FIELDS = {
     "export": ["dataset", "format", "start", "end"],
     "start_replay": ["file", "dataset", "tick_s"],
     "create_replay_dataset": ["start", "end", "name", "poll_interval_s"],
+    "create_report": ["period", "year", "month"],
 }
 
 
@@ -406,7 +447,12 @@ def build(lang: str) -> dict:
                 "reconfigure_successful": t(T("Neu konfiguriert.", "Reconfigured.")),
             },
         },
-        "options": {"step": options_steps},
+        "options": {"step": options_steps, "error": {
+            "price_entity_missing": t(T("Bitte eine Preis-Entität wählen.",
+                                        "Please choose a price entity.")),
+            "tibber_missing": t(T("Die Tibber-Integration ist nicht eingerichtet.",
+                                  "The Tibber integration is not set up.")),
+        }},
         "selector": {
             "mode": {"options": {"dry_run": t(T("Dry-Run (nur protokollieren)", "Dry run")),
                                  "live": t(T("Live (schaltet Hardware)", "Live")),
@@ -423,6 +469,12 @@ def build(lang: str) -> dict:
                 "public": t(T("Öffentlich", "Public")),
                 "workplace": t(T("Arbeitgeber", "Workplace")),
                 "other_home": t(T("Andere Wallbox", "Other home"))}},
+            "price_source": {"options": {
+                "fixed": t(T("Festpreis", "Fixed price")),
+                "entity": t(T("Preis-Entität", "Price entity")),
+                "tibber": t(T("Tibber", "Tibber"))}},
+            "report_period": {"options": {"month": t(T("Monat", "Month")),
+                                          "year": t(T("Jahr", "Year"))}},
             "export_dataset": {"options": {
                 "sessions": t(T("Lade-Sessions", "Charge sessions")),
                 "trips": t(T("Fahrten", "Trips")),

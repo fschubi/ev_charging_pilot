@@ -1,13 +1,12 @@
 # Phase 0 – einfache Automation und Messphase
 
 Vor der Integration wird gemessen, nicht geraten (Masterplan Grundsatz 11).
-Phase 0 ersetzt evcc durch eine minimale Zeitautomation und sammelt die
+Phase 0 lädt mit einer minimalen Zeitautomation und sammelt dabei die
 Werte, von denen die Zeitkonstanten der Integration abhängen.
 
 ## Einrichten
 
-1. evcc so abschalten, dass es die Halo nicht mehr schaltet. Halo-internen
-   Zeitplan ausschalten.
+1. Halo-internen Zeitplan ausschalten – nur Home Assistant schaltet die Halo.
 2. [`smart_eq_phase0.yaml`](smart_eq_phase0.yaml) als Package einbinden,
    Entity-IDs prüfen, `SHELLY_IP` und `notify.DEIN_HANDY` ersetzen.
 3. `input_boolean.smart_eq_p0_enabled` einschalten.

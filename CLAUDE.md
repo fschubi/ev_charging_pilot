@@ -9,10 +9,12 @@ den Anfang von `docs/CHANGELOG_DEV.md`.
 
 **Smart EQ 453 Charging Center** – Home-Assistant-Custom-Integration (HACS),
 die Laden, Wakeup, Vorklimatisierung, Diagnose und Verbrauchsstatistik des
-smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt (ersetzt evcc).
+smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt.
+**evcc ist kein Thema** – nicht erwähnen, nichts darauf ausrichten (Entscheidung Frank).
 
-- Repo: https://github.com/fschubi/smart453_charging_center (Branch `main`, **privat**)
-- Domain: `smart_eq_charging` · `single_config_entry: true` · HA ≥ 2025.6 · Version 0.5.0
+- Repo: https://github.com/fschubi/smart453_charging_center (Branch `main`, **öffentlich**,
+  HACS-Custom-Repo, Releases als Tags `vX.Y.Z`)
+- Domain: `smart_eq_charging` · `single_config_entry: true` · HA ≥ 2025.6 · Version 0.6.0
 - **Spezifikation: [`docs/masterplan-v1.3.md`](docs/masterplan-v1.3.md)** (vollständig, §1–§16).
   Abschnittsverweise im Code (`§6.2`) beziehen sich darauf.
 - Stand je Stufe und Gate: [`docs/ROADMAP.md`](docs/ROADMAP.md)
@@ -30,7 +32,7 @@ smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt (ersetzt evcc).
 
 ## Unverrückbare Regeln (Auszug §1.1)
 
-1. Nur das Charging Center schaltet die Halo. Kein evcc parallel, Halo-Zeitplan aus.
+1. Nur das Charging Center schaltet die Halo. Halo-interner Zeitplan aus.
 2. **Auto nie nur zum Datenauffrischen wecken** (HV-Kontaktorzyklen).
 3. Wakeup: OVMS vor CP, je max. 1× pro Ladefenster. CP nur mit
    `cp_failsafe_verified` und Health ≠ ERROR. Ziel-SOC **nie** über CP.
@@ -58,11 +60,16 @@ custom_components/smart_eq_charging/
     executor.py        Soll/Ist-State-Machine §6, Kaskade, CP-Maskierung, manuelle Wakeups
     climate.py, health.py, costs.py, sessions.py, trips.py, statistics.py, monitor.py
     replay.py          Datensätze, Poll-Nachbildung, Abgleich mit realem Schalten
+    prices.py          Preis-Parser (Tibber/Nordpool/EPEX), PriceSchedule, cheapest_blocks
+    external.py        Automatische Fremdladeerkennung (OVMS live + SOC-Sprung)
+    pdf.py / report.py Eigener PDF-Writer (cp1252, Helvetica), Monats-/Jahresbericht
   coordinator.py       ChargingCenter: Tick 5 s + bei Zustandswechsel; live → HaPorts,
                        sonst nur Log „WOULD …“; Stores (state, events, monitor)
   ha_ports.py          Halo-Switch, Shelly-RPC, OVMS per MQTT-Topic oder Script
   notifications.py     Push + Actionable Notification (mobile_app_notification_action)
-  services.py (19), websocket_api.py, export.py, diagnostics.py, config_flow.py
+  price_source.py      PriceFetcher: Tibber-Service alle 30 min oder Preis-Entität
+  reports.py           PDF erzeugen/listen, ReportView (/api/smart_eq_charging/report, Login nötig)
+  services.py (21), websocket_api.py, export.py, diagnostics.py, config_flow.py
   sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs smart_eq_* (§12)
   frontend/smart-eq-panel.js   Panel, Vanilla-JS, keine Steuerlogik
 phase0/                HA-Package Phase 0 + Messprotokoll
@@ -74,7 +81,9 @@ tests/integration/     pytest-homeassistant-custom-component
 
 Wichtige Details:
 - Freshness/Samples über `state.last_reported` (Cloud-Polling meldet gleiche Werte erneut).
-- Fensterstart wird verriegelt, sobald er erreicht ist (sonst bricht steigender SOC die Ladung ab).
+- Fensterstart **und Preisblöcke** werden verriegelt, sobald sie erreicht sind (sonst bricht
+  steigender SOC die Ladung ab); nach Neustart aus dem Store wiederhergestellt.
+- Die erste Kabelbeobachtung nach Neustart ist keine Aktivität (sonst SOC fälschlich STALE).
 - Moduswechsel (Dry-Run-Switch) ändert nur `options["mode"]` ohne Reload; jede andere
   Optionsänderung lädt neu (Zustand kommt aus dem Store).
 - Replay aus Recorder-Daten braucht `poll_interval_s` (Messung M1), weil der Recorder
@@ -109,13 +118,13 @@ HACS-Validierung scheitert, solange das Repo privat ist.
 - `docs/messungen.md` ausfüllen → Defaults in `core/settings.py` anpassen.
 - OVMS: Datenweg (§16 #7) und echte Entity-Namen/Befehle erst nach Lieferung.
 - RFID (§5.4): Variante C umgesetzt (Buttons/Push); Variante A nach Messung M6.
-- Repo privat → für HACS-Installation öffentlich machen (Entscheidung Frank).
-- Später (bewusst nicht gebaut): Tibber-Preisquelle, OCPP, PDF-Bericht, Fremdladeerkennung.
+- Tibber, PDF-Berichte und Fremdladeerkennung wurden auf Franks Wunsch aus „Später“
+  vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.
+- Preisoptimierung lädt standardmäßig in einem Block (Wakeup-Schonung); 2 Blöcke optional.
+- Noch nicht gebaut: OCPP (Prüfauftrag §16 #9).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-13 – v0.1.0 Grundgerüst.** Repo, Kern (Planner, Arbiter, Executor,
-  Health, Kosten), Integration im Dry-Run, Phase-0-Package.
 - **2026-10-13 – Masterplan vollständig.** Fassung mit §12–§16 übernommen,
   Defaults an §13.2 angeglichen.
 - **2026-10-13 – Phase 0 + Kern-Engine.** Wakeup-Kette im Package, `core/engine.py`
@@ -123,3 +132,5 @@ HACS-Validierung scheitert, solange das Repo privat ist.
 - **2026-10-13 – v0.5.0 komplette Integration.** Entitäten/Services/WS nach §12,
   Config-/Options-Flow nach §13, Push mit Rückfrage, Panel mit 5 Ansichten,
   YAML-Dashboard, Replay mit Poll-Nachbildung. ~100 Tests grün.
+- **2026-10-13 – v0.6.0 Tibber, PDF, Fremdladeerkennung.** Repo öffentlich, evcc
+  aus der Doku entfernt, Release für HACS-Testinstallation. 121 Tests grün.

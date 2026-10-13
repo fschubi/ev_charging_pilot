@@ -9,13 +9,15 @@ a window by an hour.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from .model import Desired, Quality, Reason, Value
+from .prices import PriceSchedule, cheapest_blocks
 
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
@@ -226,6 +228,7 @@ class Estimate:
     minimum_reachable: bool | None
     preferred_reachable: bool | None
     finish_at: datetime | None = None
+    cost_eur: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,12 +244,20 @@ class ChargeWindow:
     estimate: Estimate = field(default_factory=lambda: Estimate(None, None, None, None, None, None))
     climate: str = "auto"
     name: str = ""
+    # Price-optimised charging: only these blocks charge (§11 "günstigste Intervalle").
+    blocks: tuple[tuple[datetime, datetime], ...] = ()
 
     @property
     def key(self) -> str:
         return f"{self.source_id}@{self.departure.isoformat()}"
 
+    @property
+    def price_optimized(self) -> bool:
+        return bool(self.blocks)
+
     def contains(self, now: datetime) -> bool:
+        if self.blocks:
+            return any(start <= now < end for start, end in self.blocks)
         return self.start <= now < self.departure
 
 
@@ -323,19 +334,56 @@ def _window(
     params: VehicleParams,
     climate: str = "auto",
     name: str = "",
+    prices: PriceSchedule | None = None,
+    price_blocks: int = 1,
 ) -> ChargeWindow:
     ready_at = departure - timedelta(minutes=ready_buffer_min)
     soc_usable = soc is not None and soc.quality.usable_for_planning
     fallback = mode is ScheduleMode.DEPARTURE_BASED and not soc_usable
+    blocks: tuple[tuple[datetime, datetime], ...] = ()
+    cost: float | None = None
     if mode is ScheduleMode.DEPARTURE_BASED and soc_usable:
         _, duration = charge_duration(float(soc.normalized), preferred_pct, params)
-        start = ready_at - duration - timedelta(minutes=params.safety_reserve_min)
+        # Whole minutes keep plans and push texts readable.
+        duration = timedelta(minutes=math.ceil(duration.total_seconds() / 60))
+        needed = duration + timedelta(minutes=params.safety_reserve_min)
+        start = ready_at - needed
+        if prices and price_blocks > 0 and duration > timedelta(0):
+            # Without full price coverage (tomorrow's prices come around 13:00)
+            # the plan simply stays "as late as possible".
+            best = cheapest_blocks(prices, max(now, ready_at - timedelta(hours=24)), ready_at,
+                                   needed, params.expected_power_kw, price_blocks)
+            if best is not None and best[0]:
+                blocks = tuple(best[0])
+                start = blocks[0][0]
+                cost = round(best[1], 2)
+        if cost is None and prices:
+            raw = prices.energy_cost(start, start + needed, params.expected_power_kw)
+            cost = round(raw, 2) if raw is not None else None
     else:
         local_departure = departure.astimezone(tz)
         start = _local(local_departure.date(), charge_start_time, tz)
         if start >= departure:
             start = _local(local_departure.date() - timedelta(days=1), charge_start_time, tz)
     estimate = _estimate(soc, max(now, start), ready_at, minimum_pct, preferred_pct, params)
+    if blocks:
+        # Charging only runs inside the blocks: estimate on the charging time left
+        # and finish when the needed charging time is used up within the blocks.
+        left = sum(((min(e, ready_at) - max(b, now)) for b, e in blocks if e > now),
+                   timedelta(0))
+        estimate = _estimate(soc, ready_at - left, ready_at, minimum_pct, preferred_pct, params)
+        remaining, finish = estimate.duration or timedelta(0), None
+        for begin, end in blocks:
+            begin = max(begin, now)
+            if end <= begin:
+                continue
+            if begin + remaining <= end:
+                finish = begin + remaining
+                break
+            remaining -= end - begin
+        estimate = replace(estimate, finish_at=finish or blocks[-1][1])
+    if cost is not None:
+        estimate = replace(estimate, cost_eur=cost)
     return ChargeWindow(
         source_id=source_id,
         reason=reason,
@@ -348,6 +396,7 @@ def _window(
         estimate=estimate,
         climate=climate,
         name=name or source_id,
+        blocks=blocks,
     )
 
 
@@ -357,6 +406,8 @@ def schedule_window(
     tz: ZoneInfo,
     soc: Value | None,
     params: VehicleParams,
+    prices: PriceSchedule | None = None,
+    price_blocks: int = 1,
 ) -> ChargeWindow | None:
     """The upcoming (or currently running) window of a weekly plan (§5.1, §5.6)."""
     departure = next_departure(schedule, now, tz)
@@ -377,11 +428,14 @@ def schedule_window(
         params=params,
         climate=schedule.climate,
         name=schedule.name,
+        prices=prices,
+        price_blocks=price_blocks,
     )
 
 
 def one_shot_window(
-    one_shot: OneShot, now: datetime, tz: ZoneInfo, soc: Value | None, params: VehicleParams
+    one_shot: OneShot, now: datetime, tz: ZoneInfo, soc: Value | None, params: VehicleParams,
+    prices: PriceSchedule | None = None, price_blocks: int = 1,
 ) -> ChargeWindow | None:
     if one_shot.expired(now):
         return None
@@ -400,6 +454,8 @@ def one_shot_window(
         params=params,
         climate=one_shot.climate,
         name="Heute Nacht",
+        prices=prices,
+        price_blocks=price_blocks,
     )
 
 

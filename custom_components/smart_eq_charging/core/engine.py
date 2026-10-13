@@ -18,6 +18,7 @@ from .arbiter import DEFAULT_OFF, HANDS_OFF, arbitrate
 from .climate import climate_blocker, climate_request, climate_wish, planned_duration
 from .costs import FixedPriceHistory
 from .executor import ExecState, Executor, ExecutorConfig, Snapshot, StepResult
+from .external import ExternalChargeDetector
 from .health import Health, HealthInputs, HealthStatus, evaluate
 from .inputs import Inp, RawState, to_value
 from .model import Category, ClimateRequest, Desired, Event, Quality, Reason, Severity, Value
@@ -37,10 +38,12 @@ from .planner import (
     window_wish,
 )
 from .ports import Command, CommandKind
+from .prices import PriceSchedule, PriceSlot
 from .quality import QualityRule, charging_conflict, classify, non_negative, soc_plausible
 from .sessions import ChargeSession, SessionTracker
-from .settings import ClimateAfterTarget, OdometerSource, Settings
+from .settings import ClimateAfterTarget, OdometerSource, PriceSource, Settings
 from .source_policy import HvCycleMonitor, mark_conflict, outside_temperature, vehicle_charging
+from .statistics import ExternalCharge
 from .trips import Trip, TripTracker
 
 HEALTH_PUSH_DEBOUNCE_S = 300
@@ -66,6 +69,7 @@ class TickResult:
     events: list[Event] = field(default_factory=list)
     sessions: list[ChargeSession] = field(default_factory=list)
     trips: list[Trip] = field(default_factory=list)
+    external: list[ExternalCharge] = field(default_factory=list)
     notifications: list[Notification] = field(default_factory=list)
 
     def extend(self, other: StepResult) -> None:
@@ -103,6 +107,12 @@ class Engine:
         self.trips = TripTracker(config.settings.trip_merge_gap_min, config.tz)
         self.hv = HvCycleMonitor(config.settings.hv_cycles_warn_per_day)
         self.prices = FixedPriceHistory(config.settings.price_history, config.tz)
+        self.price_schedule = PriceSchedule([])
+        s = config.settings
+        self.external = ExternalChargeDetector(
+            capacity_kwh=s.usable_capacity_kwh, efficiency=s.charge_efficiency,
+            min_kwh=s.external_min_kwh, soc_jump_pct=s.external_soc_jump_pct,
+            price_eur_kwh=s.external_price_eur_kwh, threshold_w=s.power_threshold_w)
 
         self.plans: list[WeeklySchedule] = [DEFAULT_PLAN]
         self.override: ManualOverride | None = None
@@ -124,7 +134,8 @@ class Engine:
         self.last_activity_at: datetime | None = None
         self.last_result: dict[str, Any] | None = None
 
-        self._latched_starts: dict[str, datetime] = {}
+        self._latched: dict[str, ChargeWindow] = {}
+        self._latched_raw: dict[str, Any] = {}
         self._cable: bool | None = None
         self._reminder_day: date | None = None
         self._health_candidate: tuple[HealthStatus, datetime] | None = None
@@ -146,7 +157,9 @@ class Engine:
             and not self.executor.cp_masked(now)
         if cable_flag is not None and cable_flag != self._cable \
                 and not self.executor.cp_masked(now):
-            self.last_activity_at = now
+            # The first observation (e.g. after a restart) is no plug event.
+            if self._cable is not None:
+                self.last_activity_at = now
             self._cable = cable_flag
 
         self._expire(now, cable_flag)
@@ -274,27 +287,63 @@ class Engine:
         """
         if window is None:
             return None
-        latched = self._latched_starts.get(window.key)
+        latched = self._latched.get(window.key)
+        raw = self._latched_raw.pop(window.key, None)
+        if latched is None and raw is not None:
+            # Restored after a restart (§6.5): the night keeps its plan.
+            latched = replace(window, start=datetime.fromisoformat(raw["start"]), blocks=tuple(
+                (datetime.fromisoformat(a), datetime.fromisoformat(b)) for a, b in raw["blocks"]))
+            self._latched[window.key] = latched
         if latched is not None:
-            return replace(window, start=latched)
+            # Keep start and price blocks, refresh the estimate.
+            return replace(window, start=latched.start, blocks=latched.blocks)
         if window.start <= now:
-            self._latched_starts[window.key] = window.start
+            self._latched[window.key] = window
         return window
 
     def _plan(self, now: datetime) -> None:
         params = self._params()
-        windows = [self._latch(schedule_window(p, now, self.tz, self.soc, params), now)
+        prices, blocks = self._planning_prices()
+        windows = [self._latch(schedule_window(p, now, self.tz, self.soc, params, prices,
+                                               blocks), now)
                    for p in self.plans if p.enabled]
         if self.one_shot:
             windows.insert(0, self._latch(
-                one_shot_window(self.one_shot, now, self.tz, self.soc, params), now))
+                one_shot_window(self.one_shot, now, self.tz, self.soc, params, prices, blocks),
+                now))
         self.windows = [w for w in windows if w is not None]
         self.active_window = next((w for w in self.windows if w.contains(now)), None)
         upcoming = sorted(self.windows, key=lambda w: w.start)
         self.next_window = self.active_window or (upcoming[0] if upcoming else None)
         keep = {w.key for w in self.windows}
-        self._latched_starts = {k: v for k, v in self._latched_starts.items() if k in keep}
+        self._latched = {k: v for k, v in self._latched.items() if k in keep}
         self.executor.prune_expired(now)
+
+    # -------------------------------------------------------------- prices
+
+    def set_prices(self, slots: list[PriceSlot]) -> None:
+        """New dynamic prices (Tibber/entity). Old slots are kept for costing."""
+        known = {s.start: s for s in self.price_schedule.slots}
+        known.update({s.start: s for s in slots})
+        horizon = max(known) - timedelta(days=3) if known else None
+        self.price_schedule = PriceSchedule(
+            s for start, s in known.items() if horizon is None or start >= horizon)
+
+    @property
+    def dynamic_prices(self) -> bool:
+        return self.settings.price_source is not PriceSource.FIXED and bool(self.price_schedule)
+
+    def _planning_prices(self) -> tuple[PriceSchedule | None, int]:
+        if not self.dynamic_prices or not self.settings.price_optimization:
+            return None, 0
+        return self.price_schedule, max(1, self.settings.price_blocks)
+
+    def price_at(self, moment: datetime) -> float:
+        dynamic = self.price_schedule.price_at(moment) if self.dynamic_prices else None
+        return dynamic if dynamic is not None else self.prices.price_at(moment)
+
+    def _dynamic_price(self, moment: datetime) -> float | None:
+        return self.price_schedule.price_at(moment) if self.dynamic_prices else None
 
     def _climate(self, now: datetime) -> None:
         """Planned climate for the next departure (§9.2)."""
@@ -389,6 +438,7 @@ class Engine:
             total_energy=v[Inp.TOTAL_ENERGY], power=v[Inp.CHARGE_POWER],
             vehicle_power=v[Inp.OVMS_CHARGE_POWER], soc=self.soc,
             reason=self.desired.reason if self.desired else None, prices=self.prices,
+            dynamic_price=self._dynamic_price,
         )
         for session in closed:
             self.monitor.add_session(session)
@@ -414,6 +464,29 @@ class Engine:
         for trip in trips:
             self.monitor.add_trip(trip)
         result.trips += trips
+
+        if self.settings.external_detection and self.config.ovms_configured:
+            cable = v[Inp.CABLE_CONNECTED]
+            for charge in self.external.update(
+                now,
+                vehicle_charging=v[Inp.OVMS_CHARGING],
+                vehicle_power=v[Inp.OVMS_CHARGE_POWER],
+                soc=self.soc,
+                halo_power=v[Inp.CHARGE_POWER],
+                cable_connected=bool(cable.normalized) if cable.available else None,
+                halo_total=v[Inp.TOTAL_ENERGY],
+            ):
+                self.monitor.add_external(charge)
+                result.external.append(charge)
+                result.events.append(Event(
+                    now, Category.CHARGING, Severity.INFO, "EXTERNAL_CHARGE_DETECTED",
+                    f"Fremdladung erkannt: ca. {charge.energy_kwh:.1f} kWh",
+                    data={"id": charge.id, "energy_kwh": charge.energy_kwh}))
+                if self.settings.notify.external:
+                    result.notifications.append(Notification(
+                        "external", "normal", "Fremdladung erkannt",
+                        f"Ca. {charge.energy_kwh:.1f} kWh außer Haus geladen "
+                        "(geschätzt). Kosten bitte im Panel ergänzen."))
 
         if self.soc.quality is Quality.GOOD:
             self.monitor.record_soc(now, float(self.soc.normalized))
@@ -593,7 +666,11 @@ class Engine:
             "sessions": self.sessions.as_dict(),
             "trips": self.trips.as_dict(),
             "hv": self.hv.as_dict(),
-            "latched_starts": {k: v.isoformat() for k, v in self._latched_starts.items()},
+            "latched": {k: {"start": w.start.isoformat(),
+                            "blocks": [[a.isoformat(), b.isoformat()] for a, b in w.blocks]}
+                        for k, w in self._latched.items()},
+            "external": self.external.as_dict(),
+            "prices": [p.as_dict() for p in self.price_schedule.slots],
             "last_activity_at": self.last_activity_at.isoformat()
             if self.last_activity_at else None,
             "last_result": self.last_result,
@@ -612,8 +689,11 @@ class Engine:
         self.trips.restore(data.get("trips") or {})
         self.hv = HvCycleMonitor.from_dict(data.get("hv") or {},
                                            self.settings.hv_cycles_warn_per_day)
-        self._latched_starts = {k: datetime.fromisoformat(v)
-                                for k, v in (data.get("latched_starts") or {}).items()}
+        self._latched_raw = data.get("latched") or {}
+        self.external.restore(data.get("external") or {})
+        self.price_schedule = PriceSchedule(
+            PriceSlot(datetime.fromisoformat(p["start"]), datetime.fromisoformat(p["end"]),
+                      float(p["eur_per_kwh"])) for p in data.get("prices") or [])
         last = data.get("last_activity_at")
         self.last_activity_at = datetime.fromisoformat(last) if last else None
         self.last_result = data.get("last_result")

@@ -79,10 +79,12 @@
           "charging": "Laden",
           "wakeup": "Wakeup und CP",
           "planning": "Planung",
+          "prices": "Strompreis (Tibber & dynamisch)",
           "climate": "Vorklimatisierung",
           "quality": "Datenqualität",
           "notifications": "Benachrichtigungen",
           "monitor": "Statistik und Kosten",
+          "external": "Fremdladeerkennung",
           "ovms_commands": "OVMS-Befehle"
         }
       },
@@ -128,6 +130,16 @@
           "safety_margin_min": "Sicherheitsreserve"
         }
       },
+      "prices": {
+        "title": "Strompreis (Tibber & dynamisch)",
+        "data": {
+          "price_source": "Preisquelle",
+          "price_entity": "Preis-Entität (Nordpool, EPEX, Tibber-Sensor …)",
+          "price_optimization": "In den günstigsten Stunden laden",
+          "price_blocks": "Max. Ladeblöcke pro Nacht (jeder Block kann einen Wakeup kosten)"
+        },
+        "description": "Tibber: offizielle Tibber-Integration einrichten. Entität: jeder Sensor mit Preisliste in den Attributen (raw_today/raw_tomorrow, data, today/tomorrow). Ohne SOC oder ohne Preise für die ganze Nacht wird wie bisher geladen."
+      },
       "climate": {
         "title": "Vorklimatisierung",
         "data": {
@@ -165,7 +177,10 @@
           "notify_plug_reminder": "Push: abends nicht eingesteckt",
           "notify_health": "Push: Health-Wechsel",
           "notify_hv_cycles": "Push: HV-Kontaktor auffällig",
-          "notify_plug_in_action": "Push mit Auswahl beim Einstecken"
+          "notify_plug_in_action": "Push mit Auswahl beim Einstecken",
+          "notify_external": "Push: Fremdladung erkannt",
+          "report_auto_monthly": "Monatsbericht (PDF) automatisch am 1. erstellen",
+          "notify_report": "Push: Monatsbericht erstellt"
         }
       },
       "monitor": {
@@ -179,7 +194,17 @@
           "price_eur_kwh": "Arbeitspreis",
           "price_valid_from": "Preis gültig ab"
         },
-        "description": "Ein neuer Preis mit Gültigkeitsdatum ändert keine alten Monate."
+        "description": "Festpreis: Ein neuer Preis mit Gültigkeitsdatum ändert keine alten Monate. Er gilt auch als Rückfall, wenn die dynamische Preisquelle ausfällt."
+      },
+      "external": {
+        "title": "Fremdladeerkennung",
+        "data": {
+          "external_detection": "Fremdladungen automatisch erkennen",
+          "external_min_kwh": "Mindestmenge für eine Fremdladung",
+          "external_soc_jump_pct": "SOC-Sprung ohne Heimladen ab",
+          "external_price_eur_kwh": "Angenommener Preis für erkannte Fremdladungen"
+        },
+        "description": "Erkennung nur aus ohnehin vorhandenen OVMS-Daten – das Auto wird dafür nie geweckt. Erkannte Ladungen sind Schätzungen und können im Panel ergänzt werden."
       },
       "ovms_commands": {
         "title": "OVMS-Befehle",
@@ -190,6 +215,10 @@
         },
         "description": "Nur Befehle eintragen, die am Fahrzeug getestet sind (§1.2). Leer = Funktion gesperrt."
       }
+    },
+    "error": {
+      "price_entity_missing": "Bitte eine Preis-Entität wählen.",
+      "tibber_missing": "Die Tibber-Integration ist nicht eingerichtet."
     }
   },
   "selector": {
@@ -227,6 +256,19 @@
         "public": "Öffentlich",
         "workplace": "Arbeitgeber",
         "other_home": "Andere Wallbox"
+      }
+    },
+    "price_source": {
+      "options": {
+        "fixed": "Festpreis",
+        "entity": "Preis-Entität",
+        "tibber": "Tibber"
+      }
+    },
+    "report_period": {
+      "options": {
+        "month": "Monat",
+        "year": "Jahr"
       }
     },
     "export_dataset": {
@@ -324,6 +366,12 @@
       },
       "home_energy_total": {
         "name": "Heimladen gesamt"
+      },
+      "current_price": {
+        "name": "Aktueller Strompreis"
+      },
+      "next_charge_cost": {
+        "name": "Kosten nächste Ladung (Schätzung)"
       },
       "month_home_energy": {
         "name": "Heimladen Monat"
@@ -680,6 +728,28 @@
     "stop_replay": {
       "name": "Replay beenden",
       "description": "Replay beenden"
+    },
+    "create_report": {
+      "name": "PDF-Bericht erstellen",
+      "description": "Monats- oder Jahresbericht nach /config/smart_eq_charging/reports.",
+      "fields": {
+        "period": {
+          "name": "Zeitraum",
+          "description": "Zeitraum"
+        },
+        "year": {
+          "name": "Jahr",
+          "description": "Jahr"
+        },
+        "month": {
+          "name": "Monat",
+          "description": "Monat"
+        }
+      }
+    },
+    "refresh_prices": {
+      "name": "Preise aktualisieren",
+      "description": "Dynamische Preise sofort neu abrufen."
     },
     "create_replay_dataset": {
       "name": "Replay-Datensatz erstellen",

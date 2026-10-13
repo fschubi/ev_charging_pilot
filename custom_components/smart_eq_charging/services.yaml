@@ -141,6 +141,21 @@ start_replay:
       selector:
         number: {min: 1, max: 60, unit_of_measurement: s}
 stop_replay:
+create_report:
+  fields:
+    period:
+      default: month
+      selector:
+        select:
+          translation_key: report_period
+          options: [month, year]
+    year:
+      selector:
+        number: {min: 2020, max: 2100, mode: box}
+    month:
+      selector:
+        number: {min: 1, max: 12, mode: box}
+refresh_prices:
 create_replay_dataset:
   fields:
     start:

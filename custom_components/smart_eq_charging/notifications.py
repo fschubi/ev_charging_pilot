@@ -41,6 +41,8 @@ class Notifier:
             data["priority"] = "high"
         if notification.actionable:
             data["actions"] = list(ACTIONS)
+        # Tapping a push opens the panel (iOS: url, Android: clickAction).
+        data["url"] = data["clickAction"] = "/smart-eq"
         try:
             await self.hass.services.async_call(
                 "notify", self.service,

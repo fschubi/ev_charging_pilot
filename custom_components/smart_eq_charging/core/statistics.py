@@ -44,6 +44,9 @@ class ExternalCharge:
     soc_after: float | None = None
     provider: str | None = None
     note: str | None = None
+    # Automatically detected (§10.5 "später"): energy is an estimate until edited.
+    detected: bool = False
+    quality: str = "GOOD"
 
     @property
     def total_cost(self) -> float:
@@ -60,7 +63,7 @@ class ExternalCharge:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExternalCharge:
-        values = dict(data)
+        values = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         values["date"] = date.fromisoformat(str(values["date"]))
         return cls(**values)
 
@@ -106,7 +109,10 @@ def _home_energy(sessions: Iterable[ChargeSession], start: datetime, end: dateti
             moment = datetime.fromisoformat(interval["start"])
             if start <= moment < end:
                 kwh += float(interval["kwh"])
-                cost += float(interval["kwh"]) * prices.price_at(moment)
+                # A dynamic tariff stores the real price with each interval.
+                price = interval.get("eur_per_kwh")
+                cost += float(interval["kwh"]) * (
+                    float(price) if price is not None else prices.price_at(moment))
         if not session.energy_intervals and session.grid_energy_kwh and start <= \
                 session.started_at < end:
             kwh += session.grid_energy_kwh

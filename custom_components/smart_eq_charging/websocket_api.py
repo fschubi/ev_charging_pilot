@@ -14,6 +14,7 @@ from .const import DOMAIN
 from .coordinator import ChargingCenter
 from .core.model import Value
 from .core.planner import ChargeWindow, WeeklySchedule
+from .reports import async_create_report, async_list_reports
 
 PREFIX = DOMAIN
 
@@ -52,6 +53,7 @@ def _window(window: ChargeWindow | None) -> dict[str, Any] | None:
         "departure": _iso(window.departure),
         "ready_at": _iso(window.ready_at),
         "fallback_without_soc": window.fallback_without_soc,
+        "blocks": [[_iso(a), _iso(b)] for a, b in window.blocks],
         "minimum_soc_pct": window.minimum_soc_pct,
         "preferred_soc_pct": window.preferred_soc_pct,
         "climate": window.climate,
@@ -63,6 +65,7 @@ def _window(window: ChargeWindow | None) -> dict[str, Any] | None:
             "minimum_reachable": e.minimum_reachable,
             "preferred_reachable": e.preferred_reachable,
             "finish_at": _iso(e.finish_at),
+            "cost_eur": e.cost_eur,
         },
     }
 
@@ -121,6 +124,15 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
         },
         "last_result": engine.last_result,
         "hv_cycles_today": engine.hv.today,
+        "prices": {
+            "source": str(center.settings.price_source),
+            "dynamic": engine.dynamic_prices,
+            "current_eur_kwh": round(engine.price_at(now), 4),
+            "last_update": _iso(center.price_fetcher.last_update),
+            "error": center.price_fetcher.last_error,
+            "slots": [s.as_dict() for s in engine.price_schedule.slots
+                      if s.end > now][:96],
+        },
         "statistics": center.statistics,
         "settings": {
             "cp_failsafe_verified": center.settings.cp_failsafe_verified,
@@ -287,8 +299,33 @@ async def ws_replay(hass, connection, msg) -> None:
                             "files": await center.async_list_datasets()})
 
 
-COMMANDS = (ws_state, ws_health, ws_plan_preview, ws_sessions, ws_trips, ws_external, ws_month,
-            ws_year, ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/create_report",
+    vol.Optional("year"): int,
+    vol.Optional("month"): vol.Any(None, vol.All(int, vol.Range(1, 12))),
+})
+@websocket_api.async_response
+async def ws_create_report(hass, connection, msg) -> None:
+    center = _require(connection, msg, hass)
+    if center is None:
+        return
+    today = dt_util.now(center.tz).date()
+    _send(connection, msg, await async_create_report(
+        center, msg.get("year", today.year), msg.get("month")))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{PREFIX}/list_reports"})
+@websocket_api.async_response
+async def ws_list_reports(hass, connection, msg) -> None:
+    center = _require(connection, msg, hass)
+    if center is None:
+        return
+    _send(connection, msg, {"items": await async_list_reports(center)})
+
+
+COMMANDS = (ws_create_report, ws_list_reports, ws_state, ws_health, ws_plan_preview,
+            ws_sessions, ws_trips, ws_external, ws_month, ws_year, ws_temperature, ws_events,
+            ws_get_plans, ws_set_plans, ws_replay)
 
 
 def async_register(hass: HomeAssistant) -> None:

@@ -27,6 +27,12 @@ class ClimateAfterTarget(StrEnum):
     ENFORCE_TARGET = "enforce_target"
 
 
+class PriceSource(StrEnum):
+    FIXED = "fixed"
+    ENTITY = "entity"
+    TIBBER = "tibber"
+
+
 class OdometerSource(StrEnum):
     MANUAL = "manual"
     OVMS = "ovms"
@@ -89,6 +95,17 @@ OPT_EVENT_RETENTION_DAYS = "event_retention_days"
 OPT_HV_CYCLES_WARN_PER_DAY = "hv_cycles_warn_per_day"
 OPT_PRICE_HISTORY = "price_history"
 OPT_INTERVAL_MIN = "interval_min"
+OPT_PRICE_SOURCE = "price_source"
+OPT_PRICE_ENTITY = "price_entity"
+OPT_PRICE_OPTIMIZATION = "price_optimization"
+OPT_PRICE_BLOCKS = "price_blocks"
+OPT_EXTERNAL_DETECTION = "external_detection"
+OPT_EXTERNAL_MIN_KWH = "external_min_kwh"
+OPT_EXTERNAL_SOC_JUMP = "external_soc_jump_pct"
+OPT_EXTERNAL_PRICE = "external_price_eur_kwh"
+OPT_NOTIFY_EXTERNAL = "notify_external"
+OPT_REPORT_AUTO = "report_auto_monthly"
+OPT_NOTIFY_REPORT = "notify_report"
 OPT_OVMS_WAKEUP_COMMAND = "ovms_wakeup_command"
 OPT_OVMS_CLIMATE_COMMAND = "ovms_climate_command"
 OPT_OVMS_CLIMATE_STOP_COMMAND = "ovms_climate_stop_command"
@@ -150,6 +167,17 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_HV_CYCLES_WARN_PER_DAY: 10,
     OPT_PRICE_HISTORY: [{"valid_from": "2026-10-01", "eur_per_kwh": 0.29}],
     OPT_INTERVAL_MIN: 15,
+    OPT_PRICE_SOURCE: PriceSource.FIXED.value,
+    OPT_PRICE_ENTITY: "",
+    OPT_PRICE_OPTIMIZATION: True,
+    OPT_PRICE_BLOCKS: 1,
+    OPT_EXTERNAL_DETECTION: True,
+    OPT_EXTERNAL_MIN_KWH: 1.0,
+    OPT_EXTERNAL_SOC_JUMP: 5,
+    OPT_EXTERNAL_PRICE: 0.59,
+    OPT_NOTIFY_EXTERNAL: True,
+    OPT_REPORT_AUTO: True,
+    OPT_NOTIFY_REPORT: True,
     # OVMS commands stay unused until ovms_enabled – never send untested ones (§1.2).
     OPT_OVMS_WAKEUP_COMMAND: "",
     OPT_OVMS_CLIMATE_COMMAND: "homelink {level}",
@@ -201,6 +229,8 @@ class NotifyCategories:
     health: bool = True
     hv_cycles: bool = True
     plug_in_action: bool = True
+    external: bool = True
+    report: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,6 +273,15 @@ class Settings:
     hv_cycles_warn_per_day: int = 10
     price_history: tuple[PricePoint, ...] = (PricePoint(date(2026, 10, 1), 0.29),)
     interval_min: int = 15
+    price_source: PriceSource = PriceSource.FIXED
+    price_entity: str = ""
+    price_optimization: bool = True
+    price_blocks: int = 1
+    external_detection: bool = True
+    external_min_kwh: float = 1.0
+    external_soc_jump_pct: float = 5
+    external_price_eur_kwh: float = 0.59
+    report_auto_monthly: bool = True
     ovms_wakeup_command: str = ""
     ovms_climate_command: str = "homelink {level}"
     ovms_climate_stop_command: str = ""
@@ -313,6 +352,8 @@ class Settings:
                 health=bool(o[OPT_NOTIFY_HEALTH]),
                 hv_cycles=bool(o[OPT_NOTIFY_HV_CYCLES]),
                 plug_in_action=bool(o[OPT_NOTIFY_PLUG_IN]),
+                external=bool(o[OPT_NOTIFY_EXTERNAL]),
+                report=bool(o[OPT_NOTIFY_REPORT]),
             ),
             odometer_source=OdometerSource(o[OPT_ODOMETER_SOURCE]),
             trip_merge_gap_min=int(o[OPT_TRIP_MERGE_GAP_MIN]),
@@ -320,6 +361,15 @@ class Settings:
             hv_cycles_warn_per_day=int(o[OPT_HV_CYCLES_WARN_PER_DAY]),
             price_history=prices,
             interval_min=int(o[OPT_INTERVAL_MIN]),
+            price_source=PriceSource(o[OPT_PRICE_SOURCE]),
+            price_entity=str(o[OPT_PRICE_ENTITY] or ""),
+            price_optimization=bool(o[OPT_PRICE_OPTIMIZATION]),
+            price_blocks=int(o[OPT_PRICE_BLOCKS]),
+            external_detection=bool(o[OPT_EXTERNAL_DETECTION]),
+            external_min_kwh=float(o[OPT_EXTERNAL_MIN_KWH]),
+            external_soc_jump_pct=float(o[OPT_EXTERNAL_SOC_JUMP]),
+            external_price_eur_kwh=float(o[OPT_EXTERNAL_PRICE]),
+            report_auto_monthly=bool(o[OPT_REPORT_AUTO]),
             ovms_wakeup_command=str(o[OPT_OVMS_WAKEUP_COMMAND] or ""),
             ovms_climate_command=str(o[OPT_OVMS_CLIMATE_COMMAND] or ""),
             ovms_climate_stop_command=str(o[OPT_OVMS_CLIMATE_STOP_COMMAND] or ""),

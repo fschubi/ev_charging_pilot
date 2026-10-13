@@ -66,7 +66,8 @@ def test_departure_based_start_is_computed_backwards():
     needed_kwh, duration = charge_duration(50, 90, PARAMS)
     assert round(needed_kwh, 2) == round(0.4 * 16.7 / 0.88, 2)
     window = schedule_window(WORKDAYS, local(2026, 10, 13, 22, 0), TZ, soc(50), PARAMS)
-    expected = local(2026, 10, 14, 5, 0) - duration - timedelta(minutes=20)
+    minutes = -(-duration.total_seconds() // 60)  # plans use whole minutes
+    expected = local(2026, 10, 14, 5, 0) - timedelta(minutes=minutes + 20)
     assert window.start == expected
     assert window.estimate.preferred_reachable
     assert window.estimate.expected_soc_at_departure >= 90

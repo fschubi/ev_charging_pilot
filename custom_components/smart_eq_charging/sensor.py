@@ -192,6 +192,29 @@ SENSORS: tuple[ChargingSensorDescription, ...] = (
         value=lambda c: _window(c).estimate.finish_at if _window(c) else None,
         attributes=lambda c: {"estimate": True},
     ),
+    ChargingSensorDescription(
+        key="current_price",
+        native_unit_of_measurement="EUR/kWh",
+        suggested_display_precision=3,
+        value=lambda c: round(c.engine.price_at(dt_util.utcnow()), 4),
+        attributes=lambda c: {
+            "source": str(c.settings.price_source),
+            "dynamic": c.engine.dynamic_prices,
+            "last_update": _iso(c.price_fetcher.last_update),
+            "error": c.price_fetcher.last_error,
+        },
+    ),
+    ChargingSensorDescription(
+        key="next_charge_cost",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=EUR,
+        value=lambda c: _window(c).estimate.cost_eur if _window(c) else None,
+        attributes=lambda c: {
+            "estimate": True,
+            "price_optimized": _window(c).price_optimized if _window(c) else None,
+            "blocks": [[_iso(a), _iso(b)] for a, b in _window(c).blocks] if _window(c) else [],
+        },
+    ),
     # --- Fahrzeug (ab v0.4, nur wenn gemappt)
     _vehicle("soc", Inp.OVMS_SOC, device_class=SensorDeviceClass.BATTERY,
              state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement=PERCENTAGE),

@@ -50,6 +50,10 @@ from .core.settings import (
     OPT_CP_PULSE_S,
     OPT_EFFICIENCY,
     OPT_EVENT_RETENTION_DAYS,
+    OPT_EXTERNAL_DETECTION,
+    OPT_EXTERNAL_MIN_KWH,
+    OPT_EXTERNAL_PRICE,
+    OPT_EXTERNAL_SOC_JUMP,
     OPT_FINISHED_STATUSES,
     OPT_GRID_LIMIT_KW,
     OPT_HV_CYCLES_WARN_PER_DAY,
@@ -68,11 +72,13 @@ from .core.settings import (
     OPT_MIN_SWITCH_INTERVAL_S,
     OPT_MODE,
     OPT_NOTIFY_CP,
+    OPT_NOTIFY_EXTERNAL,
     OPT_NOTIFY_HEALTH,
     OPT_NOTIFY_HV_CYCLES,
     OPT_NOTIFY_PLAN_INFEASIBLE,
     OPT_NOTIFY_PLUG_IN,
     OPT_NOTIFY_PLUG_REMINDER,
+    OPT_NOTIFY_REPORT,
     OPT_NOTIFY_START_FAILED,
     OPT_ODOMETER_SOURCE,
     OPT_OVMS_CLIMATE_COMMAND,
@@ -83,7 +89,12 @@ from .core.settings import (
     OPT_PLUG_REMINDER_TIME,
     OPT_POST_CP_WAIT_S,
     OPT_POWER_THRESHOLD_W,
+    OPT_PRICE_BLOCKS,
+    OPT_PRICE_ENTITY,
     OPT_PRICE_HISTORY,
+    OPT_PRICE_OPTIMIZATION,
+    OPT_PRICE_SOURCE,
+    OPT_REPORT_AUTO,
     OPT_SAFETY_MARGIN_MIN,
     OPT_STABLE_MIN_S,
     OPT_STABLE_SAMPLES,
@@ -92,13 +103,14 @@ from .core.settings import (
     OPT_VEHICLE_CHARGER_KW,
     ClimateAfterTarget,
     OdometerSource,
+    PriceSource,
     RunMode,
 )
 
 OPT_PRICE = "price_eur_kwh"
 OPT_PRICE_VALID_FROM = "price_valid_from"
-OPTION_STEPS = ["charging", "wakeup", "planning", "climate", "quality", "notifications",
-                "monitor", "ovms_commands"]
+OPTION_STEPS = ["charging", "wakeup", "planning", "prices", "climate", "quality",
+                "notifications", "monitor", "external", "ovms_commands"]
 OVMS_KEYS = (*(i.value for i in OVMS_INPUTS), Inp.OUTSIDE_TEMP.value, Inp.WEATHER.value,
              CONF_OVMS_COMMAND_TOPIC, CONF_OVMS_COMMAND_SCRIPT)
 
@@ -364,6 +376,41 @@ class SmartEqChargingOptionsFlow(OptionsFlow):
             d(OPT_NOTIFY_HEALTH): BOOL,
             d(OPT_NOTIFY_HV_CYCLES): BOOL,
             d(OPT_NOTIFY_PLUG_IN): BOOL,
+            d(OPT_NOTIFY_EXTERNAL): BOOL,
+            d(OPT_REPORT_AUTO): BOOL,
+            d(OPT_NOTIFY_REPORT): BOOL,
+        })
+
+    async def async_step_prices(self, user_input=None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            user_input.setdefault(OPT_PRICE_ENTITY, "")
+            if user_input[OPT_PRICE_SOURCE] == PriceSource.ENTITY and \
+                    not user_input[OPT_PRICE_ENTITY]:
+                errors["base"] = "price_entity_missing"
+            elif user_input[OPT_PRICE_SOURCE] == PriceSource.TIBBER and \
+                    not self.hass.services.has_service("tibber", "get_prices"):
+                errors["base"] = "tibber_missing"
+            else:
+                return self._save(user_input)
+        d = self._d
+        c = self._current()
+        return self.async_show_form(step_id="prices", errors=errors, data_schema=vol.Schema({
+            d(OPT_PRICE_SOURCE): _select([p.value for p in PriceSource], OPT_PRICE_SOURCE),
+            _optional(OPT_PRICE_ENTITY, c): _entity("sensor"),
+            d(OPT_PRICE_OPTIMIZATION): BOOL,
+            d(OPT_PRICE_BLOCKS): _number(1, 2),
+        }))
+
+    async def async_step_external(self, user_input=None) -> ConfigFlowResult:
+        if user_input is not None:
+            return self._save(user_input)
+        d = self._d
+        return self._form("external", {
+            d(OPT_EXTERNAL_DETECTION): BOOL,
+            d(OPT_EXTERNAL_MIN_KWH): _number(0.2, 20, 0.1, "kWh"),
+            d(OPT_EXTERNAL_SOC_JUMP): _number(2, 50, unit="%"),
+            d(OPT_EXTERNAL_PRICE): _number(0, 2, 0.01, "€/kWh"),
         })
 
     async def async_step_monitor(self, user_input=None) -> ConfigFlowResult:

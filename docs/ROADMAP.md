@@ -13,7 +13,8 @@ das Gate selbst ist erst nach Messung bzw. Feldtest erfüllt.
 | v0.3 Automatischer Ladeplan | fertig | offen: 14 Nächte live ohne unbemerkten Fehlstart |
 | v0.4 OVMS | fertig (Mapping per Config Flow, Befehle per Options Flow) | offen: OVMS geliefert, Werte 2 Wochen plausibel |
 | v0.5 Drive & Energy, Oberfläche | fertig | – |
-| Später | Tibber, OCPP, PDF-Bericht, Fremdladeerkennung | nicht begonnen (bewusst) |
+| v0.6 Tibber/dynamischer Preis, PDF-Berichte, Fremdladeerkennung | fertig | offen: Tibber-Abruf und Erkennung im Alltag prüfen |
+| Später | OCPP lokal (Prüfauftrag §16 #9) | nicht begonnen |
 
 ## Phase 0 – Automation und Messphase
 
@@ -22,7 +23,7 @@ das Gate selbst ist erst nach Messung bzw. Feldtest erfüllt.
 - [x] Messprotokoll ins Logbuch, Abend-Erinnerung
 - [x] Replay-Datensätze aus der Recorder-Historie (`create_replay_dataset`)
 - [ ] Shelly konfiguriert, Checkliste §3.6 (Hardware)
-- [ ] Halo-Zeitplan aus, evcc steuert nicht (Hardware)
+- [ ] Halo-Zeitplan aus (Hardware)
 - [ ] Messungen M1–M8 in `docs/messungen.md`
 
 ## v0.1 – Kern, Read-only, Dry-Run
@@ -68,6 +69,19 @@ das Gate selbst ist erst nach Messung bzw. Feldtest erfüllt.
 - [x] Temperatur- und Saisonstatistik
 - [x] CSV/JSON-Export
 - [x] Sidebar-Panel mit den Ansichten aus §12.5
+
+## v0.6 – vorgezogen aus „Später“
+
+- [x] Dynamischer Preis: Tibber (`tibber.get_prices`) oder jede Preis-Entität
+      (Nordpool, EPEX, generische Attributlisten); Festpreis bleibt Rückfall
+- [x] Planner „günstigste Intervalle“: abfahrtsbasierte Pläne laden in den billigsten
+      Stunden, standardmäßig in **einem** Block (jeder Block kann einen Wakeup kosten)
+- [x] Kosten je Energieintervall mit dem tatsächlichen Preis
+- [x] PDF-Monats- und Jahresbericht (eigener PDF-Writer, keine Zusatzpakete),
+      automatisch am 1. um 06:00, Download nur mit Login
+- [x] Automatische Fremdladeerkennung: live über OVMS „lädt“ ohne Halo-Leistung,
+      Rückfall über SOC-Sprung, den der Halo-Zähler nicht erklärt; Ergebnis ist eine
+      geschätzte Fremdladung zum Ergänzen
 
 ## Offene Fragen (§16)
 

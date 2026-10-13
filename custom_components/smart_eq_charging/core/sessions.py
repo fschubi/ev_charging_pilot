@@ -7,11 +7,12 @@ only reacts to explicit session events.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .costs import EnergyInterval, FixedPriceHistory, IntervalAccumulator, session_cost
+from .costs import EnergyInterval, FixedPriceHistory, IntervalAccumulator
 from .model import Event, Quality, Reason, Severity, Value
 
 FAILURE_CODES = ("CHARGE_START_FAILED", "CHARGER_NOT_CONFIRMED", "CHARGE_INTERRUPTED")
@@ -78,6 +79,7 @@ class SessionTracker:
         self._pending_ovms = False
         self._pending_cp = False
         self._vehicle_last: tuple[datetime, float] | None = None
+        self._dynamic: Callable[[datetime], float | None] | None = None
 
     # ----------------------------------------------------------------- API
 
@@ -92,7 +94,9 @@ class SessionTracker:
         soc: Value | None,
         reason: Reason | str | None,
         prices: FixedPriceHistory,
+        dynamic_price: Callable[[datetime], float | None] | None = None,
     ) -> list[ChargeSession]:
+        self._dynamic = dynamic_price
         closed: list[ChargeSession] = []
         for event in events:
             closed += self._on_event(now, event, total_energy, soc, reason, prices)
@@ -205,8 +209,15 @@ class SessionTracker:
         hours = (session.ended_at - session.started_at).total_seconds() / 3600
         if hours > 0:
             session.average_power_w = round(session.grid_energy_kwh / hours * 1000, 1)
-        session.energy_intervals = _intervals_to_dicts(self._acc.intervals)
-        session.cost_eur = round(session_cost(self._acc.intervals, prices), 4)
+        # Each interval keeps the price it was charged at: a dynamic tariff
+        # (Tibber) is exact, a fixed price comes from the validity history.
+        items = _intervals_to_dicts(self._acc.intervals)
+        for item, interval in zip(items, self._acc.intervals, strict=True):
+            price = self._dynamic(interval.start) if self._dynamic else None
+            item["eur_per_kwh"] = round(price if price is not None
+                                        else prices.price_at(interval.start), 5)
+        session.energy_intervals = items
+        session.cost_eur = round(sum(i["kwh"] * i["eur_per_kwh"] for i in items), 4)
         self.open = None
         self._acc = IntervalAccumulator(self.interval_min)
         return session

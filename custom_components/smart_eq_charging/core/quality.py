@@ -40,10 +40,10 @@ def classify(
     SOC, so it must not count as stale (and must never be woken just to
     refresh it, §7.3).
     """
-    if value.quality in (Quality.UNAVAILABLE, Quality.ESTIMATED) or value.normalized is None:
-        if value.normalized is None:
-            return value.with_quality(Quality.UNAVAILABLE)
+    if value.quality in (Quality.UNAVAILABLE, Quality.INVALID, Quality.ESTIMATED):
         return value
+    if value.normalized is None:
+        return value.with_quality(Quality.UNAVAILABLE)
     if rule.plausible is not None and not rule.plausible(value.normalized):
         return value.with_quality(Quality.INVALID)
     age = value.age_s(now)

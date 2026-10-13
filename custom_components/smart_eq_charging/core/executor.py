@@ -17,6 +17,7 @@ from typing import Any
 from .health import Health, HealthStatus
 from .model import Category, Desired, Event, Quality, Severity, Value
 from .ports import Command, CommandKind
+from .settings import Settings
 
 
 class ExecState(StrEnum):
@@ -65,7 +66,34 @@ class ExecutorConfig:
     ovms_available: bool = False
     cp_available: bool = False
     cp_failsafe_verified: bool = False
+    cp_fallback_enabled: bool = True
+    climate_available: bool = False
     finished_statuses: Collection[str] = ()
+
+    @classmethod
+    def from_settings(cls, s: Settings, *, cp_available: bool) -> ExecutorConfig:
+        return cls(
+            power_threshold_w=s.power_threshold_w,
+            stable_samples=s.stable_samples,
+            charging_stable_min_s=s.stable_min_s,
+            charging_loss_timeout_s=s.loss_timeout_s,
+            start_detection_wait_s=s.start_detection_wait_s,
+            ovms_wait_s=s.ovms_wait_s,
+            post_cp_wait_s=s.post_cp_wait_s,
+            max_ovms_attempts_per_window=s.max_ovms_attempts,
+            max_cp_attempts_per_window=s.max_cp_attempts,
+            min_gap_between_wakeups_s=s.min_gap_between_wakeups_s,
+            min_switch_interval_s=s.min_switch_interval_s,
+            confirm_timeout_s=s.confirm_timeout_s,
+            cp_pulse_s=s.cp_pulse_s,
+            cp_mask_grace_s=s.cp_mask_grace_s,
+            ovms_available=s.ovms_enabled and bool(s.ovms_wakeup_command),
+            cp_available=cp_available,
+            cp_failsafe_verified=s.cp_failsafe_verified,
+            cp_fallback_enabled=s.cp_fallback_enabled,
+            climate_available=s.ovms_enabled and bool(s.ovms_climate_command),
+            finished_statuses=s.finished_statuses,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +155,8 @@ class Executor:
         self._last_sample_w: float | None = None
         self._violation_reported_for: str | None = None
         self._last_cp_close_at: datetime | None = None
+        self._climate_sent: str | None = None
+        self._last_snap: Snapshot | None = None
         self._result = StepResult()
 
     # ------------------------------------------------------------------ API
@@ -147,8 +177,13 @@ class Executor:
         elif cable is True and self.state is ExecState.DISCONNECTED:
             self._go(ExecState.IDLE, now, "CABLE_CONNECTED", "Kabel gesteckt", Category.CHARGING)
 
-        if snap.desired.charger_enabled is None or snap.health.status is HealthStatus.ERROR:
+        self._last_snap = snap
+        if snap.health.status is HealthStatus.ERROR:
             self._safety_hold(snap)
+            return self._result
+        self._handle_climate(snap)
+        if snap.desired.charger_enabled is None:
+            # Automation off / nothing to decide: leave the Halo alone.
             return self._result
 
         handler = getattr(self, f"_in_{self.state.lower()}")
@@ -175,6 +210,44 @@ class Executor:
             self._run_count >= cfg.stable_samples
             and (snap.now - self._run_start).total_seconds() >= cfg.charging_stable_min_s
         )
+
+    def request_wakeup(self, kind: CommandKind, now: datetime) -> StepResult:
+        """Manual "wake the car" button – same guards as the cascade (§12.2)."""
+        self._result = StepResult()
+        snap = self._last_snap
+        if snap is None:
+            return self._result
+        if not self._wakeup_gap_ok(now):
+            self._event(now, Category.WAKEUP, Severity.WARNING, "WAKEUP_REJECTED",
+                        "Wakeup abgelehnt: Mindestabstand zum letzten Wakeup")
+            return self._result
+        attempts = self.attempts_for(snap.desired)
+        if kind is CommandKind.OVMS_WAKEUP:
+            if not self.config.ovms_available:
+                self._event(now, Category.WAKEUP, Severity.WARNING, "WAKEUP_REJECTED",
+                            "OVMS-Wakeup nicht verfügbar")
+                return self._result
+            attempts.ovms += 1
+            self._last_wakeup_at = now
+            self._command(CommandKind.OVMS_WAKEUP)
+            self._event(now, Category.WAKEUP, Severity.INFO, "OVMS_WAKEUP",
+                        "Manueller Software-Wakeup über OVMS")
+        elif kind is CommandKind.CP_PULSE:
+            if not self._cp_wakeup_allowed(snap, manual=True):
+                self._event(now, Category.WAKEUP, Severity.WARNING, "WAKEUP_REJECTED",
+                            "CP-Wakeup gesperrt (Failsafe, Health oder CP-Zustand)")
+                return self._result
+            attempts.cp += 1
+            self._start_pulse(now)
+            self._event(now, Category.WAKEUP, Severity.INFO, "CP_PULSE_START",
+                        f"Manueller CP-Puls {self.config.cp_pulse_s} s")
+        return self._result
+
+    def request_climate_stop(self, now: datetime) -> StepResult:
+        self._result = StepResult()
+        self._command(CommandKind.CLIMATE_STOP)
+        self._event(now, Category.CLIMATE, Severity.INFO, "CLIMATE_STOP", "Klimatisierung gestoppt")
+        return self._result
 
     def reset(self, now: datetime) -> None:
         """Manual reset button: clear failures, forget the failed window."""
@@ -218,9 +291,19 @@ class Executor:
         self._last_switch_at = datetime.fromisoformat(switch_at) if switch_at else None
         self._last_wakeup_at = datetime.fromisoformat(wakeup_at) if wakeup_at else None
 
-    def prune_attempts(self, keep: Collection[str]) -> None:
-        """Drop counters of windows that are over – keeps the store small."""
-        self._attempts = {k: v for k, v in self._attempts.items() if k in keep}
+    def prune_expired(self, now: datetime, keep_last: int = 20) -> None:
+        """Drop counters of windows that ended more than a day ago – keeps the store small."""
+        def alive(key: str) -> bool:
+            until = key.rsplit("|", 1)[-1]
+            if until == "-":
+                return True
+            try:
+                return datetime.fromisoformat(until) > now - timedelta(days=1)
+            except ValueError:
+                return False
+
+        kept = [(k, v) for k, v in self._attempts.items() if alive(k)]
+        self._attempts = dict(kept[-keep_last:])
 
     # -------------------------------------------------------------- helpers
 
@@ -367,10 +450,11 @@ class Executor:
             self._event(snap.now, Category.CP, Severity.INFO, "CP_RESTORED",
                         "CP-Normalzustand wieder bestätigt")
 
-    def _cp_wakeup_allowed(self, snap: Snapshot) -> bool:
+    def _cp_wakeup_allowed(self, snap: Snapshot, manual: bool = False) -> bool:
         cfg = self.config
         return (
             cfg.cp_available
+            and (manual or cfg.cp_fallback_enabled)
             and cfg.cp_failsafe_verified
             and not self.cp_not_restored
             and snap.health.status is not HealthStatus.ERROR
@@ -400,11 +484,7 @@ class Executor:
             return
         if cp_left:
             attempts.cp += 1
-            self._last_wakeup_at = now
-            self._mask_until = now + timedelta(seconds=cfg.cp_pulse_s + cfg.cp_mask_grace_s)
-            self._pulse_check_at = now + timedelta(
-                seconds=cfg.cp_pulse_s + cfg.cp_restore_check_extra_s)
-            self._command(CommandKind.CP_PULSE, seconds=cfg.cp_pulse_s)
+            self._start_pulse(now)
             self._go(ExecState.WAKEUP_CP, now, "CP_PULSE_START",
                      f"CP-Puls {cfg.cp_pulse_s} s", Category.WAKEUP)
             return
@@ -412,6 +492,31 @@ class Executor:
             self._fail(snap, "CHARGE_INTERRUPTED", "Ladung abgebrochen, Neustart erfolglos")
         else:
             self._fail(snap, "CHARGE_START_FAILED", "Ladestart fehlgeschlagen (Kaskade erfolglos)")
+
+    def _start_pulse(self, now: datetime) -> None:
+        cfg = self.config
+        self._last_wakeup_at = now
+        self._mask_until = now + timedelta(seconds=cfg.cp_pulse_s + cfg.cp_mask_grace_s)
+        self._pulse_check_at = now + timedelta(
+            seconds=cfg.cp_pulse_s + cfg.cp_restore_check_extra_s)
+        self._command(CommandKind.CP_PULSE, seconds=cfg.cp_pulse_s)
+
+    def _handle_climate(self, snap: Snapshot) -> None:
+        """Send the OVMS climate command once per request when it is due (§9.2)."""
+        request = snap.desired.climate
+        if request is None or request.key == self._climate_sent:
+            return
+        if not request.start_at <= snap.now < request.until:
+            return
+        self._climate_sent = request.key
+        if not self.config.climate_available:
+            self._event(snap.now, Category.CLIMATE, Severity.WARNING, "CLIMATE_UNAVAILABLE",
+                        "Klimatisierung geplant, aber OVMS-Befehl nicht verfügbar")
+            return
+        self._command(CommandKind.CLIMATE_START, duration_min=request.duration_min)
+        self._event(snap.now, Category.CLIMATE, Severity.INFO, "CLIMATE_START",
+                    f"Vorklimatisierung {request.duration_min} min",
+                    plugged_in=snap.desired.charger_enabled is True)
 
     def _reconcile_off(self, snap: Snapshot) -> bool:
         """Halo on although it should be off → switch it off. True if handled."""

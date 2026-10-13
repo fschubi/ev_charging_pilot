@@ -1,0 +1,213 @@
+"""Trips, statistics with ΔSOC, climate profiles, settings, monitor storage."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+
+import pytest
+
+from custom_components.smart_eq_charging.core.climate import (
+    climate_blocker,
+    climate_request,
+    homelink_level,
+    planned_duration,
+)
+from custom_components.smart_eq_charging.core.costs import FixedPriceHistory, PricePoint
+from custom_components.smart_eq_charging.core.model import Quality, Value
+from custom_components.smart_eq_charging.core.monitor import Monitor
+from custom_components.smart_eq_charging.core.sessions import ChargeSession
+from custom_components.smart_eq_charging.core.settings import Settings
+from custom_components.smart_eq_charging.core.statistics import (
+    ExternalCharge,
+    MonitorData,
+    Reading,
+    period_summary,
+    temperature_statistics,
+)
+from custom_components.smart_eq_charging.core.trips import Trip, TripTracker
+
+from .world import TZ
+
+
+def local(*args):
+    return datetime(*args, tzinfo=TZ)
+
+
+def v(value, at, quality=Quality.GOOD):
+    return Value(value, value, "ovms", at, quality)
+
+
+# ------------------------------------------------------------------ trips
+
+def drive(tracker, start, minutes, km_start, km_end, used_start=0.0, used_end=2.0, temp=5.0):
+    trips = []
+    for i in range(minutes + 1):
+        now = start + timedelta(minutes=i)
+        frac = i / minutes
+        trips += tracker.update(
+            now, vehicle_on=v(True, now), odometer=v(km_start + (km_end - km_start) * frac, now),
+            energy_used=v(used_start + (used_end - used_start) * frac, now),
+            energy_recd=v(0.3 * frac, now), aux=v(0.1 * frac, now), soc=v(80 - 5 * frac, now),
+            outside_temp=v(temp, now))
+    return trips
+
+
+def park(tracker, start, minutes, km):
+    trips = []
+    for i in range(1, minutes + 1):
+        now = start + timedelta(minutes=i)
+        trips += tracker.update(
+            now, vehicle_on=v(False, now), odometer=v(km, now), energy_used=v(0, now),
+            energy_recd=v(0, now), aux=v(0, now), soc=v(75, now), outside_temp=v(5, now))
+    return trips
+
+
+def test_trip_closes_after_merge_gap_and_short_stops_merge():
+    tracker = TripTracker(10, TZ)
+    start = local(2026, 10, 13, 7, 0)
+    assert drive(tracker, start, 20, 1000, 1012) == []
+    assert park(tracker, start + timedelta(minutes=20), 5, 1012) == []  # short stop
+    assert drive(tracker, start + timedelta(minutes=25), 10, 1012, 1018, 2.0, 3.0) == []
+    trips = park(tracker, start + timedelta(minutes=35), 11, 1018)
+    assert len(trips) == 1
+    trip = trips[0]
+    assert trip.distance_km == pytest.approx(18)
+    assert trip.vehicle_energy_used_kwh == pytest.approx(3.0)
+    assert trip.consumption_kwh_100km == pytest.approx(3.0 / 18 * 100, rel=1e-3)
+    assert trip.quality == "GOOD"
+    assert trip.season == "autumn"
+
+
+def test_trip_reconstructed_from_odometer_is_partial():
+    tracker = TripTracker(10, TZ)
+    now = local(2026, 10, 13, 18, 0)
+    unknown = Value.unavailable("ovms")
+    tracker.update(now, vehicle_on=unknown, odometer=v(1000.0, now), energy_used=unknown,
+                   energy_recd=unknown, aux=unknown, soc=None, outside_temp=unknown)
+    later = now + timedelta(hours=3)
+    trips = tracker.update(later, vehicle_on=unknown, odometer=v(1023.0, later),
+                           energy_used=unknown, energy_recd=unknown, aux=unknown, soc=None,
+                           outside_temp=unknown)
+    assert len(trips) == 1
+    assert trips[0].quality == "PARTIAL"
+    assert trips[0].distance_km == pytest.approx(23)
+
+
+# ------------------------------------------------------------- statistics
+
+PRICES = FixedPriceHistory([PricePoint(date(2026, 1, 1), 0.30)], TZ)
+
+
+def session(start, kwh, vehicle=None):
+    return ChargeSession(
+        session_id=f"s-{start:%d%H}", started_at=start, ended_at=start + timedelta(hours=2),
+        reason="schedule", grid_energy_kwh=kwh, vehicle_charge_energy_kwh=vehicle,
+        energy_intervals=[{"start": start.isoformat(),
+                           "end": (start + timedelta(minutes=15)).isoformat(), "kwh": kwh}],
+        cost_eur=kwh * 0.30)
+
+
+def trip(start, km, used, temp):
+    return Trip(f"t-{start:%d%H}", start, start + timedelta(minutes=30), None, None, km, 30,
+                None, used, used * 0.1, used * 0.05, used / km * 100, temp, "autumn",
+                None, None)
+
+
+def test_month_balance_with_soc_correction():
+    start, end = local(2026, 10, 1), local(2026, 11, 1)
+    data = MonitorData(
+        sessions=[session(local(2026, 10, 5, 3), 10.0, 9.0),
+                  session(local(2026, 10, 31, 23, 50), 2.0)],  # interval belongs to October
+        trips=[trip(local(2026, 10, 6, 7), 50, 8.0, 4.0), trip(local(2026, 10, 7, 7), 50, 7.0, 12.0)],
+        external=[ExternalCharge("e1", date(2026, 10, 10), "public", 5.0, cost_eur=3.0)],
+        odometer_readings=[Reading(local(2026, 9, 30, 20), 1000), Reading(local(2026, 10, 31, 20),
+                                                                         1100)],
+        soc_log=[Reading(local(2026, 9, 30, 22), 60), Reading(local(2026, 10, 31, 22), 80)],
+        days_seen=set(),
+    )
+    month = period_summary(data, start, end, prices=PRICES, capacity_kwh=16.7, efficiency=0.88,
+                           odometer_source="manual")
+    assert month["home_energy_kwh"] == pytest.approx(12.0)
+    assert month["external_energy_kwh"] == pytest.approx(5.0)
+    assert month["distance_km"] == pytest.approx(100)
+    assert month["delta_soc_pct"] == pytest.approx(20)
+    # Ladeverlust nur aus Sessions mit gemessener Fahrzeugenergie: 10 − 9.
+    assert month["charging_loss_kwh"] == pytest.approx(1.0)
+    assert month["charging_loss_pct"] == pytest.approx(10.0)
+    # (17 − 0.2·16.7/0.88) / 100 km · 100
+    assert month["grid_consumption_kwh_100km"] == pytest.approx(17 - 0.2 * 16.7 / 0.88, rel=1e-3)
+    assert month["cost_eur"] == pytest.approx(12 * 0.30 + 3.0)
+    assert month["quality"] == "GOOD"
+    assert month["outside_temp_avg_c"] == pytest.approx(8.0)
+
+
+def test_missing_soc_marks_estimated_and_external_not_in_home_bill():
+    data = MonitorData([], [], [ExternalCharge("e", date(2026, 10, 2), "workplace", 7.0)], [],
+                       [], set())
+    month = period_summary(data, local(2026, 10, 1), local(2026, 11, 1), prices=PRICES,
+                           capacity_kwh=16.7, efficiency=0.88, odometer_source="manual")
+    assert month["home_energy_kwh"] == 0
+    assert month["external_energy_kwh"] == 7.0
+    assert month["quality"] == "ESTIMATED"
+
+
+def test_price_change_keeps_old_month():
+    prices = FixedPriceHistory([PricePoint(date(2026, 1, 1), 0.30),
+                                PricePoint(date(2026, 11, 1), 0.40)], TZ)
+    data = MonitorData([session(local(2026, 10, 5, 3), 10.0)], [], [], [], [], set())
+    month = period_summary(data, local(2026, 10, 1), local(2026, 11, 1), prices=prices,
+                           capacity_kwh=16.7, efficiency=0.88, odometer_source="manual")
+    assert month["home_cost_eur"] == pytest.approx(3.0)
+
+
+def test_temperature_groups():
+    stats = temperature_statistics(
+        [trip(local(2026, 1, 6, 7), 20, 4.0, -3.0), trip(local(2026, 7, 7, 7), 20, 2.4, 22.0)],
+        loss_pct=10, price_eur_kwh=0.3)
+    assert stats["bands"]["<0"]["vehicle_kwh_100km"] == pytest.approx(20)
+    assert stats["bands"][">=20"]["distance_km"] == 20
+    assert stats["bands"]["<0"]["recuperation_share_pct"] == pytest.approx(10)
+    assert stats["bands"]["<0"]["quality"] == "ESTIMATED"
+
+
+def test_monitor_round_trip():
+    monitor = Monitor(TZ)
+    monitor.add_session(session(local(2026, 10, 5, 3), 10.0))
+    monitor.add_external(ExternalCharge("e1", date(2026, 10, 10), "public", 5.0))
+    monitor.add_odometer(local(2026, 10, 1), 1000)
+    monitor.record_soc(local(2026, 10, 1, 1), 50)
+    monitor.record_soc(local(2026, 10, 1, 1, 30), 55)  # replaces, same hour
+    monitor.record_day(date(2026, 10, 1))
+    copy = Monitor(TZ)
+    copy.restore(monitor.as_dict())
+    assert copy.as_dict() == monitor.as_dict()
+    assert len(copy.data.soc_log) == 1
+    assert copy.delete_external("e1")
+
+
+# ---------------------------------------------------------------- climate
+
+def test_climate_profiles_and_blockers():
+    settings = Settings.from_options({"climate_enabled": True, "ovms_enabled": True})
+    now = local(2026, 1, 10, 6, 0)
+    assert planned_duration("auto", v(-5.0, now), settings) == 15
+    assert planned_duration("auto", v(20.0, now), settings) == 0
+    assert planned_duration("auto", v(30.0, now), settings) == 10
+    assert planned_duration("10", v(20.0, now), settings) == 10
+    assert planned_duration("off", v(-5.0, now), settings) == 0
+    assert homelink_level(15) == 3
+    request = climate_request(local(2026, 1, 10, 7, 0), 10)
+    assert request.start_at == local(2026, 1, 10, 6, 48)
+    assert climate_blocker(v(30.0, now), settings, False) == "SOC_TOO_LOW"
+    assert climate_blocker(v(50.0, now, Quality.LAST_KNOWN_VALID), settings, False) is None
+    assert climate_blocker(v(50.0, now), settings, True) == "HEALTH_NOT_HEALTHY"
+
+
+def test_settings_defaults_follow_masterplan():
+    s = Settings.from_options({})
+    assert s.charge_efficiency == 0.88
+    assert s.loss_timeout_s == 180
+    assert s.safety_margin_min == 20
+    assert s.mode == "dry_run"
+    assert s.grid_limit_kw is None
+    assert Settings.from_options({"grid_limit_kw": 4.2}).grid_limit_kw == 4.2

@@ -20,6 +20,7 @@ class CommandKind(StrEnum):
     CP_PULSE = "cp_pulse"
     CP_CLOSE = "cp_close"
     CLIMATE_START = "climate_start"
+    CLIMATE_STOP = "climate_stop"
 
 
 @dataclass(frozen=True, slots=True)

@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from .model import Desired, Quality, Reason, Value
@@ -69,6 +70,45 @@ class WeeklySchedule:
     ready_buffer_min: int = 30
     minimum_departure_soc_pct: int = 80
     preferred_departure_soc_pct: int = 90
+    climate: str = "auto"
+    name: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name or self.id,
+            "enabled": self.enabled,
+            "weekdays": [d for d in WEEKDAYS if d in self.weekdays],
+            "mode": str(self.mode),
+            "charge_start_time": self.charge_start_time.strftime("%H:%M"),
+            "departure_time": self.departure_time.strftime("%H:%M"),
+            "ready_buffer_min": self.ready_buffer_min,
+            "minimum_departure_soc_pct": self.minimum_departure_soc_pct,
+            "preferred_departure_soc_pct": self.preferred_departure_soc_pct,
+            "climate": self.climate,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WeeklySchedule:
+        minimum = int(data.get("minimum_departure_soc_pct", 80))
+        preferred = max(minimum, int(data.get("preferred_departure_soc_pct", 90)))
+        days = frozenset(d for d in data.get("weekdays", WEEKDAYS[:5]) if d in WEEKDAYS)
+        return cls(
+            id=str(data["id"]),
+            name=str(data.get("name") or data["id"]),
+            enabled=bool(data.get("enabled", True)),
+            weekdays=days,
+            mode=ScheduleMode(data.get("mode", ScheduleMode.DEPARTURE_BASED)),
+            charge_start_time=time.fromisoformat(str(data.get("charge_start_time", "03:00"))),
+            departure_time=time.fromisoformat(str(data.get("departure_time", "05:30"))),
+            ready_buffer_min=int(data.get("ready_buffer_min", 30)),
+            minimum_departure_soc_pct=minimum,
+            preferred_departure_soc_pct=preferred,
+            climate=str(data.get("climate", "auto")),
+        )
+
+
+DEFAULT_PLAN = WeeklySchedule(id="plan-werktage", name="Werktage")
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,9 +122,52 @@ class OneShot:
     minimum_departure_soc_pct: int = 80
     preferred_departure_soc_pct: int = 90
     id: str = "one-shot"
+    climate: str = "auto"
 
     def expired(self, now: datetime) -> bool:
         return now >= self.departure_at
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "departure_at": self.departure_at.isoformat(),
+            "mode": str(self.mode),
+            "charge_start_time": self.charge_start_time.isoformat(),
+            "ready_buffer_min": self.ready_buffer_min,
+            "minimum_departure_soc_pct": self.minimum_departure_soc_pct,
+            "preferred_departure_soc_pct": self.preferred_departure_soc_pct,
+            "climate": self.climate,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OneShot:
+        return cls(
+            departure_at=datetime.fromisoformat(data["departure_at"]),
+            mode=ScheduleMode(data["mode"]),
+            charge_start_time=time.fromisoformat(data["charge_start_time"]),
+            ready_buffer_min=int(data["ready_buffer_min"]),
+            minimum_departure_soc_pct=int(data["minimum_departure_soc_pct"]),
+            preferred_departure_soc_pct=int(data["preferred_departure_soc_pct"]),
+            climate=str(data.get("climate", "auto")),
+        )
+
+    @classmethod
+    def for_next(cls, plan: WeeklySchedule, now: datetime, tz: ZoneInfo,
+                 departure_time: time | None = None) -> OneShot:
+        """"Charge tonight": the next occurrence of the plan's departure time, any weekday."""
+        local = now.astimezone(tz)
+        at = departure_time or plan.departure_time
+        departure = _local(local.date(), at, tz)
+        if departure <= now:
+            departure = _local(local.date() + timedelta(days=1), at, tz)
+        return cls(
+            departure_at=departure,
+            mode=plan.mode,
+            charge_start_time=plan.charge_start_time,
+            ready_buffer_min=plan.ready_buffer_min,
+            minimum_departure_soc_pct=plan.minimum_departure_soc_pct,
+            preferred_departure_soc_pct=plan.preferred_departure_soc_pct,
+            climate=plan.climate,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +194,26 @@ class ManualOverride:
             return soc.quality is Quality.GOOD and float(soc.normalized) >= self.target_soc
         return False
 
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "mode": str(self.mode),
+            "started_at": self.started_at.isoformat(),
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "target_soc": self.target_soc,
+            "source": str(self.source),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ManualOverride:
+        return cls(
+            mode=OverrideMode(data["mode"]),
+            started_at=datetime.fromisoformat(data["started_at"]),
+            expires_at=datetime.fromisoformat(data["expires_at"]) if data.get("expires_at")
+            else None,
+            target_soc=data.get("target_soc"),
+            source=Reason(data.get("source", Reason.OVERRIDE)),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class Estimate:
@@ -122,6 +225,7 @@ class Estimate:
     expected_soc_at_departure: float | None
     minimum_reachable: bool | None
     preferred_reachable: bool | None
+    finish_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +239,12 @@ class ChargeWindow:
     minimum_soc_pct: int
     preferred_soc_pct: int
     estimate: Estimate = field(default_factory=lambda: Estimate(None, None, None, None, None, None))
+    climate: str = "auto"
+    name: str = ""
+
+    @property
+    def key(self) -> str:
+        return f"{self.source_id}@{self.departure.isoformat()}"
 
     def contains(self, now: datetime) -> bool:
         return self.start <= now < self.departure
@@ -184,7 +294,8 @@ def _estimate(
     hours = max(0.0, (ready_at - charge_from).total_seconds() / 3600)
     gained_pct = hours * params.expected_power_kw * params.charge_efficiency \
         / params.usable_capacity_kwh * 100
-    expected = min(100.0, soc_pct + gained_pct)
+    # The target-SOC shutdown stops charging at the preferred SOC.
+    expected = min(100.0, soc_pct + gained_pct, max(soc_pct, float(preferred_pct)))
     return Estimate(
         soc_pct=soc_pct,
         needed_kwh=round(needed_kwh, 2),
@@ -192,6 +303,7 @@ def _estimate(
         expected_soc_at_departure=round(expected, 1),
         minimum_reachable=expected >= minimum_pct,
         preferred_reachable=expected >= preferred_pct,
+        finish_at=charge_from + duration,
     )
 
 
@@ -209,6 +321,8 @@ def _window(
     tz: ZoneInfo,
     soc: Value | None,
     params: VehicleParams,
+    climate: str = "auto",
+    name: str = "",
 ) -> ChargeWindow:
     ready_at = departure - timedelta(minutes=ready_buffer_min)
     soc_usable = soc is not None and soc.quality.usable_for_planning
@@ -232,6 +346,8 @@ def _window(
         minimum_soc_pct=minimum_pct,
         preferred_soc_pct=preferred_pct,
         estimate=estimate,
+        climate=climate,
+        name=name or source_id,
     )
 
 
@@ -259,6 +375,8 @@ def schedule_window(
         tz=tz,
         soc=soc,
         params=params,
+        climate=schedule.climate,
+        name=schedule.name,
     )
 
 
@@ -280,6 +398,8 @@ def one_shot_window(
         tz=tz,
         soc=soc,
         params=params,
+        climate=one_shot.climate,
+        name="Heute Nacht",
     )
 
 

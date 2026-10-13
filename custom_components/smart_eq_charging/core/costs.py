@@ -67,14 +67,14 @@ class IntervalAccumulator:
     def __init__(self, interval_min: int = 15) -> None:
         self.interval_min = interval_min
         self.intervals: list[EnergyInterval] = []
-        self._last_kwh: float | None = None
+        self.last_kwh: float | None = None
 
     def add(self, moment: datetime, total_kwh: float) -> None:
-        if self._last_kwh is None or total_kwh < self._last_kwh:
-            self._last_kwh = total_kwh
+        if self.last_kwh is None or total_kwh < self.last_kwh:
+            self.last_kwh = total_kwh
             return
-        delta = total_kwh - self._last_kwh
-        self._last_kwh = total_kwh
+        delta = total_kwh - self.last_kwh
+        self.last_kwh = total_kwh
         if delta <= 0:
             return
         start = interval_start(moment, self.interval_min)

@@ -26,6 +26,7 @@ class HealthInputs:
     ovms_configured: bool = False
     ovms_available: bool | None = None
     soc_stale: bool = False
+    temperature_missing: bool = False
     halo_internal_schedule_on: bool | None = None
     shelly_auto_on_ok: bool | None = None
     consecutive_start_failures: int = 0
@@ -79,6 +80,8 @@ def evaluate(inputs: HealthInputs) -> Health:
             degraded.append("OVMS_OFFLINE")
         if inputs.soc_stale:
             degraded.append("SOC_STALE")
+    if inputs.temperature_missing:
+        degraded.append("TEMPERATURE_MISSING")
 
     if inputs.consecutive_start_failures >= REPEATED_START_FAILURES:
         errors.append("REPEATED_START_FAILURE")

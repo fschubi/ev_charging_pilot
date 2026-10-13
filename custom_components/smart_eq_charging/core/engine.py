@@ -1,0 +1,619 @@
+"""Engine: one complete, HA-free control tick (§4).
+
+``Engine.tick(now, raw)`` turns raw entity states into quality-tagged values,
+lets the planners and the arbiter compute the desired state, evaluates
+health, runs the executor and the monitor, and returns commands, events,
+finished sessions/trips and push intents. The Home Assistant coordinator and
+the replay runner both drive exactly this class.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime, time, timedelta
+from typing import Any
+from zoneinfo import ZoneInfo
+
+from .arbiter import DEFAULT_OFF, HANDS_OFF, arbitrate
+from .climate import climate_blocker, climate_request, climate_wish, planned_duration
+from .costs import FixedPriceHistory
+from .executor import ExecState, Executor, ExecutorConfig, Snapshot, StepResult
+from .health import Health, HealthInputs, HealthStatus, evaluate
+from .inputs import Inp, RawState, to_value
+from .model import Category, ClimateRequest, Desired, Event, Quality, Reason, Severity, Value
+from .monitor import Monitor
+from .planner import (
+    DEFAULT_PLAN,
+    ChargeWindow,
+    ManualOverride,
+    OneShot,
+    OverrideMode,
+    VehicleParams,
+    WeeklySchedule,
+    one_shot_window,
+    override_wish,
+    schedule_window,
+    target_soc_wish,
+    window_wish,
+)
+from .ports import Command, CommandKind
+from .quality import QualityRule, charging_conflict, classify, non_negative, soc_plausible
+from .sessions import ChargeSession, SessionTracker
+from .settings import ClimateAfterTarget, OdometerSource, Settings
+from .source_policy import HvCycleMonitor, mark_conflict, outside_temperature, vehicle_charging
+from .trips import Trip, TripTracker
+
+HEALTH_PUSH_DEBOUNCE_S = 300
+ENFORCE_TARGET_MARGIN_PCT = 1
+REMINDER_HORIZON = timedelta(hours=12)
+CP_REASONS = ("CP_NOT_RESTORED", "CP_STATE_UNKNOWN", "CP_OPEN")
+
+
+@dataclass(frozen=True, slots=True)
+class Notification:
+    """A push intent (§8.3). The HA side decides how to deliver it."""
+
+    category: str
+    priority: str
+    title: str
+    message: str
+    actionable: bool = False
+
+
+@dataclass(slots=True)
+class TickResult:
+    commands: list[Command] = field(default_factory=list)
+    events: list[Event] = field(default_factory=list)
+    sessions: list[ChargeSession] = field(default_factory=list)
+    trips: list[Trip] = field(default_factory=list)
+    notifications: list[Notification] = field(default_factory=list)
+
+    def extend(self, other: StepResult) -> None:
+        self.commands += other.commands
+        self.events += other.events
+
+
+@dataclass(frozen=True, slots=True)
+class EngineConfig:
+    settings: Settings
+    tz: ZoneInfo
+    configured: frozenset[Inp]
+    cp_pulse_available: bool = False
+
+    @property
+    def cp_configured(self) -> bool:
+        return Inp.CP_RELAY in self.configured
+
+    @property
+    def ovms_configured(self) -> bool:
+        return Inp.OVMS_SOC in self.configured
+
+
+class Engine:
+    def __init__(self, config: EngineConfig, monitor: Monitor | None = None) -> None:
+        self.config = config
+        self.settings = config.settings
+        self.tz = config.tz
+        self.executor = Executor(ExecutorConfig.from_settings(
+            config.settings, cp_available=config.cp_configured and config.cp_pulse_available))
+        self.monitor = monitor or Monitor(config.tz)
+        self.sessions = SessionTracker(config.settings.interval_min)
+        self.trips = TripTracker(config.settings.trip_merge_gap_min, config.tz)
+        self.hv = HvCycleMonitor(config.settings.hv_cycles_warn_per_day)
+        self.prices = FixedPriceHistory(config.settings.price_history, config.tz)
+
+        self.plans: list[WeeklySchedule] = [DEFAULT_PLAN]
+        self.override: ManualOverride | None = None
+        self.one_shot: OneShot | None = None
+        self.manual_climate: ClimateRequest | None = None
+        self.automation_enabled = True
+
+        self.values: dict[Inp, Value] = {}
+        self.soc: Value = Value.unavailable("ovms")
+        self.outside: Value = Value.unavailable("none")
+        self.health = Health(HealthStatus.HEALTHY)
+        self.desired: Desired | None = None
+        self.windows: list[ChargeWindow] = []
+        self.active_window: ChargeWindow | None = None
+        self.next_window: ChargeWindow | None = None
+        self.climate_plan: ClimateRequest | None = None
+        self.climate_blocked: str | None = None
+        self.data_conflict = False
+        self.last_activity_at: datetime | None = None
+        self.last_result: dict[str, Any] | None = None
+
+        self._latched_starts: dict[str, datetime] = {}
+        self._cable: bool | None = None
+        self._reminder_day: date | None = None
+        self._health_candidate: tuple[HealthStatus, datetime] | None = None
+        self._health_notified = HealthStatus.HEALTHY
+        self._cp_alarm = False
+        self._was_conflict = False
+        self.shelly_config_ok: bool | None = None
+
+    # ================================================================ tick
+
+    def tick(self, now: datetime, raw: dict[Inp, RawState | None]) -> TickResult:
+        result = TickResult()
+        self._read_values(now, raw)
+        values = self.values
+
+        cable = values[Inp.CABLE_CONNECTED]
+        cable_flag = bool(cable.normalized) if cable.available else None
+        plugged_in_event = self._cable is False and cable_flag is True \
+            and not self.executor.cp_masked(now)
+        if cable_flag is not None and cable_flag != self._cable \
+                and not self.executor.cp_masked(now):
+            self.last_activity_at = now
+            self._cable = cable_flag
+
+        self._expire(now, cable_flag)
+        self._plan(now)
+
+        self.health = evaluate(self._health_inputs(now))
+        self._climate(now)
+        self.desired = self._arbitrate(now, cable_flag is True)
+
+        result.extend(self.executor.step(Snapshot(
+            now=now,
+            desired=self.desired,
+            health=self.health,
+            cable_connected=cable,
+            charger_on=values[Inp.CHARGER_ENABLE],
+            power_w=values[Inp.CHARGE_POWER],
+            charger_status=values[Inp.CHARGER_STATUS]
+            if values[Inp.CHARGER_STATUS].available else None,
+            cp_relay_on=values[Inp.CP_RELAY] if self.config.cp_configured else None,
+            vehicle_charging=self._vehicle_charging,
+            vehicle_charge_finished=self._vehicle_finished(),
+        )))
+        self._monitor(now, result)
+        self._notifications(now, result, plugged_in_event, cable_flag)
+        if self.data_conflict and not self._was_conflict:
+            result.events.append(Event(now, Category.HEALTH, Severity.WARNING, "DATA_CONFLICT",
+                                       "Halo und OVMS widersprechen sich beim Ladezustand"))
+        return result
+
+    # ------------------------------------------------------------- values
+
+    def _read_values(self, now: datetime, raw: dict[Inp, RawState | None]) -> None:
+        s = self.settings
+        ages = s.max_ages
+        values = {key: to_value(key, raw.get(key)) if key in self.config.configured
+                  else Value.unavailable("none") for key in Inp}
+
+        power = values[Inp.CHARGE_POWER]
+        if power.available and power.normalized is not None \
+                and float(power.normalized) > s.power_threshold_w:
+            self.last_activity_at = now
+        vehicle_on = values[Inp.OVMS_VEHICLE_ON]
+        if vehicle_on.available and vehicle_on.normalized:
+            self.last_activity_at = now
+
+        def rule(age, plausible=None):
+            return QualityRule(max_age_s=age, plausible=plausible)
+
+        # A value from a sleeping car keeps LAST_KNOWN_VALID until activity (§7.2).
+        for key, r in (
+            (Inp.OVMS_SOC, rule(ages.soc_s, soc_plausible)),
+            (Inp.OVMS_SOH, rule(ages.odometer_s, soc_plausible)),
+            (Inp.OVMS_RANGE, rule(ages.soc_s, non_negative)),
+            (Inp.OVMS_ODOMETER, rule(ages.odometer_s, non_negative)),
+            (Inp.OVMS_CHARGING, rule(ages.vehicle_charging_s)),
+            (Inp.OVMS_CHARGE_POWER, rule(ages.vehicle_charging_s)),
+            (Inp.OVMS_VEHICLE_ON, rule(ages.vehicle_charging_s)),
+            (Inp.OVMS_BATTERY_TEMP, rule(ages.temperature_s)),
+            (Inp.OVMS_OUTSIDE_TEMP, rule(ages.temperature_s)),
+            (Inp.OVMS_HV_CYCLES, rule(ages.odometer_s, non_negative)),
+            (Inp.OVMS_ENERGY_USED, rule(ages.odometer_s)),
+            (Inp.OVMS_ENERGY_RECD, rule(ages.odometer_s)),
+            (Inp.OVMS_AUX_CONSUMPTION, rule(ages.odometer_s)),
+            (Inp.OVMS_12V, rule(ages.temperature_s)),
+        ):
+            values[key] = classify(values[key], now, r, self.last_activity_at)
+        for key, r in (
+            (Inp.OUTSIDE_TEMP, rule(ages.temperature_s)),
+            (Inp.WEATHER, rule(ages.temperature_s * 4)),
+            (Inp.TOTAL_ENERGY, rule(ages.halo_energy_s, non_negative)),
+        ):
+            values[key] = classify(values[key], now, r)
+        # The Halo power is the stability signal; the polling interval decides
+        # how old it may be (§7.3). Other Halo values keep their raw quality.
+        values[Inp.CHARGE_POWER] = classify(power, now, rule(ages.halo_power_s, non_negative))
+
+        self._was_conflict = self.data_conflict
+        self.data_conflict = charging_conflict(
+            values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING], s.power_threshold_w)
+        if self.data_conflict:
+            values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING] = mark_conflict(
+                values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING])
+            # The executor still needs the raw power samples to measure stability.
+            values[Inp.CHARGE_POWER] = values[Inp.CHARGE_POWER].with_quality(Quality.CONFLICT)
+
+        self.values = values
+        self.soc = values[Inp.OVMS_SOC]
+        self.outside = outside_temperature(
+            values[Inp.OVMS_OUTSIDE_TEMP], values[Inp.OUTSIDE_TEMP], values[Inp.WEATHER])
+        self._vehicle_charging = vehicle_charging(
+            values[Inp.OVMS_CHARGING], values[Inp.CHARGE_POWER], s.power_threshold_w)
+
+    def _vehicle_finished(self) -> bool:
+        """OVMS reports the charge has ended (§6.3 step 1)."""
+        charging = self.values[Inp.OVMS_CHARGING]
+        return charging.quality is Quality.GOOD and charging.normalized is False \
+            and self.soc.quality is Quality.GOOD
+
+    # ------------------------------------------------------------ planning
+
+    def _params(self) -> VehicleParams:
+        s = self.settings
+        return VehicleParams(
+            usable_capacity_kwh=s.usable_capacity_kwh,
+            charge_efficiency=s.charge_efficiency,
+            halo_limit_kw=s.max_power_kw,
+            vehicle_charger_kw=s.vehicle_charger_kw,
+            grid_limit_kw=s.grid_limit_kw,
+            safety_reserve_min=s.safety_margin_min,
+        )
+
+    def _expire(self, now: datetime, cable: bool | None) -> None:
+        if self.override and self.override.expired(now, cable is not False, self.soc):
+            self.override = None
+        if self.one_shot and self.one_shot.expired(now):
+            self.one_shot = None
+        if self.manual_climate and now >= self.manual_climate.until:
+            self.manual_climate = None
+
+    def _latch(self, window: ChargeWindow | None, now: datetime) -> ChargeWindow | None:
+        """Once a window has started its start is frozen.
+
+        Otherwise a rising SOC would shorten the computed duration, push the
+        start past ``now`` and stop the running charge.
+        """
+        if window is None:
+            return None
+        latched = self._latched_starts.get(window.key)
+        if latched is not None:
+            return replace(window, start=latched)
+        if window.start <= now:
+            self._latched_starts[window.key] = window.start
+        return window
+
+    def _plan(self, now: datetime) -> None:
+        params = self._params()
+        windows = [self._latch(schedule_window(p, now, self.tz, self.soc, params), now)
+                   for p in self.plans if p.enabled]
+        if self.one_shot:
+            windows.insert(0, self._latch(
+                one_shot_window(self.one_shot, now, self.tz, self.soc, params), now))
+        self.windows = [w for w in windows if w is not None]
+        self.active_window = next((w for w in self.windows if w.contains(now)), None)
+        upcoming = sorted(self.windows, key=lambda w: w.start)
+        self.next_window = self.active_window or (upcoming[0] if upcoming else None)
+        keep = {w.key for w in self.windows}
+        self._latched_starts = {k: v for k, v in self._latched_starts.items() if k in keep}
+        self.executor.prune_expired(now)
+
+    def _climate(self, now: datetime) -> None:
+        """Planned climate for the next departure (§9.2)."""
+        self.climate_plan = None
+        if self.manual_climate is not None:
+            self.climate_plan = self.manual_climate
+        elif self.next_window is not None and self.automation_enabled:
+            minutes = planned_duration(self.next_window.climate, self.outside, self.settings)
+            self.climate_plan = climate_request(self.next_window.departure, minutes)
+        degraded = self.health.status is not HealthStatus.HEALTHY
+        self.climate_blocked = climate_blocker(self.soc, self.settings, degraded) \
+            if self.climate_plan else None
+
+    def _arbitrate(self, now: datetime, plugged_in: bool) -> Desired:
+        s = self.settings
+        climate_req = self.climate_plan if self.climate_blocked is None else None
+        climate_running = climate_req is not None and climate_req.start_at <= now < \
+            climate_req.until
+        wishes: list[Desired | None] = [override_wish(self.override)]
+        if self.manual_climate is not None and climate_req is not None:
+            wishes.append(climate_wish(climate_req, now, plugged_in, "manual"))
+        if self.automation_enabled:
+            one_shot = next((w for w in self.windows if w.reason is Reason.ONE_SHOT), None)
+            wishes.append(window_wish(one_shot, now))
+            target = self.active_window.preferred_soc_pct if self.active_window else None
+            soc = None if self.health.blocks_soc_functions else self.soc
+            topup = climate_running and s.climate_after_target is ClimateAfterTarget.ALLOW_TOPUP
+            if climate_running and s.climate_after_target is ClimateAfterTarget.ENFORCE_TARGET \
+                    and target is not None:
+                target += ENFORCE_TARGET_MARGIN_PCT
+            wishes.append(target_soc_wish(soc, target, climate_topup_active=topup))
+            if self.manual_climate is None:
+                wishes.append(climate_wish(climate_req, now, plugged_in, "plan"))
+            wishes += [window_wish(w, now) for w in self.windows if w.reason is Reason.SCHEDULE]
+        return arbitrate(
+            wishes,
+            safety_lock=self.health.blocks_automation,
+            default=DEFAULT_OFF if self.automation_enabled else HANDS_OFF,
+        )
+
+    # -------------------------------------------------------------- health
+
+    def _health_inputs(self, now: datetime) -> HealthInputs:
+        v = self.values
+        cfg = self.config
+        relay = v[Inp.CP_RELAY]
+        schedule = v[Inp.INTERNAL_SCHEDULE]
+        needs_temperature = self.settings.climate_enabled and any(
+            w.climate == "auto" for w in self.windows)
+        return HealthInputs(
+            halo_available=v[Inp.CHARGER_ENABLE].available,
+            in_charge_window=self.active_window is not None,
+            cp_configured=cfg.cp_configured,
+            shelly_available=relay.available if cfg.cp_configured else None,
+            cp_relay_on=bool(relay.normalized) if relay.available else None,
+            cp_pulse_running=self.executor.cp_masked(now),
+            cp_not_restored=self.executor.cp_not_restored,
+            ovms_configured=cfg.ovms_configured,
+            ovms_available=v[Inp.OVMS_SOC].quality is not Quality.UNAVAILABLE
+            if cfg.ovms_configured else None,
+            soc_stale=self.soc.quality is Quality.STALE,
+            temperature_missing=needs_temperature and not self.outside.available,
+            halo_internal_schedule_on=bool(schedule.normalized) if schedule.available else None,
+            shelly_auto_on_ok=self.shelly_config_ok,
+            consecutive_start_failures=self.executor.consecutive_start_failures,
+        )
+
+    # ------------------------------------------------------------- monitor
+
+    def _monitor(self, now: datetime, result: TickResult) -> None:
+        v = self.values
+        local_day = now.astimezone(self.tz).date()
+        self.monitor.record_day(local_day)
+
+        if self.executor.state is ExecState.CHARGING and self.sessions.open is None:
+            # Restart during a session: reopen it from the Halo counter (§6.5).
+            result.events.append(Event(now, Category.CHARGING, Severity.INFO, "SESSION_RESUMED",
+                                       "Laufende Ladung nach Neustart übernommen",
+                                       self.executor.session_id))
+            self.sessions.update(now, [Event(now, Category.CHARGING, Severity.INFO,
+                                             "CHARGE_STABLE", "", self.executor.session_id)],
+                                 total_energy=v[Inp.TOTAL_ENERGY], power=v[Inp.CHARGE_POWER],
+                                 vehicle_power=v[Inp.OVMS_CHARGE_POWER], soc=self.soc,
+                                 reason=self.desired.reason if self.desired else None,
+                                 prices=self.prices)
+        if self.sessions.open is not None and self.executor.session_id is None \
+                and self.executor.state is ExecState.CHARGING:
+            self.executor.session_id = self.sessions.open.session_id
+
+        closed = self.sessions.update(
+            now, result.events,
+            total_energy=v[Inp.TOTAL_ENERGY], power=v[Inp.CHARGE_POWER],
+            vehicle_power=v[Inp.OVMS_CHARGE_POWER], soc=self.soc,
+            reason=self.desired.reason if self.desired else None, prices=self.prices,
+        )
+        for session in closed:
+            self.monitor.add_session(session)
+            self.last_result = {
+                "at": (session.ended_at or now).isoformat(),
+                "success": session.success,
+                "failure_code": session.failure_code,
+                "energy_kwh": session.grid_energy_kwh,
+                "session_id": session.session_id,
+            }
+        result.sessions += closed
+
+        trips = self.trips.update(
+            now,
+            vehicle_on=v[Inp.OVMS_VEHICLE_ON],
+            odometer=v[Inp.OVMS_ODOMETER],
+            energy_used=v[Inp.OVMS_ENERGY_USED],
+            energy_recd=v[Inp.OVMS_ENERGY_RECD],
+            aux=v[Inp.OVMS_AUX_CONSUMPTION],
+            soc=self.soc,
+            outside_temp=self.outside,
+        )
+        for trip in trips:
+            self.monitor.add_trip(trip)
+        result.trips += trips
+
+        if self.soc.quality is Quality.GOOD:
+            self.monitor.record_soc(now, float(self.soc.normalized))
+        odometer = v[Inp.OVMS_ODOMETER]
+        if odometer.quality is Quality.GOOD and \
+                self.settings.odometer_source is OdometerSource.OVMS:
+            readings = self.monitor.data.odometer_readings
+            if not readings or readings[-1].at.astimezone(self.tz).date() != local_day \
+                    or float(odometer.normalized) - readings[-1].value >= 1:
+                self.monitor.add_odometer(now, float(odometer.normalized))
+
+        active = self.executor.state is ExecState.CHARGING or bool(
+            v[Inp.OVMS_VEHICLE_ON].normalized)
+        for code in self.hv.update(v[Inp.OVMS_HV_CYCLES], local_day, active):
+            message = ("HV-Kontaktor geschaltet, ohne dass das Auto lud oder fuhr"
+                       if code == "HV_CYCLE_WITHOUT_ACTIVITY"
+                       else f"Mehr als {self.hv.warn_per_day} HV-Zyklen heute")
+            result.events.append(Event(now, Category.HEALTH, Severity.WARNING, code, message))
+
+    # ------------------------------------------------------- notifications
+
+    def _notifications(self, now: datetime, result: TickResult, plugged_in: bool,
+                       cable: bool | None) -> None:
+        n = self.settings.notify
+        out = result.notifications
+        for event in result.events:
+            if event.code in ("CHARGE_START_FAILED", "CHARGER_NOT_CONFIRMED") \
+                    and event.severity is Severity.ERROR and n.start_failed:
+                out.append(Notification("start_failed", "high", "Ladestart fehlgeschlagen",
+                                        event.message))
+            elif event.code == "CHARGE_INTERRUPTED" and n.start_failed:
+                out.append(Notification("start_failed", "high", "Ladung abgebrochen",
+                                        event.message))
+            elif event.code == "CP_NOT_RESTORED" and n.cp:
+                out.append(Notification("cp", "critical", "CP nicht zurückgestellt",
+                                        "Shelly-Relais nach dem Puls nicht geschlossen – prüfen!"))
+            elif event.code.startswith("HV_CYCLE") and n.hv_cycles:
+                out.append(Notification("hv_cycles", "normal", "HV-Kontaktor auffällig",
+                                        event.message))
+
+        # CP state unknown/open: immediate and critical, not debounced (§8.3).
+        cp_alarm = any(r in CP_REASONS for r in self.health.reasons)
+        if cp_alarm and not self._cp_alarm and n.cp and \
+                "CP_NOT_RESTORED" not in self.health.reasons:
+            out.append(Notification("cp", "critical", "CP-Zustand unbekannt",
+                                    f"CP-Zustand: {', '.join(self.health.reasons)}"))
+        self._cp_alarm = cp_alarm
+        self._health_push(now, result)
+
+        if plugged_in and self.active_window is None and n.plug_in_action:
+            out.append(Notification("plug_in_action", "normal", "Smart EQ eingesteckt",
+                                    "Wie soll geladen werden?", actionable=True))
+            result.events.append(Event(now, Category.USER, Severity.INFO, "PLUGGED_IN",
+                                       "Eingesteckt – Auswahl per Push angeboten"))
+
+        local = now.astimezone(self.tz)
+        reminder = self.settings.plug_reminder_time
+        if local.time() >= reminder and self._reminder_day != local.date():
+            self._reminder_day = local.date()
+            upcoming = self.next_window
+            if upcoming and upcoming.start - now <= REMINDER_HORIZON:
+                if cable is False and n.plug_reminder:
+                    out.append(Notification("plug_reminder", "normal", "Nicht eingesteckt",
+                                            f"Plan „{upcoming.name}“ ist aktiv, aber das "
+                                            "Kabel steckt nicht."))
+                elif upcoming.estimate.minimum_reachable is False and n.plan_infeasible:
+                    out.append(Notification(
+                        "plan_infeasible", "normal", "Mindest-SOC nicht erreichbar",
+                        f"Erwartet {upcoming.estimate.expected_soc_at_departure:.0f} % bei "
+                        f"Abfahrt, Minimum {upcoming.minimum_soc_pct} %."))
+
+    def _health_push(self, now: datetime, result: TickResult) -> None:
+        """Health changes are pushed after five stable minutes (§8.3)."""
+        status = self.health.status
+        if status == self._health_notified:
+            self._health_candidate = None
+            return
+        if self._health_candidate is None or self._health_candidate[0] != status:
+            self._health_candidate = (status, now)
+            return
+        if (now - self._health_candidate[1]).total_seconds() < HEALTH_PUSH_DEBOUNCE_S:
+            return
+        self._health_notified = status
+        self._health_candidate = None
+        reasons = ", ".join(self.health.reasons) or "ok"
+        result.events.append(Event(
+            now, Category.HEALTH,
+            Severity.INFO if status is HealthStatus.HEALTHY else Severity.WARNING,
+            f"HEALTH_{status}", f"System-Health: {status} ({reasons})"))
+        if status is not HealthStatus.HEALTHY and self.settings.notify.health:
+            result.notifications.append(Notification(
+                "health", "high" if status is HealthStatus.ERROR else "normal",
+                f"System-Health {status}", reasons))
+
+    # ======================================================== user actions
+
+    def _user_event(self, now: datetime, code: str, message: str, **data: Any) -> TickResult:
+        return TickResult(events=[Event(now, Category.USER, Severity.INFO, code, message,
+                                        data=data)])
+
+    def set_override(self, now: datetime, mode: OverrideMode, *,
+                     expires_at: datetime | None = None, target_soc: int | None = None,
+                     source: Reason = Reason.OVERRIDE) -> TickResult:
+        """Manual override (§5.3); never bypasses health locks or the cooldown."""
+        if mode is OverrideMode.DURATION and expires_at is None:
+            raise ValueError("duration override needs expires_at")
+        if mode is OverrideMode.UNTIL_TIME and expires_at is None:
+            raise ValueError("until_time override needs expires_at")
+        if mode is OverrideMode.UNTIL_SOC and target_soc is None:
+            raise ValueError("until_soc override needs target_soc")
+        self.override = ManualOverride(mode, now, expires_at, target_soc, source)
+        return self._user_event(now, "OVERRIDE_SET", f"Override {mode}", mode=str(mode),
+                                source=str(source))
+
+    def clear_override(self, now: datetime) -> TickResult:
+        self.override = None
+        return self._user_event(now, "OVERRIDE_CLEARED", "Override aufgehoben")
+
+    def start_one_shot(self, now: datetime, departure_time: time | None = None) -> TickResult:
+        plan = self.plans[0] if self.plans else DEFAULT_PLAN
+        self.one_shot = OneShot.for_next(plan, now, self.tz, departure_time)
+        local = self.one_shot.departure_at.astimezone(self.tz)
+        return self._user_event(now, "ONE_SHOT_SET",
+                                f"Heute Nacht laden, Abfahrt {local:%a %H:%M}")
+
+    def cancel_one_shot(self, now: datetime) -> TickResult:
+        self.one_shot = None
+        return self._user_event(now, "ONE_SHOT_CANCELLED", "One-Shot gelöscht")
+
+    def start_climate(self, now: datetime, minutes: int) -> TickResult:
+        self.manual_climate = ClimateRequest(minutes, now, now + timedelta(minutes=minutes))
+        return self._user_event(now, "CLIMATE_REQUESTED", f"Klimatisierung {minutes} min")
+
+    def stop_climate(self, now: datetime) -> TickResult:
+        self.manual_climate = None
+        result = TickResult()
+        result.extend(self.executor.request_climate_stop(now))
+        return result
+
+    def wakeup(self, now: datetime, kind: CommandKind) -> TickResult:
+        result = TickResult()
+        result.extend(self.executor.request_wakeup(kind, now))
+        return result
+
+    def reset(self, now: datetime) -> TickResult:
+        self.executor.reset(now)
+        return self._user_event(now, "RESET", "Fehlerzustand zurückgesetzt")
+
+    def set_automation(self, now: datetime, enabled: bool) -> TickResult:
+        self.automation_enabled = enabled
+        return self._user_event(now, "AUTOMATION_ON" if enabled else "AUTOMATION_OFF",
+                                "Automatik an" if enabled else "Automatik aus")
+
+    def set_plans(self, now: datetime, plans: list[WeeklySchedule]) -> TickResult:
+        ids = [p.id for p in plans]
+        if len(ids) != len(set(ids)):
+            raise ValueError("plan ids must be unique")
+        self.plans = list(plans)
+        return self._user_event(now, "PLANS_CHANGED", f"{len(plans)} Ladepläne gespeichert")
+
+    def update_primary_plan(self, now: datetime, **changes: Any) -> TickResult:
+        base = self.plans[0] if self.plans else DEFAULT_PLAN
+        data = {**base.as_dict(), **changes}
+        self.plans = [WeeklySchedule.from_dict(data), *self.plans[1:]]
+        return self._user_event(now, "PLANS_CHANGED", f"Plan „{base.name}“ geändert",
+                                changes={k: str(v) for k, v in changes.items()})
+
+    # ============================================================= storage
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "plans": [p.as_dict() for p in self.plans],
+            "override": self.override.as_dict() if self.override else None,
+            "one_shot": self.one_shot.as_dict() if self.one_shot else None,
+            "automation_enabled": self.automation_enabled,
+            "executor": self.executor.as_dict(),
+            "sessions": self.sessions.as_dict(),
+            "trips": self.trips.as_dict(),
+            "hv": self.hv.as_dict(),
+            "latched_starts": {k: v.isoformat() for k, v in self._latched_starts.items()},
+            "last_activity_at": self.last_activity_at.isoformat()
+            if self.last_activity_at else None,
+            "last_result": self.last_result,
+            "reminder_day": self._reminder_day.isoformat() if self._reminder_day else None,
+        }
+
+    def restore(self, data: dict[str, Any]) -> None:
+        if data.get("plans"):
+            self.plans = [WeeklySchedule.from_dict(p) for p in data["plans"]]
+        self.override = ManualOverride.from_dict(data["override"]) if data.get("override") \
+            else None
+        self.one_shot = OneShot.from_dict(data["one_shot"]) if data.get("one_shot") else None
+        self.automation_enabled = bool(data.get("automation_enabled", True))
+        self.executor.restore(data.get("executor") or {})
+        self.sessions.restore(data.get("sessions") or {})
+        self.trips.restore(data.get("trips") or {})
+        self.hv = HvCycleMonitor.from_dict(data.get("hv") or {},
+                                           self.settings.hv_cycles_warn_per_day)
+        self._latched_starts = {k: datetime.fromisoformat(v)
+                                for k, v in (data.get("latched_starts") or {}).items()}
+        last = data.get("last_activity_at")
+        self.last_activity_at = datetime.fromisoformat(last) if last else None
+        self.last_result = data.get("last_result")
+        day = data.get("reminder_day")
+        self._reminder_day = date.fromisoformat(day) if day else None

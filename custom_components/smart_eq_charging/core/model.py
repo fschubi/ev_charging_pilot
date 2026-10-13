@@ -90,12 +90,20 @@ class Reason(StrEnum):
     CLIMATE = "climate"
     SCHEDULE = "schedule"
     DEFAULT_OFF = "default_off"
+    AUTOMATION_OFF = "automation_off"
 
 
 @dataclass(frozen=True, slots=True)
 class ClimateRequest:
+    """Run the OVMS climate for ``duration_min`` starting at ``start_at`` (§9)."""
+
     duration_min: int
     start_at: datetime
+    until: datetime
+
+    @property
+    def key(self) -> str:
+        return f"{self.start_at.isoformat()}/{self.duration_min}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +123,7 @@ class Desired:
     def window_key(self) -> str:
         """Identifies one charging window – wakeup attempts are counted per key."""
         until = self.valid_until.isoformat() if self.valid_until else "-"
-        return f"{self.reason}:{self.source_id or '-'}:{until}"
+        return f"{self.reason}|{self.source_id or '-'}|{until}"
 
 
 class Severity(StrEnum):

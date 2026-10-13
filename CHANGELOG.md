@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1 – 2026-10-13
+
+- **Einrichtung mit automatischer Erkennung:** Die Integration sucht Halo-Entitäten
+  (Chargeamps), das CP-Relais samt IP aus der Shelly-Integration, das Handy der
+  Companion-App und – falls vorhanden – OVMS-Entitäten und belegt die Felder vor.
+  Jeder Schritt zeigt, wie viele Felder erkannt wurden; alles bleibt änderbar.
+- Jedes Feld der Einrichtung hat einen Erklärtext.
+- „Neu konfigurieren“ ergänzt leere Felder ebenfalls automatisch (z. B. OVMS später).
+
 ## 0.6.0 – 2026-10-13
 
 - **Tibber und dynamische Tarife:** Preise aus `tibber.get_prices` oder jeder

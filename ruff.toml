@@ -6,3 +6,7 @@ select = ["E", "F", "W", "I", "B", "UP"]
 
 [lint.isort]
 known-first-party = ["custom_components"]
+
+[lint.per-file-ignores]
+# A table of UI texts – wrapping sentences only hurts readability.
+"tools/gen_translations.py" = ["E501"]

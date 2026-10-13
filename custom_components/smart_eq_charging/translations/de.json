@@ -7,11 +7,14 @@
         "data": {
           "name": "Name",
           "dry_run": "Im Dry-Run starten"
+        },
+        "data_description": {
+          "dry_run": "Empfohlen: Die Integration protokolliert zunächst nur, was sie schalten würde."
         }
       },
       "halo": {
         "title": "Wallbox",
-        "description": "Charge Amps Halo (HACS „Chargeamps“). Nichts ist hart codiert.",
+        "description": "**{found}**\n\nDie Entitäten stammen aus der HACS-Integration „Chargeamps“. Pflicht sind nur die vier oberen Felder.",
         "data": {
           "charger_enable": "Halo Ladefreigabe (Switch)",
           "cable_connected": "Halo Kabel gesteckt",
@@ -21,26 +24,43 @@
           "max_current": "Halo Maximalstrom",
           "cable_lock": "Halo Kabelverriegelung",
           "internal_schedule": "Halo interner Zeitplan (muss aus bleiben)"
+        },
+        "data_description": {
+          "charger_enable": "Der Schalter der Chargeamps-Integration, der das Laden freigibt (meist switch.…_connector_1).",
+          "cable_connected": "Meldet, ob das Ladekabel am Auto steckt (binary_sensor.…_cable_connected).",
+          "charge_power": "Aktuelle Ladeleistung des Anschlusses in W oder kW (nicht L1/L2/L3).",
+          "total_energy": "Gesamtzähler der Wallbox in kWh – Grundlage der Hausabrechnung.",
+          "charger_status": "Statustext des Anschlusses (z. B. Charging, Available). Optional.",
+          "max_current": "Maximalstrom des Anschlusses. Optional, nur zur Anzeige.",
+          "cable_lock": "Kabelverriegelung. Optional, nur zur Anzeige.",
+          "internal_schedule": "Interner Zeitplan der Halo. Optional – wird überwacht, damit er aus bleibt."
         }
       },
       "shelly": {
         "title": "CP-Unterbrechung",
-        "description": "Shelly 1 Mini in der CP-Leitung. Ohne Host bleibt der CP-Puls gesperrt.",
+        "description": "**{found}**\n\nShelly 1 Mini in der CP-Leitung. Ohne Shelly einfach leer lassen und weiter – dann gibt es keinen CP-Wakeup.",
         "data": {
           "cp_relay": "Shelly CP-Relais",
           "shelly_host": "Shelly IP/Hostname (für Puls und Drift-Check)"
+        },
+        "data_description": {
+          "cp_relay": "Das Shelly-Relais in der CP-Leitung (ON = CP geschlossen). Leer lassen, wenn kein Shelly verbaut ist.",
+          "shelly_host": "IP-Adresse des Shelly für den Puls mit Selbstrückstellung. Wird aus der Shelly-Integration übernommen."
         }
       },
       "notify": {
         "title": "Benachrichtigungen",
-        "description": "Push-Ziel für Fehler und die Rückfrage beim Einstecken.",
+        "description": "**{found}**\n\nPush-Ziel für Fehler und die Rückfrage beim Einstecken.",
         "data": {
           "notify_service": "Push-Ziel (notify.mobile_app_…)"
+        },
+        "data_description": {
+          "notify_service": "Dein Handy aus der Companion-App (notify.mobile_app_…). Leer = keine Pushes."
         }
       },
       "ovms": {
         "title": "Fahrzeug (OVMS)",
-        "description": "Überspringbar – OVMS-Entitäten erst nach realem Test zuordnen (§2.3). Außentemperatur: Sensor oder Wetter als Rückfall.",
+        "description": "**{found}**\n\nKomplett überspringbar – OVMS kann später über „Neu konfigurieren“ ergänzt werden.",
         "data": {
           "ovms_soc": "OVMS SOC",
           "ovms_soh": "OVMS SOH",
@@ -60,6 +80,36 @@
           "weather": "Wetter (Rückfall Außentemperatur)",
           "ovms_command_topic": "OVMS-Befehls-Topic (MQTT)",
           "ovms_command_script": "Oder: Script für OVMS-Befehle (Variable command)"
+        },
+        "data_description": {
+          "outside_temp": "Außentemperatur-Sensor für die Klimaprofile. Optional.",
+          "weather": "Wetter-Entität als Rückfall für die Außentemperatur. Optional.",
+          "ovms_command_topic": "MQTT-Topic, über das OVMS Befehle annimmt. Erst nach dem Test am Auto eintragen.",
+          "ovms_command_script": "Alternativ ein Script, das den OVMS-Befehl ausführt (Variable command)."
+        }
+      },
+      "reconfigure": {
+        "title": "Neu konfigurieren",
+        "description": "**{found}**\n\nDie Entitäten stammen aus der HACS-Integration „Chargeamps“. Pflicht sind nur die vier oberen Felder.",
+        "data": {
+          "charger_enable": "Halo Ladefreigabe (Switch)",
+          "cable_connected": "Halo Kabel gesteckt",
+          "charge_power": "Halo Ladeleistung",
+          "total_energy": "Halo Gesamtenergiezähler",
+          "charger_status": "Halo Status",
+          "max_current": "Halo Maximalstrom",
+          "cable_lock": "Halo Kabelverriegelung",
+          "internal_schedule": "Halo interner Zeitplan (muss aus bleiben)"
+        },
+        "data_description": {
+          "charger_enable": "Der Schalter der Chargeamps-Integration, der das Laden freigibt (meist switch.…_connector_1).",
+          "cable_connected": "Meldet, ob das Ladekabel am Auto steckt (binary_sensor.…_cable_connected).",
+          "charge_power": "Aktuelle Ladeleistung des Anschlusses in W oder kW (nicht L1/L2/L3).",
+          "total_energy": "Gesamtzähler der Wallbox in kWh – Grundlage der Hausabrechnung.",
+          "charger_status": "Statustext des Anschlusses (z. B. Charging, Available). Optional.",
+          "max_current": "Maximalstrom des Anschlusses. Optional, nur zur Anzeige.",
+          "cable_lock": "Kabelverriegelung. Optional, nur zur Anzeige.",
+          "internal_schedule": "Interner Zeitplan der Halo. Optional – wird überwacht, damit er aus bleibt."
         }
       }
     },

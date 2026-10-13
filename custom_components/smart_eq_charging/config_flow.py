@@ -106,6 +106,7 @@ from .core.settings import (
     PriceSource,
     RunMode,
 )
+from .discovery import async_discover
 
 OPT_PRICE = "price_eur_kwh"
 OPT_PRICE_VALID_FROM = "price_valid_from"
@@ -191,6 +192,14 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
         self._data: dict[str, Any] = {}
         self._options: dict[str, Any] = {}
         self._reconfigure = False
+        self._found: dict[str, Any] = {}
+
+    def _placeholders(self, keys) -> dict[str, str]:
+        hits = [k for k in keys if k in self._found]
+        text = (f"{len(hits)} von {len(list(keys))} Feldern wurden automatisch erkannt – "
+                "bitte kurz prüfen." if hits else
+                "Nichts automatisch erkannt – bitte die Entitäten auswählen.")
+        return {"found": text}
 
     def _notify_services(self) -> list[str]:
         services = self.hass.services.async_services().get("notify", {})
@@ -202,6 +211,9 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
             self._data[CONF_NAME] = user_input[CONF_NAME]
             dry = user_input.get("dry_run", True)
             self._options[OPT_MODE] = (RunMode.DRY_RUN if dry else RunMode.LIVE).value
+            # Pre-fill every field the discovery found; the user confirms them.
+            self._found = async_discover(self.hass)
+            self._data = {**self._found, **self._data}
             return await self.async_step_halo()
         return self.async_show_form(step_id="user", data_schema=vol.Schema({
             vol.Required(CONF_NAME, default=NAME): TEXT,
@@ -212,7 +224,10 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._merge(user_input, (i.value for i in (*HALO_REQUIRED, *HALO_OPTIONAL)))
             return await self.async_step_shelly()
-        return self.async_show_form(step_id="halo", data_schema=halo_schema(self._data))
+        return self.async_show_form(
+            step_id="halo", data_schema=halo_schema(self._data),
+            description_placeholders=self._placeholders(
+                [i.value for i in (*HALO_REQUIRED, *HALO_OPTIONAL)]))
 
     async def async_step_shelly(
         self, user_input: dict[str, Any] | None = None
@@ -225,7 +240,8 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._merge(user_input, (Inp.CP_RELAY.value, CONF_SHELLY_HOST))
                 return await self.async_step_notify()
         return self.async_show_form(step_id="shelly", data_schema=shelly_schema(self._data),
-                                    errors=errors)
+                                    errors=errors, description_placeholders=self._placeholders(
+                                        [Inp.CP_RELAY.value, CONF_SHELLY_HOST]))
 
     async def async_step_notify(
         self, user_input: dict[str, Any] | None = None
@@ -234,7 +250,8 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
             self._merge(user_input, (CONF_NOTIFY_SERVICE,))
             return await self.async_step_ovms()
         return self.async_show_form(
-            step_id="notify", data_schema=notify_schema(self._data, self._notify_services()))
+            step_id="notify", data_schema=notify_schema(self._data, self._notify_services()),
+            description_placeholders=self._placeholders([CONF_NOTIFY_SERVICE]))
 
     async def async_step_ovms(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -245,7 +262,8 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._get_reconfigure_entry(), data=data, title=data[CONF_NAME])
             return self.async_create_entry(title=data[CONF_NAME], data=data,
                                            options=self._options)
-        return self.async_show_form(step_id="ovms", data_schema=ovms_schema(self._data))
+        return self.async_show_form(step_id="ovms", data_schema=ovms_schema(self._data),
+                                    description_placeholders=self._placeholders(OVMS_KEYS))
 
     def _merge(self, user_input: dict[str, Any], keys) -> None:
         """Cleared optional fields must be removed, not kept from before."""
@@ -258,6 +276,9 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         self._reconfigure = True
         self._data = dict(self._get_reconfigure_entry().data)
+        # Reconfigure keeps what is set and only fills empty fields (e.g. OVMS added later).
+        self._found = async_discover(self.hass)
+        self._data = {**self._found, **self._data}
         return await self.async_step_halo()
 
     @staticmethod

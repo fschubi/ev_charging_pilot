@@ -7,11 +7,14 @@
         "data": {
           "name": "Name",
           "dry_run": "Start in dry-run"
+        },
+        "data_description": {
+          "dry_run": "Recommended: only log at first."
         }
       },
       "halo": {
         "title": "Charger",
-        "description": "Charge Amps Halo (HACS 'Chargeamps'). Nothing is hard-coded.",
+        "description": "**{found}**\n\nEntities come from the HACS integration 'Chargeamps'. Only the first four fields are required.",
         "data": {
           "charger_enable": "Halo charging enable (switch)",
           "cable_connected": "Halo cable connected",
@@ -21,26 +24,43 @@
           "max_current": "Halo max current",
           "cable_lock": "Halo cable lock",
           "internal_schedule": "Halo internal schedule (must stay off)"
+        },
+        "data_description": {
+          "charger_enable": "The Chargeamps switch that enables charging (usually …_connector_1).",
+          "cable_connected": "Reports whether the cable is plugged in.",
+          "charge_power": "Current charging power of the connector (not a single phase).",
+          "total_energy": "Total energy meter of the wallbox in kWh.",
+          "charger_status": "Status text of the connector. Optional.",
+          "max_current": "Maximum current of the connector. Optional.",
+          "cable_lock": "Cable lock. Optional.",
+          "internal_schedule": "Internal Halo schedule. Optional – monitored so it stays off."
         }
       },
       "shelly": {
         "title": "CP interruption",
-        "description": "Shelly 1 Mini in the CP line. Without a host the CP pulse stays locked.",
+        "description": "**{found}**\n\nShelly in the CP line. Leave empty without a Shelly.",
         "data": {
           "cp_relay": "Shelly CP relay",
           "shelly_host": "Shelly IP/hostname (pulse and drift check)"
+        },
+        "data_description": {
+          "cp_relay": "The Shelly relay in the CP line. Leave empty without a Shelly.",
+          "shelly_host": "Shelly IP for the self-resetting pulse; taken from the Shelly integration."
         }
       },
       "notify": {
         "title": "Notifications",
-        "description": "Push target for errors and the plug-in question.",
+        "description": "**{found}**\n\nPush target for errors and the plug-in question.",
         "data": {
           "notify_service": "Push target (notify.mobile_app_…)"
+        },
+        "data_description": {
+          "notify_service": "Your phone from the companion app. Empty = no pushes."
         }
       },
       "ovms": {
         "title": "Vehicle (OVMS)",
-        "description": "Optional – map OVMS entities only after a real test (§2.3).",
+        "description": "**{found}**\n\nOptional – OVMS can be added later via reconfigure.",
         "data": {
           "ovms_soc": "OVMS SOC",
           "ovms_soh": "OVMS SOH",
@@ -60,6 +80,36 @@
           "weather": "Weather (fallback outside temperature)",
           "ovms_command_topic": "OVMS command topic (MQTT)",
           "ovms_command_script": "Or: script for OVMS commands (variable command)"
+        },
+        "data_description": {
+          "outside_temp": "Outside temperature sensor for climate profiles. Optional.",
+          "weather": "Weather entity as fallback for the outside temperature. Optional.",
+          "ovms_command_topic": "MQTT topic for OVMS commands; only after testing.",
+          "ovms_command_script": "Alternatively a script that runs the OVMS command."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure",
+        "description": "**{found}**\n\nEntities come from the HACS integration 'Chargeamps'. Only the first four fields are required.",
+        "data": {
+          "charger_enable": "Halo charging enable (switch)",
+          "cable_connected": "Halo cable connected",
+          "charge_power": "Halo charging power",
+          "total_energy": "Halo total energy meter",
+          "charger_status": "Halo status",
+          "max_current": "Halo max current",
+          "cable_lock": "Halo cable lock",
+          "internal_schedule": "Halo internal schedule (must stay off)"
+        },
+        "data_description": {
+          "charger_enable": "The Chargeamps switch that enables charging (usually …_connector_1).",
+          "cable_connected": "Reports whether the cable is plugged in.",
+          "charge_power": "Current charging power of the connector (not a single phase).",
+          "total_energy": "Total energy meter of the wallbox in kWh.",
+          "charger_status": "Status text of the connector. Optional.",
+          "max_current": "Maximum current of the connector. Optional.",
+          "cable_lock": "Cable lock. Optional.",
+          "internal_schedule": "Internal Halo schedule. Optional – monitored so it stays off."
         }
       }
     },

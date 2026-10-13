@@ -44,6 +44,7 @@ Spezifikation: [Masterplan v1.3](docs/masterplan-v1.3.md) · Stand: [Roadmap](do
 2. „Smart EQ Charging Center“ installieren, Home Assistant neu starten.
 3. Einstellungen → Geräte & Dienste → *Smart EQ Charging Center* hinzufügen.
    Fünf kurze Schritte: Name/Dry-Run → Halo → Shelly → Push-Ziel → OVMS (überspringbar).
+   Die Entitäten werden **automatisch erkannt und vorbelegt** – nur prüfen und bestätigen.
 4. In der Seitenleiste erscheint **Smart EQ**.
 
 Vor dem Live-Betrieb: [Phase 0](phase0/README.md) – einfache Automation und

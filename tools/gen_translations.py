@@ -49,6 +49,41 @@ INPUTS = {
                              "Or: script for OVMS commands (variable command)"),
 }
 
+FIELD_HELP = {
+    "charger_enable": T("Der Schalter der Chargeamps-Integration, der das Laden freigibt "
+                        "(meist switch.…_connector_1).",
+                        "The Chargeamps switch that enables charging (usually …_connector_1)."),
+    "cable_connected": T("Meldet, ob das Ladekabel am Auto steckt (binary_sensor.…_cable_connected).",
+                         "Reports whether the cable is plugged in."),
+    "charge_power": T("Aktuelle Ladeleistung des Anschlusses in W oder kW (nicht L1/L2/L3).",
+                      "Current charging power of the connector (not a single phase)."),
+    "total_energy": T("Gesamtzähler der Wallbox in kWh – Grundlage der Hausabrechnung.",
+                      "Total energy meter of the wallbox in kWh."),
+    "charger_status": T("Statustext des Anschlusses (z. B. Charging, Available). Optional.",
+                        "Status text of the connector. Optional."),
+    "max_current": T("Maximalstrom des Anschlusses. Optional, nur zur Anzeige.",
+                     "Maximum current of the connector. Optional."),
+    "cable_lock": T("Kabelverriegelung. Optional, nur zur Anzeige.", "Cable lock. Optional."),
+    "internal_schedule": T("Interner Zeitplan der Halo. Optional – wird überwacht, damit er aus bleibt.",
+                           "Internal Halo schedule. Optional – monitored so it stays off."),
+    "cp_relay": T("Das Shelly-Relais in der CP-Leitung (ON = CP geschlossen). Leer lassen, "
+                  "wenn kein Shelly verbaut ist.",
+                  "The Shelly relay in the CP line. Leave empty without a Shelly."),
+    "shelly_host": T("IP-Adresse des Shelly für den Puls mit Selbstrückstellung. Wird aus der "
+                     "Shelly-Integration übernommen.",
+                     "Shelly IP for the self-resetting pulse; taken from the Shelly integration."),
+    "notify_service": T("Dein Handy aus der Companion-App (notify.mobile_app_…). Leer = keine Pushes.",
+                        "Your phone from the companion app. Empty = no pushes."),
+    "outside_temp": T("Außentemperatur-Sensor für die Klimaprofile. Optional.",
+                      "Outside temperature sensor for climate profiles. Optional."),
+    "weather": T("Wetter-Entität als Rückfall für die Außentemperatur. Optional.",
+                 "Weather entity as fallback for the outside temperature. Optional."),
+    "ovms_command_topic": T("MQTT-Topic, über das OVMS Befehle annimmt. Erst nach dem Test am "
+                            "Auto eintragen.", "MQTT topic for OVMS commands; only after testing."),
+    "ovms_command_script": T("Alternativ ein Script, das den OVMS-Befehl ausführt (Variable command).",
+                             "Alternatively a script that runs the OVMS command."),
+}
+
 OPTIONS = {
     "mode": T("Betriebsmodus", "Run mode"),
     "power_threshold_w": T("Leistungsschwelle „lädt“", "Power threshold 'charging'"),
@@ -373,15 +408,18 @@ def build(lang: str) -> dict:
         "user": T("Name und Startmodus. Im Dry-Run protokolliert die Integration nur, was sie "
                   "schalten würde (Grundsatz 11).",
                   "Name and start mode. In dry-run the integration only logs what it would do."),
-        "halo": T("Charge Amps Halo (HACS „Chargeamps“). Nichts ist hart codiert.",
-                  "Charge Amps Halo (HACS 'Chargeamps'). Nothing is hard-coded."),
-        "shelly": T("Shelly 1 Mini in der CP-Leitung. Ohne Host bleibt der CP-Puls gesperrt.",
-                    "Shelly 1 Mini in the CP line. Without a host the CP pulse stays locked."),
-        "notify": T("Push-Ziel für Fehler und die Rückfrage beim Einstecken.",
-                    "Push target for errors and the plug-in question."),
-        "ovms": T("Überspringbar – OVMS-Entitäten erst nach realem Test zuordnen (§2.3). "
-                  "Außentemperatur: Sensor oder Wetter als Rückfall.",
-                  "Optional – map OVMS entities only after a real test (§2.3)."),
+        "halo": T("**{found}**\n\nDie Entitäten stammen aus der HACS-Integration „Chargeamps“. "
+                  "Pflicht sind nur die vier oberen Felder.",
+                  "**{found}**\n\nEntities come from the HACS integration 'Chargeamps'. "
+                  "Only the first four fields are required."),
+        "shelly": T("**{found}**\n\nShelly 1 Mini in der CP-Leitung. Ohne Shelly einfach leer "
+                    "lassen und weiter – dann gibt es keinen CP-Wakeup.",
+                    "**{found}**\n\nShelly in the CP line. Leave empty without a Shelly."),
+        "notify": T("**{found}**\n\nPush-Ziel für Fehler und die Rückfrage beim Einstecken.",
+                    "**{found}**\n\nPush target for errors and the plug-in question."),
+        "ovms": T("**{found}**\n\nKomplett überspringbar – OVMS kann später über „Neu "
+                  "konfigurieren“ ergänzt werden.",
+                  "**{found}**\n\nOptional – OVMS can be added later via reconfigure."),
     }
     titles = {"user": T("Smart EQ Charging Center", "Smart EQ Charging Center"),
               "halo": T("Wallbox", "Charger"), "shelly": T("CP-Unterbrechung", "CP interruption"),
@@ -400,8 +438,15 @@ def build(lang: str) -> dict:
 
     def step(key):
         fields = step_fields[key]
-        return {"title": t(titles[key]), "description": t(setup_desc[key]),
-                "data": {k: (t(v) if isinstance(v, dict) else v) for k, v in fields.items()}}
+        result = {"title": t(titles[key]), "description": t(setup_desc[key]),
+                  "data": {k: (t(v) if isinstance(v, dict) else v) for k, v in fields.items()}}
+        helps = {k: t(FIELD_HELP[k]) for k in fields if k in FIELD_HELP}
+        if key == "user":
+            helps = {"dry_run": t(T("Empfohlen: Die Integration protokolliert zunächst nur, was "
+                                    "sie schalten würde.", "Recommended: only log at first."))}
+        if helps:
+            result["data_description"] = helps
+        return result
 
     options_steps = {"init": {"title": t(T("Einstellungen", "Settings")),
                               "menu_options": {k: t(v[0]) for k, v in OPTION_STEPS.items()}}}
@@ -438,7 +483,9 @@ def build(lang: str) -> dict:
 
     return {
         "config": {
-            "step": {k: step(k) for k in ("user", "halo", "shelly", "notify", "ovms")},
+            "step": {**{k: step(k) for k in ("user", "halo", "shelly", "notify", "ovms")},
+                     "reconfigure": step("halo") | {"title": t(T("Neu konfigurieren",
+                                                                 "Reconfigure"))}},
             "error": {"host_without_relay": t(T(
                 "Ein Shelly-Host braucht auch das CP-Relais.",
                 "A Shelly host also needs the CP relay."))},

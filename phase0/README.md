@@ -9,9 +9,22 @@ Werte, von denen die Zeitkonstanten der Integration abhängen.
 1. evcc so abschalten, dass es die Halo nicht mehr schaltet. Halo-internen
    Zeitplan ausschalten.
 2. [`smart_eq_phase0.yaml`](smart_eq_phase0.yaml) als Package einbinden,
-   Entity-IDs prüfen, `SHELLY_IP` ersetzen.
+   Entity-IDs prüfen, `SHELLY_IP` und `notify.DEIN_HANDY` ersetzen.
 3. `input_boolean.smart_eq_p0_enabled` einschalten.
 4. Halo-Zähler im Energy Dashboard als Einzelverbraucher eintragen.
+
+## Replay-Datensätze
+
+Für das Gate von v0.1 werden die Nächte als Replay-Datensätze gesichert, sobald
+die Integration (im Dry-Run) installiert ist:
+
+```yaml
+action: smart_eq_charging.create_replay_dataset
+data: {start: "2026-10-14 02:30", end: "2026-10-14 06:30", name: nacht-2026-10-14}
+```
+
+Mit `poll_interval_s` das gemessene Halo-Poll-Intervall (M1) mitgeben – der
+Recorder speichert wiederholte Werte nicht, das Replay bildet sie nach.
 
 ## Messprotokoll
 

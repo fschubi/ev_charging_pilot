@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.5.0 – 2026-10-13
+
+Komplette Integration nach Masterplan v1.3 (v0.1–v0.5). Startet weiterhin im
+Dry-Run; die Gates aus §15 (Messungen, Feldtests) stehen noch aus.
+
+### Phase 0
+- Package mit Wakeup-Kette: Halo an → Leistung prüfen → CP-Puls per
+  `toggle_after` → prüfen → Push; Abend-Erinnerung; per `check_config` validiert.
+
+### Kern (HA-frei)
+- `Engine` bündelt die komplette Tick-Pipeline; Replay ist dieselbe Engine
+  mit aufgezeichneten Eingaben, inklusive Nachbildung des Cloud-Pollings und
+  Abgleich gegen das reale Schalten.
+- Settings nach §13.2, Quellenpolicy, Konflikterkennung, HV-Zyklen-Wächter.
+- Mehrere Wochenpläne, verriegelter Fensterstart, Machbarkeit mit Fertig-Zeit.
+- Vorklimatisierung mit Temperaturprofilen und `after_target_soc`-Regel.
+- Lade-Sessions mit 15-min-Intervallen und Kosten, Fahrten mit Fahrtgrenzen
+  und PARTIAL-Rekonstruktion, Monats-/Jahresbilanz mit ΔSOC,
+  Temperatur- und Saisonstatistik, Fremdladen, manuelles Odometer.
+
+### Home Assistant
+- Entitäten nach §12 (`sensor.smart_eq_*` …): Status, Laden, Fahrzeug,
+  Energie & Kosten, Binärsensoren, Automatik/Dry-Run, Override-Modus,
+  Abfahrt und SOC-Ziele, Buttons inkl. Klima und Wakeups.
+- 19 Services (§12.3), WebSocket-API (§12.4), Export CSV/JSON.
+- Config Flow in fünf Schritten plus Rekonfiguration, Options-Menü mit allen
+  Werten aus §13.2, Preis-Historie mit Gültigkeitsdatum, Migration von 0.1.
+- Push mit Kategorien, Rückfrage-Push beim Einstecken mit drei Aktionen.
+- Sidebar-Panel mit Cockpit, Ladeplan, Hausstrom, Drive & Energy, Diagnose.
+- YAML-Standard-Dashboard.
+
 ## 0.1.0 – 2026-10-13
 
 Erste Entwicklungsversion, läuft ausschließlich im Dry-Run.

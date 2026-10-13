@@ -71,7 +71,8 @@ class ExecutorConfig:
     finished_statuses: Collection[str] = ()
 
     @classmethod
-    def from_settings(cls, s: Settings, *, cp_available: bool) -> ExecutorConfig:
+    def from_settings(cls, s: Settings, *, cp_available: bool,
+                      ovms_port: bool = True) -> ExecutorConfig:
         return cls(
             power_threshold_w=s.power_threshold_w,
             stable_samples=s.stable_samples,
@@ -87,11 +88,11 @@ class ExecutorConfig:
             confirm_timeout_s=s.confirm_timeout_s,
             cp_pulse_s=s.cp_pulse_s,
             cp_mask_grace_s=s.cp_mask_grace_s,
-            ovms_available=s.ovms_enabled and bool(s.ovms_wakeup_command),
+            ovms_available=s.ovms_enabled and ovms_port and bool(s.ovms_wakeup_command),
             cp_available=cp_available,
             cp_failsafe_verified=s.cp_failsafe_verified,
             cp_fallback_enabled=s.cp_fallback_enabled,
-            climate_available=s.ovms_enabled and bool(s.ovms_climate_command),
+            climate_available=s.ovms_enabled and ovms_port and bool(s.ovms_climate_command),
             finished_statuses=s.finished_statuses,
         )
 

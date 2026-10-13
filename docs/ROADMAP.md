@@ -1,49 +1,76 @@
 # Roadmap – Umsetzungsstand
 
-Verbindlich ist [Masterplan §15](masterplan-v1.3.md#15-roadmap-und-definition-of-done)
-mit seinen Gates. Diese Datei hält nur fest, wo der Code gegenüber dem Plan steht.
+Verbindlich ist [Masterplan §15](masterplan-v1.3.md#15-roadmap-und-definition-of-done).
+Jede Stufe hat ein **Gate**, das nur im realen Betrieb erfüllt werden kann.
+„Code fertig“ heißt deshalb: Funktion gebaut und automatisiert getestet –
+das Gate selbst ist erst nach Messung bzw. Feldtest erfüllt.
+
+| Stufe | Code | Gate (real) |
+| --- | --- | --- |
+| Phase 0 | fertig (`phase0/`) | offen: Messungen M1–M8, ≥ 5 Nächte, Zeitkonstanten in §13.2 |
+| v0.1 Kern, Read-only, Dry-Run | fertig | offen: 7 Nächte Dry-Run parallel zu Phase 0, Replay stimmt |
+| v0.2 Live-Basis, Bedienung | fertig | offen: `cp_failsafe_verified`, Tests §14.3 ohne OVMS |
+| v0.3 Automatischer Ladeplan | fertig | offen: 14 Nächte live ohne unbemerkten Fehlstart |
+| v0.4 OVMS | fertig (Mapping per Config Flow, Befehle per Options Flow) | offen: OVMS geliefert, Werte 2 Wochen plausibel |
+| v0.5 Drive & Energy, Oberfläche | fertig | – |
+| Später | Tibber, OCPP, PDF-Bericht, Fremdladeerkennung | nicht begonnen (bewusst) |
 
 ## Phase 0 – Automation und Messphase
 
-| Punkt (§15) | Stand |
-| --- | --- |
-| Shelly konfiguriert, Checkliste §3.6 | offen (Hardware) |
-| Halo-Zeitplan aus, evcc steuert nicht | offen (Hardware) |
-| Automation: Halo an → Leistung prüfen → sonst CP-Puls → prüfen → Push; morgens aus | **teilweise**: `phase0/smart_eq_phase0.yaml` schaltet nur an/aus, Wakeup-Kette und Push fehlen noch |
-| `utility_meter` + Energy Dashboard | Package fertig, Energy Dashboard manuell |
-| Recorder in voller Auflösung | offen (Recorder-Konfig ergänzen) |
-| Messungen | Protokoll M1–M8 in `phase0/README.md`, Ergebnisse in `docs/messungen.md` |
-
-**Gate:** Messwerte dokumentiert, Zeitkonstanten in §13.2 eingetragen, ≥ 5 Nächte als Replay-Daten.
+- [x] HA-Automation: Halo an → Leistung prüfen → CP-Puls (`toggle_after`) → prüfen → Push; morgens aus
+- [x] `utility_meter` Monat/Jahr
+- [x] Messprotokoll ins Logbuch, Abend-Erinnerung
+- [x] Replay-Datensätze aus der Recorder-Historie (`create_replay_dataset`)
+- [ ] Shelly konfiguriert, Checkliste §3.6 (Hardware)
+- [ ] Halo-Zeitplan aus, evcc steuert nicht (Hardware)
+- [ ] Messungen M1–M8 in `docs/messungen.md`
 
 ## v0.1 – Kern, Read-only, Dry-Run
 
-| Punkt | Stand |
-| --- | --- |
-| Paketstruktur mit HA-freiem Kern | erledigt (Test erzwingt HA-Freiheit) |
-| Config Flow, Entity-Auswahl | erledigt; Name/Dry-Run-Schritt aus §13.1 fehlt |
-| Adapter mit Wertmodell | erledigt (`coordinator._value`) |
-| Planner, Arbiter, Executor im Dry-Run | erledigt (über v0.1 hinaus: auch abfahrtsbasiert, Override, One-Shot) |
-| Event Log, Health, Diagnostics | erledigt |
-| Replay der Phase-0-Nächte | **offen**: `core/replay.py`, Aufzeichnung der Snapshots |
-| Tests §14.1 Ladeerkennung, Kaskade, Maskierung, Neustart | erledigt |
+- [x] Paketstruktur mit HA-freiem Kern (`core/`, Test erzwingt HA-Freiheit)
+- [x] Config Flow mit Entity-Auswahl (§13.1)
+- [x] Wertmodell mit Quelle, Alter, Qualität inkl. `LAST_KNOWN_VALID`
+- [x] Planner, Arbiter, Executor im Dry-Run
+- [x] Event Log (Rotation), Health, Diagnostics (redigiert)
+- [x] Replay mit Poll-Nachbildung und Abgleich gegen reales Schalten
+- [x] Tests §14.1: Ladeerkennung, Kaskade, Maskierung, Cooldown, Ziel-SOC, LKV, Arbiter, Neustart, DST
 
-**Gate:** 7 Nächte Dry-Run parallel zur Phase-0-Automation.
+## v0.2 – Live-Basis und manuelle Bedienung
 
-## Abweichungen zum Plan, die noch anzugleichen sind
+- [x] Halo-Schalten über Executor (Cooldown, Bestätigung, max. 3 Versuche)
+- [x] CP-Puls über Executor, Rückstellprüfung, Maskierung, Drift-Check
+- [x] Manual Override (alle Modi), One-Shot, Buttons, Services (§12.3)
+- [x] Push mit Kategorien, Actionable Notification beim Einstecken
+- [x] YAML-Standard-Dashboard (`dashboards/`)
 
-- Entity-IDs/Namen nach §12.1/§12.2 (`sensor.smart_eq_executor_state` …);
-  aktuell `sensor.smart_eq_charging_center_*`. Fehlende Entities: u. a.
-  `switch.smart_eq_automation`, `select`/`number`/`time`-Steuer-Entities,
-  `binary_sensor.smart_eq_vehicle_connected`, `_cp_failsafe_ok`.
-- Services §12.3 und WebSocket-API §12.4 fehlen noch.
-- Options-Flow §13.2: `mode` (dry_run | live | replay) statt nur Switch;
-  `stable_samples`, `stable_min_s`, `loss_timeout_s`, `mask_grace_s`,
-  `ovms_enabled`, `cp_fallback_enabled`, Wartezeiten, Benachrichtigungs-Kategorien.
+## v0.3 – Automatischer Ladeplan
 
-## v0.2 – v0.5, später
+- [x] Mehrere Wochenpläne, abfahrtsbasiert mit verriegeltem Fensterstart
+- [x] Kaskade mit Versuchslimits je Fenster
+- [x] Ladeende vs. Abbruch (OVMS, Halo-Status, Timeout) mit einem Neustartversuch
+- [x] Sessions mit 15-min-Energieintervallen und Kosten (Preis-Historie)
+- [x] Config-Drift-Check (Halo-Zeitplan, Shelly auto_on/initial_state/Pulsdauer)
 
-Siehe §15. Noch nicht begonnen: Live-Schalten mit Gate, Actionable
-Notification, YAML-Dashboard (v0.2); Sessions mit Kosten, Config-Drift live
-(v0.3); OVMS (v0.4, nach Lieferung); Trips, Statistik, Export, eigene
-Oberfläche (v0.5).
+## v0.4 – OVMS
+
+- [x] Mapping SOC, SOH, Reichweite, Odometer, Ladestatus, Temperaturen, HV-Zyklen, 12 V
+- [x] Quellenpolicy, Konflikterkennung, `LAST_KNOWN_VALID`
+- [x] OVMS-Wakeup vor CP (Befehl per MQTT-Topic oder Script, leer = gesperrt)
+- [x] Ziel-SOC-Abschaltung (nur mit GOOD), Machbarkeitsprognose, Abend-Push
+- [x] Vorklimatisierung mit Profilen und `after_target_soc`-Regel
+- [x] HV-Zyklen-Überwachung (Tagesschwelle, Zyklus ohne Anlass)
+
+## v0.5 – Drive & Energy Monitor und eigene Oberfläche
+
+- [x] Fahrten mit Fahrtgrenzen, PARTIAL-Rekonstruktion, manuelles Odometer
+- [x] Fremdladen erfassen/löschen
+- [x] Monats-/Jahresbilanz mit ΔSOC, Ladeverluste, €/100 km, Qualitätskennzeichnung
+- [x] Temperatur- und Saisonstatistik
+- [x] CSV/JSON-Export
+- [x] Sidebar-Panel mit den Ansichten aus §12.5
+
+## Offene Fragen (§16)
+
+Fragen 1–6 beantwortet Phase 0, 7–8 die OVMS-Einrichtung, 9 (OCPP) und
+10 (§14a-Anmeldung) sind Prüfaufträge außerhalb des Codes. `grid_limit_kw`
+im Options Flow bildet eine §14a-Dimmung bereits ab.

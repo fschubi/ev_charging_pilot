@@ -3,38 +3,68 @@
     "step": {
       "user": {
         "title": "Smart EQ Charging Center",
-        "description": "All entities are selected here, nothing is hard-coded. Without a Shelly host the CP wakeup stays locked. The integration starts in dry-run.",
+        "description": "Name and start mode. In dry-run the integration only logs what it would do.",
         "data": {
-          "charger_enable": "Halo charging enable (switch)",
-          "cable_connected": "Halo cable connected",
-          "charge_power": "Halo charging power",
-          "total_energy": "Halo total energy meter",
-          "charger_status": "Halo status (optional)",
-          "internal_schedule": "Halo internal schedule (must stay off, optional)",
-          "cp_relay": "Shelly CP relay (optional)",
-          "shelly_host": "Shelly IP/hostname for the CP pulse (optional)",
-          "ovms_soc": "OVMS SOC (optional)",
-          "ovms_charging": "OVMS charging (optional)",
-          "notify_service": "Push target, e.g. notify.mobile_app_iphone (optional)"
+          "name": "Name",
+          "dry_run": "Start in dry-run"
         }
       },
-      "reconfigure": {
-        "title": "Smart EQ Charging Center",
-        "description": "All entities are selected here, nothing is hard-coded. Without a Shelly host the CP wakeup stays locked. The integration starts in dry-run.",
+      "halo": {
+        "title": "Charger",
+        "description": "Charge Amps Halo (HACS 'Chargeamps'). Nothing is hard-coded.",
         "data": {
           "charger_enable": "Halo charging enable (switch)",
           "cable_connected": "Halo cable connected",
           "charge_power": "Halo charging power",
           "total_energy": "Halo total energy meter",
-          "charger_status": "Halo status (optional)",
-          "internal_schedule": "Halo internal schedule (must stay off, optional)",
-          "cp_relay": "Shelly CP relay (optional)",
-          "shelly_host": "Shelly IP/hostname for the CP pulse (optional)",
-          "ovms_soc": "OVMS SOC (optional)",
-          "ovms_charging": "OVMS charging (optional)",
-          "notify_service": "Push target, e.g. notify.mobile_app_iphone (optional)"
+          "charger_status": "Halo status",
+          "max_current": "Halo max current",
+          "cable_lock": "Halo cable lock",
+          "internal_schedule": "Halo internal schedule (must stay off)"
+        }
+      },
+      "shelly": {
+        "title": "CP interruption",
+        "description": "Shelly 1 Mini in the CP line. Without a host the CP pulse stays locked.",
+        "data": {
+          "cp_relay": "Shelly CP relay",
+          "shelly_host": "Shelly IP/hostname (pulse and drift check)"
+        }
+      },
+      "notify": {
+        "title": "Notifications",
+        "description": "Push target for errors and the plug-in question.",
+        "data": {
+          "notify_service": "Push target (notify.mobile_app_…)"
+        }
+      },
+      "ovms": {
+        "title": "Vehicle (OVMS)",
+        "description": "Optional – map OVMS entities only after a real test (§2.3).",
+        "data": {
+          "ovms_soc": "OVMS SOC",
+          "ovms_soh": "OVMS SOH",
+          "ovms_range": "OVMS range",
+          "ovms_odometer": "OVMS odometer",
+          "ovms_charging": "OVMS charging",
+          "ovms_charge_power": "OVMS vehicle-side charge power",
+          "ovms_battery_temp": "OVMS battery temperature",
+          "ovms_hv_cycles": "OVMS HV contactor cycles",
+          "ovms_vehicle_on": "OVMS ready to drive",
+          "ovms_outside_temp": "OVMS outside temperature",
+          "ovms_energy_used": "OVMS trip energy used",
+          "ovms_energy_recd": "OVMS energy recovered",
+          "ovms_aux_consumption": "OVMS auxiliary consumption",
+          "ovms_12v": "OVMS 12 V voltage",
+          "outside_temp": "Outside temperature (HA sensor)",
+          "weather": "Weather (fallback outside temperature)",
+          "ovms_command_topic": "OVMS command topic (MQTT)",
+          "ovms_command_script": "Or: script for OVMS commands (variable command)"
         }
       }
+    },
+    "error": {
+      "host_without_relay": "A Shelly host also needs the CP relay."
     },
     "abort": {
       "single_instance_allowed": "Already configured.",
@@ -44,63 +74,174 @@
   "options": {
     "step": {
       "init": {
-        "title": "Charging plan",
-        "data": {
-          "plan_enabled": "Weekly plan enabled",
-          "weekdays": "Departure days",
-          "mode": "Mode",
-          "departure_time": "Departure time",
-          "charge_start_time": "Fixed charge start (fallback without SOC)",
-          "ready_buffer_min": "Ready before departure",
-          "minimum_departure_soc_pct": "Minimum SOC at departure",
-          "preferred_departure_soc_pct": "Preferred SOC at departure (target SOC)"
+        "title": "Settings",
+        "menu_options": {
+          "charging": "Charging",
+          "wakeup": "Wakeup and CP",
+          "planning": "Planning",
+          "climate": "Pre-climatisation",
+          "quality": "Data quality",
+          "notifications": "Notifications",
+          "monitor": "Statistics and costs",
+          "ovms_commands": "OVMS commands"
         }
       },
-      "technical": {
-        "title": "Technical and costs",
-        "description": "Provisional values until the measurement phase (phase 0).",
+      "charging": {
+        "title": "Charging",
+        "data": {
+          "mode": "Run mode",
+          "power_threshold_w": "Power threshold 'charging'",
+          "stable_samples": "Stable samples (N)",
+          "stable_min_s": "Minimum stable duration",
+          "loss_timeout_s": "Charging loss timeout",
+          "min_switch_interval_s": "Minimum pause between Halo switches",
+          "confirm_timeout_s": "Wait for Halo confirmation",
+          "finished_statuses": "Halo status values meaning finished (comma separated)"
+        },
+        "description": "Provisional values until phase 0 measured them."
+      },
+      "wakeup": {
+        "title": "Wakeup and CP",
+        "data": {
+          "start_detection_wait_s": "Wait before wakeup",
+          "ovms_enabled": "OVMS functions enabled (only after testing!)",
+          "ovms_wait_s": "Wait after OVMS wakeup",
+          "cp_fallback_enabled": "CP pulse as fallback",
+          "post_cp_wait_s": "Wait after CP pulse",
+          "max_ovms_attempts_per_window": "Max OVMS attempts per window",
+          "max_cp_attempts_per_window": "Max CP attempts per window",
+          "min_gap_between_wakeups_s": "Minimum gap between wakeups",
+          "cp_pulse_s": "CP pulse length (= toggle_after = auto_on_delay)",
+          "cp_mask_grace_s": "Masking after the pulse",
+          "cp_failsafe_verified": "CP failsafe checklist §3.6 completed"
+        },
+        "description": "The CP wakeup stays locked until checklist §3.6 is completed."
+      },
+      "planning": {
+        "title": "Planning",
         "data": {
           "usable_capacity_kwh": "Usable battery capacity",
           "charge_efficiency": "Charging efficiency",
+          "max_power_kw": "Halo limit",
           "vehicle_charger_kw": "On-board charger",
           "grid_limit_kw": "Grid limit §14a (0 = none)",
-          "power_threshold_w": "Power threshold for charging",
-          "start_detection_wait_s": "Wait before wakeup",
-          "min_switch_interval_s": "Minimum pause between Halo switches",
-          "cp_pulse_s": "CP pulse length (= toggle_after and auto_on_delay)",
-          "cp_failsafe_verified": "CP failsafe checklist (§3.6) completed",
-          "finished_statuses": "Halo status values meaning finished (comma separated)",
-          "price_eur_kwh": "Energy price"
+          "safety_margin_min": "Safety margin"
         }
+      },
+      "climate": {
+        "title": "Pre-climatisation",
+        "data": {
+          "climate_enabled": "Pre-climatisation enabled",
+          "climate_min_soc_pct": "Minimum SOC for climate",
+          "climate_after_target_soc": "Climate after target SOC",
+          "climate_very_cold_below_c": "Very cold below",
+          "climate_very_cold_min": "Duration very cold",
+          "climate_cold_below_c": "Cold below",
+          "climate_cold_min": "Duration cold",
+          "climate_cool_below_c": "Cool below",
+          "climate_cool_min": "Duration cool",
+          "climate_warm_above_c": "Warm above",
+          "climate_warm_min": "Duration warm"
+        }
+      },
+      "quality": {
+        "title": "Data quality",
+        "data": {
+          "max_age_halo_power_s": "Max age Halo power (3 × poll interval)",
+          "max_age_halo_energy_s": "Max age Halo meter",
+          "max_age_vehicle_charging_s": "Max age vehicle charging state",
+          "max_age_soc_s": "Max age SOC while charging",
+          "max_age_odometer_s": "Max age odometer",
+          "max_age_temperature_s": "Max age temperatures"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "data": {
+          "plug_reminder_time": "Evening reminder time",
+          "notify_start_failed": "Push: start failed / interrupted",
+          "notify_cp": "Push: CP problems (critical)",
+          "notify_plan_infeasible": "Push: minimum SOC not reachable",
+          "notify_plug_reminder": "Push: not plugged in",
+          "notify_health": "Push: health changes",
+          "notify_hv_cycles": "Push: HV contactor warning",
+          "notify_plug_in_action": "Actionable push when plugging in"
+        }
+      },
+      "monitor": {
+        "title": "Statistics and costs",
+        "data": {
+          "odometer_source": "Odometer source",
+          "trip_merge_gap_min": "Merge trips within",
+          "event_retention_days": "Keep events",
+          "hv_cycles_warn_per_day": "HV cycle warning per day",
+          "interval_min": "Energy interval",
+          "price_eur_kwh": "Energy price",
+          "price_valid_from": "Price valid from"
+        },
+        "description": "A new price with a validity date never changes past months."
+      },
+      "ovms_commands": {
+        "title": "OVMS commands",
+        "data": {
+          "ovms_wakeup_command": "OVMS wakeup command (empty = locked)",
+          "ovms_climate_command": "OVMS climate command ({level} = 1/2/3, {minutes})",
+          "ovms_climate_stop_command": "OVMS climate stop command"
+        },
+        "description": "Only enter commands tested on the car (§1.2). Empty = locked."
       }
-    },
-    "error": {
-      "preferred_below_minimum": "The preferred SOC must not be below the minimum SOC."
     }
   },
   "selector": {
-    "weekdays": {
-      "options": {
-        "mon": "Monday",
-        "tue": "Tuesday",
-        "wed": "Wednesday",
-        "thu": "Thursday",
-        "fri": "Friday",
-        "sat": "Saturday",
-        "sun": "Sunday"
-      }
-    },
     "mode": {
       "options": {
-        "departure_based": "Departure based",
-        "fixed_start": "Fixed start time"
+        "dry_run": "Dry run",
+        "live": "Live",
+        "replay": "Replay"
+      }
+    },
+    "climate_after_target_soc": {
+      "options": {
+        "allow_topup": "Allow top-up",
+        "battery_only": "Battery only",
+        "enforce_target": "Enforce target"
+      }
+    },
+    "odometer_source": {
+      "options": {
+        "manual": "Manual",
+        "ovms": "OVMS"
+      }
+    },
+    "override_mode": {
+      "options": {
+        "until_unplugged": "Until unplugged",
+        "duration": "For 2 hours",
+        "until_time": "Until departure",
+        "until_soc": "Until preferred SOC",
+        "stop": "Stop charging"
+      }
+    },
+    "external_source": {
+      "options": {
+        "public": "Public",
+        "workplace": "Workplace",
+        "other_home": "Other home"
+      }
+    },
+    "export_dataset": {
+      "options": {
+        "sessions": "Charge sessions",
+        "trips": "Trips",
+        "external": "External charges",
+        "months": "Monthly balances"
       }
     }
   },
   "entity": {
     "sensor": {
-      "state": {
-        "name": "Charging state",
+      "executor_state": {
+        "name": "Executor state",
         "state": {
           "disconnected": "Disconnected",
           "idle": "Idle",
@@ -127,58 +268,439 @@
           "target_soc_reached": "Target SOC reached",
           "climate": "Pre-climatisation",
           "schedule": "Weekly plan",
-          "default_off": "Default off"
+          "default_off": "Default off",
+          "automation_off": "Automation off"
         }
       },
-      "health": {
-        "name": "System-Health",
+      "system_health": {
+        "name": "System health",
         "state": {
           "healthy": "Healthy",
           "degraded": "Degraded",
           "error": "Error"
         }
       },
+      "last_event": {
+        "name": "Last event"
+      },
+      "last_charge_result": {
+        "name": "Last charge result"
+      },
+      "charge_power": {
+        "name": "Charge power"
+      },
+      "session_energy": {
+        "name": "Session energy"
+      },
       "next_charge_start": {
         "name": "Next charge start"
+      },
+      "next_departure": {
+        "name": "Next departure"
       },
       "expected_departure_soc": {
         "name": "Expected SOC at departure"
       },
-      "last_event": {
-        "name": "Last event"
+      "estimated_finish": {
+        "name": "Estimated finish"
+      },
+      "soc": {
+        "name": "SOC"
+      },
+      "soh": {
+        "name": "SOH"
+      },
+      "range": {
+        "name": "Range"
+      },
+      "odometer": {
+        "name": "Odometer"
+      },
+      "battery_temperature": {
+        "name": "Battery temperature"
+      },
+      "hv_contactor_cycles": {
+        "name": "HV contactor cycles"
+      },
+      "home_energy_total": {
+        "name": "Home charging total"
+      },
+      "month_home_energy": {
+        "name": "Home energy month"
+      },
+      "month_external_energy": {
+        "name": "External energy month"
+      },
+      "month_distance": {
+        "name": "Distance month"
+      },
+      "month_cost": {
+        "name": "Cost month"
+      },
+      "month_cost_per_100km": {
+        "name": "Cost per 100 km month"
+      },
+      "month_grid_consumption": {
+        "name": "Grid consumption month"
+      },
+      "year_home_energy": {
+        "name": "Home energy year"
+      },
+      "year_external_energy": {
+        "name": "External energy year"
+      },
+      "year_distance": {
+        "name": "Distance year"
+      },
+      "year_cost": {
+        "name": "Cost year"
+      },
+      "year_cost_per_100km": {
+        "name": "Cost per 100 km year"
+      },
+      "year_grid_consumption": {
+        "name": "Grid consumption year"
       }
     },
     "binary_sensor": {
-      "override_active": {
-        "name": "Override active"
+      "vehicle_connected": {
+        "name": "Vehicle connected"
+      },
+      "charging": {
+        "name": "Charging"
+      },
+      "charge_problem": {
+        "name": "Charge problem"
+      },
+      "cp_failsafe_ok": {
+        "name": "CP failsafe OK"
+      },
+      "charger_available": {
+        "name": "Charger available"
+      },
+      "vehicle_available": {
+        "name": "Vehicle data current"
       },
       "data_conflict": {
         "name": "Data conflict"
       },
-      "problem": {
-        "name": "Problem"
+      "soc_stale": {
+        "name": "SOC stale"
+      },
+      "charge_plan_feasible": {
+        "name": "Charge plan feasible"
+      },
+      "manual_override": {
+        "name": "Manual override"
+      },
+      "hvcycle_warning": {
+        "name": "HV cycle warning"
       }
     },
     "switch": {
+      "automation": {
+        "name": "Automation"
+      },
       "dry_run": {
-        "name": "Dry-Run"
+        "name": "Dry run"
       }
     },
     "button": {
-      "charge_now": {
-        "name": "Charge now"
+      "start_charge": {
+        "name": "Start charging"
       },
-      "stop_charging": {
+      "stop_charge": {
         "name": "Stop charging"
       },
-      "charge_tonight": {
-        "name": "Charge tonight"
+      "vehicle_wakeup": {
+        "name": "Wake vehicle (OVMS)"
       },
-      "clear_override": {
-        "name": "Clear override"
+      "cp_wakeup": {
+        "name": "CP wakeup"
       },
-      "reset": {
+      "reset_error": {
         "name": "Reset error"
+      },
+      "climate_5min": {
+        "name": "Climate 5 min"
+      },
+      "climate_10min": {
+        "name": "Climate 10 min"
+      },
+      "climate_15min": {
+        "name": "Climate 15 min"
+      },
+      "climate_stop": {
+        "name": "Stop climate"
+      },
+      "one_shot_tonight": {
+        "name": "Charge tonight"
+      }
+    },
+    "select": {
+      "override_mode": {
+        "name": "Override mode",
+        "state": {
+          "none": "No override",
+          "until_unplugged": "Until unplugged",
+          "duration": "For 2 hours",
+          "until_time": "Until departure",
+          "until_soc": "Until preferred SOC",
+          "stop": "Stop charging"
+        }
+      }
+    },
+    "number": {
+      "minimum_departure_soc": {
+        "name": "Minimum departure SOC"
+      },
+      "preferred_departure_soc": {
+        "name": "Preferred departure SOC"
+      }
+    },
+    "time": {
+      "departure": {
+        "name": "Departure"
+      }
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Start charging",
+      "description": "Set a charge-now override.",
+      "fields": {
+        "mode": {
+          "name": "Mode",
+          "description": "Mode"
+        },
+        "duration_min": {
+          "name": "Duration",
+          "description": "Duration"
+        },
+        "until": {
+          "name": "Until",
+          "description": "Until"
+        },
+        "target_soc": {
+          "name": "Target SOC",
+          "description": "Target SOC"
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Stop charging",
+      "description": "Stop until unplugged."
+    },
+    "set_override": {
+      "name": "Set override",
+      "description": "Set a manual override.",
+      "fields": {
+        "mode": {
+          "name": "Mode",
+          "description": "Mode"
+        },
+        "duration_min": {
+          "name": "Duration",
+          "description": "Duration"
+        },
+        "until": {
+          "name": "Until",
+          "description": "Until"
+        },
+        "target_soc": {
+          "name": "Target SOC",
+          "description": "Target SOC"
+        }
+      }
+    },
+    "clear_override": {
+      "name": "Clear override",
+      "description": "Clear override"
+    },
+    "start_one_shot": {
+      "name": "Charge tonight",
+      "description": "One-shot for the next night.",
+      "fields": {
+        "departure_time": {
+          "name": "Departure time",
+          "description": "Departure time"
+        }
+      }
+    },
+    "cancel_one_shot": {
+      "name": "Cancel one-shot",
+      "description": "Cancel one-shot"
+    },
+    "vehicle_wakeup": {
+      "name": "Wake vehicle",
+      "description": "OVMS software wakeup (same guards as the cascade)."
+    },
+    "cp_wakeup": {
+      "name": "CP wakeup",
+      "description": "CP pulse via the Shelly – only with a verified failsafe."
+    },
+    "reset_error": {
+      "name": "Reset error",
+      "description": "Reset error"
+    },
+    "start_climate": {
+      "name": "Start climate",
+      "description": "Start climate",
+      "fields": {
+        "minutes": {
+          "name": "Minutes",
+          "description": "Minutes"
+        }
+      }
+    },
+    "stop_climate": {
+      "name": "Stop climate",
+      "description": "Stop climate"
+    },
+    "add_external_charge": {
+      "name": "Add external charge",
+      "description": "Charge away from home; not part of the home bill.",
+      "fields": {
+        "date": {
+          "name": "Date",
+          "description": "Date"
+        },
+        "energy_kwh": {
+          "name": "Energy",
+          "description": "Energy"
+        },
+        "source": {
+          "name": "Location",
+          "description": "Location"
+        },
+        "cost_eur": {
+          "name": "Cost",
+          "description": "Cost"
+        },
+        "price_eur_kwh": {
+          "name": "Price",
+          "description": "Price"
+        },
+        "odometer_km": {
+          "name": "Odometer",
+          "description": "Odometer"
+        },
+        "soc_before": {
+          "name": "SOC before",
+          "description": "SOC before"
+        },
+        "soc_after": {
+          "name": "SOC after",
+          "description": "SOC after"
+        },
+        "provider": {
+          "name": "Provider",
+          "description": "Provider"
+        },
+        "note": {
+          "name": "Note",
+          "description": "Note"
+        }
+      }
+    },
+    "delete_external_charge": {
+      "name": "Delete external charge",
+      "description": "Delete external charge",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "ID"
+        }
+      }
+    },
+    "add_manual_odometer": {
+      "name": "Add odometer reading",
+      "description": "Add odometer reading",
+      "fields": {
+        "odometer_km": {
+          "name": "Odometer",
+          "description": "Odometer"
+        },
+        "at": {
+          "name": "Time",
+          "description": "Time"
+        }
+      }
+    },
+    "set_plans": {
+      "name": "Set charge plans",
+      "description": "Replaces all weekly plans.",
+      "fields": {
+        "plans": {
+          "name": "Plans",
+          "description": "Plans"
+        }
+      }
+    },
+    "export": {
+      "name": "Export",
+      "description": "CSV/JSON into /config/smart_eq_charging/export.",
+      "fields": {
+        "dataset": {
+          "name": "Dataset",
+          "description": "Dataset"
+        },
+        "format": {
+          "name": "Format",
+          "description": "Format"
+        },
+        "start": {
+          "name": "Start",
+          "description": "Start"
+        },
+        "end": {
+          "name": "End",
+          "description": "End"
+        }
+      }
+    },
+    "start_replay": {
+      "name": "Start replay",
+      "description": "Run a recorded night without hardware.",
+      "fields": {
+        "file": {
+          "name": "File",
+          "description": "File"
+        },
+        "dataset": {
+          "name": "Dataset",
+          "description": "Dataset"
+        },
+        "tick_s": {
+          "name": "Tick",
+          "description": "Tick"
+        }
+      }
+    },
+    "stop_replay": {
+      "name": "Stop replay",
+      "description": "Stop replay"
+    },
+    "create_replay_dataset": {
+      "name": "Create replay dataset",
+      "description": "From the recorder history.",
+      "fields": {
+        "start": {
+          "name": "Start",
+          "description": "Start"
+        },
+        "end": {
+          "name": "End",
+          "description": "End"
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name"
+        },
+        "poll_interval_s": {
+          "name": "Halo poll interval (M1)",
+          "description": "Halo poll interval (M1)"
+        }
       }
     }
   }

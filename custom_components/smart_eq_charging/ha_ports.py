@@ -1,13 +1,12 @@
 """Home Assistant implementations of the core ports (§4.3).
 
-Every port checks ``dry_run`` itself: in dry-run the command is only logged
-("WOULD ENABLE CHARGER") – the executor above runs exactly the same way.
+Only the coordinator calls :meth:`HaPorts.execute`, and only in live mode;
+dry-run and replay never reach this module.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from typing import Any
 
 import aiohttp
@@ -15,7 +14,9 @@ from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .core.climate import homelink_level
 from .core.ports import Command, CommandKind
+from .core.settings import Settings
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class PortError(Exception):
 
 
 class HaPorts:
-    """Dispatches executor commands to the Halo switch and the Shelly."""
+    """Halo switch, Shelly RPC and OVMS commands."""
 
     def __init__(
         self,
@@ -36,19 +37,25 @@ class HaPorts:
         charger_switch: str,
         cp_relay: str | None,
         shelly_host: str | None,
-        dry_run: Callable[[], bool],
+        ovms_topic: str | None,
+        ovms_script: str | None,
     ) -> None:
         self.hass = hass
         self.charger_switch = charger_switch
         self.cp_relay = cp_relay
         self.shelly_host = shelly_host
-        self._dry_run = dry_run
+        self.ovms_topic = ovms_topic
+        self.ovms_script = ovms_script
 
-    async def dispatch(self, command: Command) -> bool:
-        """Execute ``command``. Returns False when only logged (dry-run)."""
-        if self._dry_run():
-            _LOGGER.info("Dry-Run: WOULD %s", command.describe())
-            return False
+    @property
+    def cp_pulse_available(self) -> bool:
+        return bool(self.cp_relay and self.shelly_host)
+
+    @property
+    def ovms_command_available(self) -> bool:
+        return bool(self.ovms_topic or self.ovms_script)
+
+    async def execute(self, command: Command, settings: Settings) -> None:
         match command.kind:
             case CommandKind.ENABLE_CHARGER:
                 await self._switch(self.charger_switch, True)
@@ -58,20 +65,23 @@ class HaPorts:
                 await self._cp_pulse(int(command.params["seconds"]))
             case CommandKind.CP_CLOSE:
                 if self.cp_relay is None:
-                    raise PortError("no CP relay configured")
+                    raise PortError("kein CP-Relais konfiguriert")
                 await self._switch(self.cp_relay, True)
-            case CommandKind.OVMS_WAKEUP | CommandKind.CLIMATE_START:
-                # OVMS mapping follows after the real-vehicle test (§2.3, §16).
-                raise PortError(f"{command.kind} not available yet")
-        _LOGGER.info("Executed %s", command.describe())
-        return True
+            case CommandKind.OVMS_WAKEUP:
+                await self._ovms(settings.ovms_wakeup_command)
+            case CommandKind.CLIMATE_START:
+                minutes = int(command.params.get("duration_min", 10))
+                text = settings.ovms_climate_command.format(
+                    level=homelink_level(minutes), minutes=minutes)
+                await self._ovms(text)
+            case CommandKind.CLIMATE_STOP:
+                await self._ovms(settings.ovms_climate_stop_command)
+        _LOGGER.info("Ausgeführt: %s", command.describe())
 
     async def _switch(self, entity_id: str, on: bool) -> None:
         await self.hass.services.async_call(
-            "homeassistant",
-            SERVICE_TURN_ON if on else SERVICE_TURN_OFF,
-            {"entity_id": entity_id},
-            blocking=True,
+            "homeassistant", SERVICE_TURN_ON if on else SERVICE_TURN_OFF,
+            {"entity_id": entity_id}, blocking=True,
         )
 
     async def _cp_pulse(self, seconds: int) -> None:
@@ -81,14 +91,28 @@ class HaPorts:
         crashing mid-pulse cannot leave the CP open.
         """
         if not self.shelly_host:
-            raise PortError("no Shelly host configured for the CP pulse")
+            raise PortError("kein Shelly-Host für den CP-Puls konfiguriert")
         url = f"http://{self.shelly_host}/rpc/Switch.Set"
         params = {"id": "0", "on": "false", "toggle_after": str(seconds)}
         session = async_get_clientsession(self.hass)
         timeout = aiohttp.ClientTimeout(total=SHELLY_TIMEOUT_S)
         async with session.get(url, params=params, timeout=timeout) as response:
             if response.status != 200:
-                raise PortError(f"Shelly answered HTTP {response.status}")
+                raise PortError(f"Shelly antwortet HTTP {response.status}")
+
+    async def _ovms(self, text: str) -> None:
+        """Send an OVMS shell command via MQTT or a user script (§2.3, §16 #8)."""
+        if not text:
+            raise PortError("OVMS-Befehl ist nicht konfiguriert")
+        if self.ovms_topic:
+            await self.hass.services.async_call(
+                "mqtt", "publish", {"topic": self.ovms_topic, "payload": text}, blocking=True)
+        elif self.ovms_script:
+            await self.hass.services.async_call(
+                "script", "turn_on",
+                {"entity_id": self.ovms_script, "variables": {"command": text}}, blocking=True)
+        else:
+            raise PortError("kein OVMS-Befehlsweg konfiguriert")
 
     async def shelly_switch_config(self) -> dict[str, Any] | None:
         """Read ``Switch.GetConfig`` for the config-drift check (§7.5)."""

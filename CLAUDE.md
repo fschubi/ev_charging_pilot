@@ -11,12 +11,13 @@ den Anfang von `docs/CHANGELOG_DEV.md`.
 die Laden, Wakeup, Vorklimatisierung, Diagnose und Verbrauchsstatistik des
 smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt (ersetzt evcc).
 
-- Repo: https://github.com/fschubi/smart453_charging_center (Branch `main`)
-- Domain: `smart_eq_charging` · `single_config_entry: true` · HA ≥ 2025.1
-- **Spezifikation: [`docs/masterplan-v1.3.md`](docs/masterplan-v1.3.md)** –
-  verbindlich. Abschnittsverweise im Code (`§6.2`) beziehen sich darauf.
-- Sprache: **Deutsch** für Commits, Doku, Changelog, UI-Texte. Python-Bezeichner,
-  Docstrings und Code-Kommentare englisch.
+- Repo: https://github.com/fschubi/smart453_charging_center (Branch `main`, **privat**)
+- Domain: `smart_eq_charging` · `single_config_entry: true` · HA ≥ 2025.6 · Version 0.5.0
+- **Spezifikation: [`docs/masterplan-v1.3.md`](docs/masterplan-v1.3.md)** (vollständig, §1–§16).
+  Abschnittsverweise im Code (`§6.2`) beziehen sich darauf.
+- Stand je Stufe und Gate: [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- Sprache: **Deutsch** für Commits, Doku, Changelog, UI-Texte, Event-Meldungen.
+  Python-Bezeichner, Docstrings und Code-Kommentare englisch.
 - Schwesterprojekt mit gleichen Konventionen: `../shutter_pilot`.
 
 ## Hardware (Masterplan §2)
@@ -25,9 +26,9 @@ smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt (ersetzt evcc).
 | --- | --- | --- |
 | Charge Amps Halo 11 kW | Ladefreigabe, Leistung, Zähler, Kabel | HACS „Chargeamps“, Cloud-Polling |
 | Shelly 1 Mini Gen3 | CP-Unterbrechung (Wakeup) | lokal; `ON` = CP geschlossen = Normalzustand |
-| OVMS v3 | SOC, Fahrdaten, Klima, SW-Wakeup | **noch nicht angebunden** (MQTT offen, §16) |
+| OVMS v3 | SOC, Fahrdaten, Klima, SW-Wakeup | noch nicht geliefert; Mapping per Config Flow |
 
-## Unverrückbare Regeln (Auszug Masterplan §1.1)
+## Unverrückbare Regeln (Auszug §1.1)
 
 1. Nur das Charging Center schaltet die Halo. Kein evcc parallel, Halo-Zeitplan aus.
 2. **Auto nie nur zum Datenauffrischen wecken** (HV-Kontaktorzyklen).
@@ -38,74 +39,87 @@ smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt (ersetzt evcc).
 6. Abschaltung nur mit SOC-Qualität `GOOD`; im Zweifel weiterladen.
 7. Keine hart codierten Entity-IDs – alles per Config-Flow-Selector.
 8. **Keine produktive Automatik vor Messphase, Dry-Run und Einzeltest.**
-   Die Integration startet immer im Dry-Run (Switch `dry_run`).
+   Default-Modus `dry_run`; OVMS-Befehle leer = gesperrt.
 9. Was HA kann (`utility_meter`, LTS, Energy Dashboard, Notify), wird genutzt.
 
 ## Aufbau
 
 ```
 custom_components/smart_eq_charging/
-  core/              HA-FREI (Test erzwingt das): nur stdlib
-    model.py         Value+Quality, Desired, Reason, Event, Clock
-    quality.py       Qualitätsstufen inkl. LAST_KNOWN_VALID, Konflikte
-    planner.py       Wochenplan, One-Shot, Override, Ziel-SOC, Machbarkeit (DST-sicher, UTC-Arithmetik)
-    arbiter.py       feste Priorität §4.2; Health ERROR → charger_enabled=None (einfrieren)
-    executor.py      Soll/Ist-State-Machine §6, Wakeup-Kaskade, CP-Maskierung; reine step()-Funktion
-    health.py        HEALTHY/DEGRADED/ERROR
-    costs.py         Preis-Historie, 15-min-Intervalle, Session-Kosten
-    ports.py         Command/CommandKind, Port-Protokolle
-  coordinator.py     ChargingCenter: liest Entities → Values, Tick alle 5 s, Push, Stores
-  ha_ports.py        Halo-Switch, Shelly-RPC (toggle_after), Config-Drift-Check
-  config_flow.py     Entities (user/reconfigure) + Options (Plan, Technik/Kosten)
-  sensor/binary_sensor/switch/button.py, diagnostics.py, entity.py
-phase0/              HA-Package für Phase 0 (Zeitautomation, Messprotokoll, CP-Test)
-docs/                Masterplan, Roadmap, Messergebnisse
-tests/core/          reine Kern-Tests (Millisekunden)
-tests/integration/   pytest-homeassistant-custom-component
+  core/                HA-FREI (Test erzwingt das), nur stdlib
+    engine.py          Herzstück: Engine.tick(now, raw) → Commands, Events, Sessions,
+                       Trips, Notifications. Coordinator UND Replay treiben genau das.
+    settings.py        Alle Optionen §13.2 (OPT_*-Keys, DEFAULT_OPTIONS, Settings.from_options)
+    inputs.py          Inp-Enum (= Config-Entry-Keys), RawState, Parsing/Einheiten
+    model.py           Value+Quality, Desired, Reason, ClimateRequest, Event
+    quality.py / source_policy.py   Qualitätsstufen, Konflikte, Quellen, HV-Zyklen
+    planner.py         Wochenpläne, One-Shot, Override, Ziel-SOC, Machbarkeit (UTC-Arithmetik)
+    arbiter.py         Priorität §4.2; Lade- und Klima-Entscheidung getrennt
+    executor.py        Soll/Ist-State-Machine §6, Kaskade, CP-Maskierung, manuelle Wakeups
+    climate.py, health.py, costs.py, sessions.py, trips.py, statistics.py, monitor.py
+    replay.py          Datensätze, Poll-Nachbildung, Abgleich mit realem Schalten
+  coordinator.py       ChargingCenter: Tick 5 s + bei Zustandswechsel; live → HaPorts,
+                       sonst nur Log „WOULD …“; Stores (state, events, monitor)
+  ha_ports.py          Halo-Switch, Shelly-RPC, OVMS per MQTT-Topic oder Script
+  notifications.py     Push + Actionable Notification (mobile_app_notification_action)
+  services.py (19), websocket_api.py, export.py, diagnostics.py, config_flow.py
+  sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs smart_eq_* (§12)
+  frontend/smart-eq-panel.js   Panel, Vanilla-JS, keine Steuerlogik
+phase0/                HA-Package Phase 0 + Messprotokoll
+dashboards/            YAML-Standard-Dashboard
+tools/gen_translations.py   erzeugt strings.json + translations/{de,en}.json – NICHT von Hand editieren
+tests/core/            reine Kern-Tests inkl. world.py (simulierte Halo/Shelly/Auto)
+tests/integration/     pytest-homeassistant-custom-component
 ```
 
-Datenfluss pro Tick: Entities → `Value` (Qualität) → Planner-Wünsche →
-`arbitrate()` → `Snapshot` → `Executor.step()` → `Command`s → `HaPorts.dispatch()`
-(Dry-Run: nur Log + Event `DRY_RUN`). Leistungs-Samples werden über
-`state.last_reported` unterschieden (Cloud-Polling liefert oft gleiche Werte).
+Wichtige Details:
+- Freshness/Samples über `state.last_reported` (Cloud-Polling meldet gleiche Werte erneut).
+- Fensterstart wird verriegelt, sobald er erreicht ist (sonst bricht steigender SOC die Ladung ab).
+- Moduswechsel (Dry-Run-Switch) ändert nur `options["mode"]` ohne Reload; jede andere
+  Optionsänderung lädt neu (Zustand kommt aus dem Store).
+- Replay aus Recorder-Daten braucht `poll_interval_s` (Messung M1), weil der Recorder
+  wiederholte Werte nicht speichert.
 
 ## Entwicklung
 
 ```bash
 uv venv -p 3.13 .venv && uv pip install -p .venv/bin/python -r requirements-test.txt
-.venv/bin/python -m pytest            # alle Tests
-uvx ruff check custom_components tests
+.venv/bin/python -m pytest                       # ~100 Tests, < 2 s
+uvx ruff check custom_components tests tools
+node --check custom_components/smart_eq_charging/frontend/smart-eq-panel.js
+python3 tools/gen_translations.py custom_components/smart_eq_charging
 ```
 
-CI: `.github/workflows/tests.yaml` (pytest + ruff), `validate.yaml` (hassfest, HACS).
+Panel-Sichtprüfung: Testdaten per WS-Dump aus einer Testinstanz erzeugen und
+`smart-eq-panel` mit Fake-`hass` (callWS/callService) in einer HTML-Seite laden.
+
+CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
+HACS-Validierung scheitert, solange das Repo privat ist.
 
 ## Git-Workflow
 
 - Branch `main`. Commits auf Deutsch, Attribution laut System-Vorgabe.
-- Graphify-Regeln aus `~/.claude/rules/graphify-git-workflow.md` gelten, sobald
-  `graphify-out/graph.json` existiert (aktuell noch nicht angelegt).
+- Graphify-Regeln (`~/.claude/rules/graphify-git-workflow.md`) gelten erst, wenn
+  `graphify-out/graph.json` existiert (aktuell nicht).
 - Keine `git add .`/`-A`; Dateien gezielt stagen.
 
 ## Offene Punkte / Entscheidungen
 
-- Masterplan ist jetzt **vollständig** (§1–§16, 2026-10-13 ersetzt).
-  Umsetzungsstand und Abweichungen (Entity-Namen §12, Options §13.2,
-  Replay, Phase-0-Wakeup-Automation) stehen in `docs/ROADMAP.md`.
-- Laut §15 ist v0.1 nur Read-only/Dry-Run mit `fixed_start`; der Code kann
-  mehr, schaltet aber nichts, solange Dry-Run an ist. Live erst nach Gate v0.1.
-- OVMS-Wakeup/Klima: Port wirft `PortError`, `ovms_available=False` fest im
-  Coordinator, bis die Befehle am Fahrzeug getestet sind.
-- RFID-Variante (§5.4): Arbeitsannahme C (Button/Push), Messung M6/M7 offen.
-- Sessions/Trips/Monatsstatistik (§10) und Klima (§9) noch nicht gebaut.
-- Repo ist **privat**; für HACS-Installation als Custom-Repo muss es öffentlich werden.
+- Gates §15 sind real zu erfüllen (Messungen, Dry-Run-Nächte, Feldtests) – Code ist fertig.
+- `docs/messungen.md` ausfüllen → Defaults in `core/settings.py` anpassen.
+- OVMS: Datenweg (§16 #7) und echte Entity-Namen/Befehle erst nach Lieferung.
+- RFID (§5.4): Variante C umgesetzt (Buttons/Push); Variante A nach Messung M6.
+- Repo privat → für HACS-Installation öffentlich machen (Entscheidung Frank).
+- Später (bewusst nicht gebaut): Tibber-Preisquelle, OCPP, PDF-Bericht, Fremdladeerkennung.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-13 – v0.1.0 Grundgerüst.** Repo angelegt, Masterplan nach `docs/`.
-  HA-freier Kern (Modell, Qualität, Planner, Arbiter, Executor mit Kaskade und
-  CP-Maskierung, Health, Kosten) mit 50+ Tests inkl. DST und Neustart.
-  Integration mit Config-/Options-Flow, Entitäten, Dry-Run-Default, Push,
-  Event-Log (90 Tage), Diagnostics. Phase-0-Package mit Messprotokoll.
+- **2026-10-13 – v0.1.0 Grundgerüst.** Repo, Kern (Planner, Arbiter, Executor,
+  Health, Kosten), Integration im Dry-Run, Phase-0-Package.
 - **2026-10-13 – Masterplan vollständig.** Fassung mit §12–§16 übernommen,
-  Defaults an §13.2 angeglichen (Wirkungsgrad 0,88, Reserve 20 min,
-  Ladeverlust-Timeout 180 s), Roadmap auf §15 umgestellt.
+  Defaults an §13.2 angeglichen.
+- **2026-10-13 – Phase 0 + Kern-Engine.** Wakeup-Kette im Package, `core/engine.py`
+  als HA-freie Tick-Pipeline, Replay, Sessions, Trips, Statistik, Klima.
+- **2026-10-13 – v0.5.0 komplette Integration.** Entitäten/Services/WS nach §12,
+  Config-/Options-Flow nach §13, Push mit Rückfrage, Panel mit 5 Ansichten,
+  YAML-Dashboard, Replay mit Poll-Nachbildung. ~100 Tests grün.

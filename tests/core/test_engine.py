@@ -196,3 +196,45 @@ def test_data_conflict_is_flagged():
     world.run(30)
     assert world.engine.data_conflict
     assert "DATA_CONFLICT" in world.events
+
+
+def climate_world(policy: str) -> World:
+    """Tuesday 05:10, departure 05:30, target 90 % already reached, 10 °C outside → 10 min."""
+    world = World(local(2026, 10, 13, 5, 10), configured=WITH_OVMS, ovms_port=True,
+                  climate_enabled=True, ovms_enabled=True, climate_after_target_soc=policy,
+                  ovms_climate_command="homelink {level}")
+    world.set(Inp.OVMS_SOC, "92")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.set(Inp.OVMS_OUTSIDE_TEMP, "6")
+    return world
+
+
+def test_climate_allow_topup_enables_halo_and_starts_climate():
+    world = climate_world("allow_topup")
+    world.run(60)
+    assert world.engine.desired.reason is Reason.TARGET_SOC_REACHED  # before the climate window
+    world.now = local(2026, 10, 13, 5, 18, 30)  # 05:30 − 10 min − 2 min
+    world.run(10)
+    assert world.engine.desired.reason is Reason.CLIMATE
+    assert world.engine.desired.charger_enabled is True
+    assert CommandKind.CLIMATE_START in world.commands
+    assert world.commands.count(CommandKind.CLIMATE_START) == 1
+
+
+def test_climate_battery_only_keeps_halo_off():
+    world = climate_world("battery_only")
+    world.now = local(2026, 10, 13, 5, 18, 30)
+    world.run(10)
+    assert world.engine.desired.reason is Reason.TARGET_SOC_REACHED
+    assert world.engine.desired.charger_enabled is False
+    assert world.engine.desired.climate is not None
+    assert CommandKind.CLIMATE_START in world.commands
+
+
+def test_climate_blocked_without_soc():
+    world = climate_world("allow_topup")
+    world.set(Inp.OVMS_SOC, "20")
+    world.now = local(2026, 10, 13, 5, 18, 30)
+    world.run(10)
+    assert world.engine.climate_blocked == "SOC_TOO_LOW"
+    assert CommandKind.CLIMATE_START not in world.commands

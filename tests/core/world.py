@@ -21,11 +21,13 @@ WITH_OVMS = WITH_CP | {Inp.OVMS_SOC, Inp.OVMS_CHARGING, Inp.OVMS_ODOMETER,
 
 
 class World:
-    def __init__(self, start: datetime, *, configured=HALO, cp_pulse=False, **options) -> None:
+    def __init__(self, start: datetime, *, configured=HALO, cp_pulse=False, ovms_port=False,
+                 **options) -> None:
         self.now = start
         self.settings = Settings.from_options(options)
         self.engine = Engine(EngineConfig(self.settings, TZ, frozenset(configured),
-                                          cp_pulse_available=cp_pulse))
+                                          cp_pulse_available=cp_pulse,
+                                          ovms_command_available=ovms_port))
         self.states: dict[Inp, tuple[str, dict]] = {
             Inp.CHARGER_ENABLE: ("off", {}),
             Inp.CABLE_CONNECTED: ("on", {}),

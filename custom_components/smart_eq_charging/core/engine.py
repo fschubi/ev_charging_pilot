@@ -79,6 +79,7 @@ class EngineConfig:
     tz: ZoneInfo
     configured: frozenset[Inp]
     cp_pulse_available: bool = False
+    ovms_command_available: bool = False
 
     @property
     def cp_configured(self) -> bool:
@@ -95,7 +96,8 @@ class Engine:
         self.settings = config.settings
         self.tz = config.tz
         self.executor = Executor(ExecutorConfig.from_settings(
-            config.settings, cp_available=config.cp_configured and config.cp_pulse_available))
+            config.settings, cp_available=config.cp_configured and config.cp_pulse_available,
+            ovms_port=config.ovms_command_available))
         self.monitor = monitor or Monitor(config.tz)
         self.sessions = SessionTracker(config.settings.interval_min)
         self.trips = TripTracker(config.settings.trip_merge_gap_min, config.tz)

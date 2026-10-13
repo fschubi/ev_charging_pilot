@@ -118,10 +118,11 @@ def test_month_balance_with_soc_correction():
     data = MonitorData(
         sessions=[session(local(2026, 10, 5, 3), 10.0, 9.0),
                   session(local(2026, 10, 31, 23, 50), 2.0)],  # interval belongs to October
-        trips=[trip(local(2026, 10, 6, 7), 50, 8.0, 4.0), trip(local(2026, 10, 7, 7), 50, 7.0, 12.0)],
+        trips=[trip(local(2026, 10, 6, 7), 50, 8.0, 4.0),
+               trip(local(2026, 10, 7, 7), 50, 7.0, 12.0)],
         external=[ExternalCharge("e1", date(2026, 10, 10), "public", 5.0, cost_eur=3.0)],
-        odometer_readings=[Reading(local(2026, 9, 30, 20), 1000), Reading(local(2026, 10, 31, 20),
-                                                                         1100)],
+        odometer_readings=[Reading(local(2026, 9, 30, 20), 1000),
+                           Reading(local(2026, 10, 31, 20), 1100)],
         soc_log=[Reading(local(2026, 9, 30, 22), 60), Reading(local(2026, 10, 31, 22), 80)],
         days_seen=set(),
     )

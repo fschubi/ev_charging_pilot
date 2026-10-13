@@ -2,27 +2,26 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smart_eq_charging.const import (
-    CONF_CABLE_CONNECTED,
-    CONF_CHARGE_POWER,
-    CONF_CHARGER_ENABLE,
-    CONF_TOTAL_ENERGY,
-    DOMAIN,
-)
+from custom_components.smart_eq_charging.const import CONF_NAME, CONF_SHELLY_HOST, DOMAIN
 
 CHARGER = "switch.halo_wallbox_connector_1"
 CABLE = "binary_sensor.halo_wallbox_connector_1_cable_connected"
 POWER = "sensor.halo_wallbox_connector_1_power"
 ENERGY = "sensor.halo_wallbox_total_energy"
+RELAY = "switch.mini_1_wallbox_wallbox_cp_unterbrechung"
+SOC = "sensor.ovms_soc"
 
 DATA = {
-    CONF_CHARGER_ENABLE: CHARGER,
-    CONF_CABLE_CONNECTED: CABLE,
-    CONF_CHARGE_POWER: POWER,
-    CONF_TOTAL_ENERGY: ENERGY,
+    CONF_NAME: "Smart EQ",
+    "charger_enable": CHARGER,
+    "cable_connected": CABLE,
+    "charge_power": POWER,
+    "total_energy": ENERGY,
 }
 
 
@@ -31,9 +30,25 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     yield
 
 
+@pytest.fixture(autouse=True)
+def no_shelly_network():
+    """The drift check would call the Shelly over HTTP – tests have no network."""
+    with patch("custom_components.smart_eq_charging.ha_ports.HaPorts.shelly_switch_config",
+               return_value=None):
+        yield
+
+
 @pytest.fixture
 def entry() -> MockConfigEntry:
-    return MockConfigEntry(domain=DOMAIN, data=dict(DATA), title="Smart EQ Charging Center")
+    return MockConfigEntry(domain=DOMAIN, data=dict(DATA), options={"mode": "dry_run"},
+                           title="Smart EQ", version=2)
+
+
+@pytest.fixture
+def full_entry() -> MockConfigEntry:
+    data = {**DATA, "cp_relay": RELAY, CONF_SHELLY_HOST: "192.0.2.10", "ovms_soc": SOC}
+    return MockConfigEntry(domain=DOMAIN, data=data, options={"mode": "dry_run"},
+                           title="Smart EQ", version=2)
 
 
 @pytest.fixture
@@ -43,3 +58,5 @@ def halo(hass):
     hass.states.async_set(CABLE, "on")
     hass.states.async_set(POWER, "0", {"unit_of_measurement": "W"})
     hass.states.async_set(ENERGY, "1234.5", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(RELAY, "on")
+    hass.states.async_set(SOC, "55", {"unit_of_measurement": "%"})

@@ -1,0 +1,161 @@
+start_charging:
+  fields:
+    mode:
+      default: until_unplugged
+      selector:
+        select:
+          translation_key: override_mode
+          options: [until_unplugged, duration, until_time, until_soc]
+    duration_min:
+      selector:
+        number: {min: 1, max: 1440, unit_of_measurement: min}
+    until:
+      selector:
+        datetime:
+    target_soc:
+      selector:
+        number: {min: 10, max: 100, unit_of_measurement: "%"}
+stop_charging:
+set_override:
+  fields:
+    mode:
+      required: true
+      selector:
+        select:
+          translation_key: override_mode
+          options: [until_unplugged, duration, until_time, until_soc, stop]
+    duration_min:
+      selector:
+        number: {min: 1, max: 1440, unit_of_measurement: min}
+    until:
+      selector:
+        datetime:
+    target_soc:
+      selector:
+        number: {min: 10, max: 100, unit_of_measurement: "%"}
+clear_override:
+start_one_shot:
+  fields:
+    departure_time:
+      selector:
+        time:
+cancel_one_shot:
+vehicle_wakeup:
+cp_wakeup:
+reset_error:
+start_climate:
+  fields:
+    minutes:
+      default: 10
+      selector:
+        select:
+          options: ["5", "10", "15"]
+stop_climate:
+add_external_charge:
+  fields:
+    date:
+      required: true
+      selector:
+        date:
+    energy_kwh:
+      required: true
+      selector:
+        number: {min: 0, max: 200, step: 0.01, unit_of_measurement: kWh, mode: box}
+    source:
+      default: public
+      selector:
+        select:
+          translation_key: external_source
+          options: [public, workplace, other_home]
+    cost_eur:
+      selector:
+        number: {min: 0, max: 500, step: 0.01, unit_of_measurement: EUR, mode: box}
+    price_eur_kwh:
+      selector:
+        number: {min: 0, max: 2, step: 0.001, unit_of_measurement: EUR/kWh, mode: box}
+    odometer_km:
+      selector:
+        number: {min: 0, max: 999999, unit_of_measurement: km, mode: box}
+    soc_before:
+      selector:
+        number: {min: 0, max: 100, unit_of_measurement: "%"}
+    soc_after:
+      selector:
+        number: {min: 0, max: 100, unit_of_measurement: "%"}
+    provider:
+      selector:
+        text:
+    note:
+      selector:
+        text:
+delete_external_charge:
+  fields:
+    id:
+      required: true
+      selector:
+        text:
+add_manual_odometer:
+  fields:
+    odometer_km:
+      required: true
+      selector:
+        number: {min: 0, max: 999999, unit_of_measurement: km, mode: box}
+    at:
+      selector:
+        datetime:
+set_plans:
+  fields:
+    plans:
+      required: true
+      selector:
+        object:
+export:
+  fields:
+    dataset:
+      default: sessions
+      selector:
+        select:
+          translation_key: export_dataset
+          options: [sessions, trips, external, months]
+    format:
+      default: csv
+      selector:
+        select:
+          options: [csv, json]
+    start:
+      selector:
+        date:
+    end:
+      selector:
+        date:
+start_replay:
+  fields:
+    file:
+      selector:
+        text:
+    dataset:
+      selector:
+        object:
+    tick_s:
+      default: 5
+      selector:
+        number: {min: 1, max: 60, unit_of_measurement: s}
+stop_replay:
+create_replay_dataset:
+  fields:
+    start:
+      required: true
+      selector:
+        datetime:
+    end:
+      required: true
+      selector:
+        datetime:
+    name:
+      required: true
+      selector:
+        text:
+    poll_interval_s:
+      default: 60
+      selector:
+        number: {min: 0, max: 900, unit_of_measurement: s}

@@ -1,0 +1,157 @@
+# Smart EQ 453 Charging Center – Phase 0 (einfache Automation + Messphase)
+#
+# Als HA-Package einbinden (configuration.yaml):
+#   homeassistant:
+#     packages:
+#       smart_eq_phase0: !include packages/smart_eq_phase0.yaml
+#
+# Voraussetzungen:
+#   * evcc ist abgeschaltet bzw. steuert die Halo nicht mehr (Grundsatz 1).
+#   * Der Halo-interne Zeitplan ist aus.
+#   * Entity-IDs unten an die eigene Installation anpassen (Masterplan §2).
+#   * SHELLY_IP in rest_command durch die Adresse des Shelly 1 Mini ersetzen.
+#
+# Sobald die Integration produktiv läuft (Dry-Run aus), wird dieses Package
+# entfernt – sonst schalten zwei Systeme die Halo.
+
+# ---------------------------------------------------------------------------
+# Hausabrechnung ab Tag 1 (Masterplan §10.1)
+# ---------------------------------------------------------------------------
+utility_meter:
+  smart_eq_home_energy_month:
+    name: Smart EQ Heimladen Monat
+    source: sensor.halo_wallbox_total_energy
+    cycle: monthly
+  smart_eq_home_energy_year:
+    name: Smart EQ Heimladen Jahr
+    source: sensor.halo_wallbox_total_energy
+    cycle: yearly
+
+# ---------------------------------------------------------------------------
+# Einfache Nachtladung: Halo im Fenster an, sonst aus (nur Werktage)
+# ---------------------------------------------------------------------------
+input_datetime:
+  smart_eq_p0_start:
+    name: Smart EQ Ladestart (Phase 0)
+    has_date: false
+    has_time: true
+    initial: "03:00:00"
+  smart_eq_p0_end:
+    name: Smart EQ Ladeende (Phase 0)
+    has_date: false
+    has_time: true
+    initial: "05:30:00"
+
+input_boolean:
+  smart_eq_p0_enabled:
+    name: Smart EQ Phase-0-Automatik
+    icon: mdi:car-electric
+
+automation:
+  - id: smart_eq_p0_charge_window_start
+    alias: "Smart EQ P0: Halo im Ladefenster freigeben"
+    mode: single
+    triggers:
+      - trigger: time
+        at: input_datetime.smart_eq_p0_start
+    conditions:
+      - condition: state
+        entity_id: input_boolean.smart_eq_p0_enabled
+        state: "on"
+      - condition: time
+        weekday: [mon, tue, wed, thu, fri]
+      - condition: state
+        entity_id: binary_sensor.halo_wallbox_connector_1_cable_connected
+        state: "on"
+    actions:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.halo_wallbox_connector_1
+      - action: logbook.log
+        data:
+          name: Smart EQ P0
+          message: "Halo freigegeben (Ladefenster)"
+
+  - id: smart_eq_p0_charge_window_end
+    alias: "Smart EQ P0: Halo nach dem Ladefenster aus"
+    mode: single
+    triggers:
+      - trigger: time
+        at: input_datetime.smart_eq_p0_end
+    conditions:
+      - condition: state
+        entity_id: input_boolean.smart_eq_p0_enabled
+        state: "on"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.halo_wallbox_connector_1
+      - action: logbook.log
+        data:
+          name: Smart EQ P0
+          message: "Halo ausgeschaltet (Ladefenster vorbei)"
+
+  # Messprotokoll: jeder Halo-Wechsel mit Zeitstempel ins Logbuch, damit
+  # Poll-Intervall, Schaltlatenz und alle status_raw-Werte auswertbar sind.
+  - id: smart_eq_p0_measure_halo
+    alias: "Smart EQ P0: Messprotokoll Halo"
+    mode: queued
+    max: 50
+    triggers:
+      - trigger: state
+        entity_id:
+          - switch.halo_wallbox_connector_1
+          - binary_sensor.halo_wallbox_connector_1_cable_connected
+          - sensor.halo_wallbox_connector_1_status
+          - sensor.halo_wallbox_connector_1_power
+          - switch.mini_1_wallbox_wallbox_cp_unterbrechung
+    actions:
+      - action: logbook.log
+        data:
+          name: Smart EQ Messung
+          entity_id: "{{ trigger.entity_id }}"
+          message: >-
+            {{ trigger.from_state.state if trigger.from_state else '–' }} →
+            {{ trigger.to_state.state if trigger.to_state else '–' }}
+            ({{ now().isoformat(timespec='seconds') }})
+
+# ---------------------------------------------------------------------------
+# CP-Puls für die Tests aus Masterplan §3.6 – nur manuell auslösen
+# ---------------------------------------------------------------------------
+rest_command:
+  smart_eq_cp_pulse:
+    url: "http://SHELLY_IP/rpc/Switch.Set?id=0&on=false&toggle_after={{ seconds | default(10) | int }}"
+    method: get
+    timeout: 5
+  smart_eq_shelly_config:
+    url: "http://SHELLY_IP/rpc/Switch.GetConfig?id=0"
+    method: get
+    timeout: 5
+
+script:
+  smart_eq_cp_pulse_test:
+    alias: "Smart EQ: CP-Puls testen (10 s)"
+    icon: mdi:pulse
+    sequence:
+      - action: logbook.log
+        data:
+          name: Smart EQ Messung
+          message: "CP-Puls-Test gestartet"
+      - action: rest_command.smart_eq_cp_pulse
+        data:
+          seconds: 10
+      - delay: 15
+      - if:
+          - condition: state
+            entity_id: switch.mini_1_wallbox_wallbox_cp_unterbrechung
+            state: "on"
+        then:
+          - action: logbook.log
+            data:
+              name: Smart EQ Messung
+              message: "CP nach Puls wieder geschlossen"
+        else:
+          - action: persistent_notification.create
+            data:
+              title: "Smart EQ: CP nicht zurückgestellt!"
+              message: "Shelly-Relais nach dem Puls nicht ON – sofort prüfen."

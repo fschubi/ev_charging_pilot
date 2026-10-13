@@ -1,0 +1,15 @@
+{
+  "domain": "smart_eq_charging",
+  "name": "Smart EQ Charging Center",
+  "codeowners": ["@fschubi"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/fschubi/smart453_charging_center",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/fschubi/smart453_charging_center/issues",
+  "loggers": ["custom_components.smart_eq_charging"],
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

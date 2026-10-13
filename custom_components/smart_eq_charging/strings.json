@@ -1,0 +1,185 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart EQ Charging Center",
+        "description": "All entities are selected here, nothing is hard-coded. Without a Shelly host the CP wakeup stays locked. The integration starts in dry-run.",
+        "data": {
+          "charger_enable": "Halo charging enable (switch)",
+          "cable_connected": "Halo cable connected",
+          "charge_power": "Halo charging power",
+          "total_energy": "Halo total energy meter",
+          "charger_status": "Halo status (optional)",
+          "internal_schedule": "Halo internal schedule (must stay off, optional)",
+          "cp_relay": "Shelly CP relay (optional)",
+          "shelly_host": "Shelly IP/hostname for the CP pulse (optional)",
+          "ovms_soc": "OVMS SOC (optional)",
+          "ovms_charging": "OVMS charging (optional)",
+          "notify_service": "Push target, e.g. notify.mobile_app_iphone (optional)"
+        }
+      },
+      "reconfigure": {
+        "title": "Smart EQ Charging Center",
+        "description": "All entities are selected here, nothing is hard-coded. Without a Shelly host the CP wakeup stays locked. The integration starts in dry-run.",
+        "data": {
+          "charger_enable": "Halo charging enable (switch)",
+          "cable_connected": "Halo cable connected",
+          "charge_power": "Halo charging power",
+          "total_energy": "Halo total energy meter",
+          "charger_status": "Halo status (optional)",
+          "internal_schedule": "Halo internal schedule (must stay off, optional)",
+          "cp_relay": "Shelly CP relay (optional)",
+          "shelly_host": "Shelly IP/hostname for the CP pulse (optional)",
+          "ovms_soc": "OVMS SOC (optional)",
+          "ovms_charging": "OVMS charging (optional)",
+          "notify_service": "Push target, e.g. notify.mobile_app_iphone (optional)"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured.",
+      "reconfigure_successful": "Reconfigured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Charging plan",
+        "data": {
+          "plan_enabled": "Weekly plan enabled",
+          "weekdays": "Departure days",
+          "mode": "Mode",
+          "departure_time": "Departure time",
+          "charge_start_time": "Fixed charge start (fallback without SOC)",
+          "ready_buffer_min": "Ready before departure",
+          "minimum_departure_soc_pct": "Minimum SOC at departure",
+          "preferred_departure_soc_pct": "Preferred SOC at departure (target SOC)"
+        }
+      },
+      "technical": {
+        "title": "Technical and costs",
+        "description": "Provisional values until the measurement phase (phase 0).",
+        "data": {
+          "usable_capacity_kwh": "Usable battery capacity",
+          "charge_efficiency": "Charging efficiency",
+          "vehicle_charger_kw": "On-board charger",
+          "grid_limit_kw": "Grid limit §14a (0 = none)",
+          "power_threshold_w": "Power threshold for charging",
+          "start_detection_wait_s": "Wait before wakeup",
+          "min_switch_interval_s": "Minimum pause between Halo switches",
+          "cp_pulse_s": "CP pulse length (= toggle_after and auto_on_delay)",
+          "cp_failsafe_verified": "CP failsafe checklist (§3.6) completed",
+          "finished_statuses": "Halo status values meaning finished (comma separated)",
+          "price_eur_kwh": "Energy price"
+        }
+      }
+    },
+    "error": {
+      "preferred_below_minimum": "The preferred SOC must not be below the minimum SOC."
+    }
+  },
+  "selector": {
+    "weekdays": {
+      "options": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
+    },
+    "mode": {
+      "options": {
+        "departure_based": "Departure based",
+        "fixed_start": "Fixed start time"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Charging state",
+        "state": {
+          "disconnected": "Disconnected",
+          "idle": "Idle",
+          "enabling": "Enabling",
+          "waiting_for_charge": "Waiting for charge",
+          "charge_stabilizing": "Stabilizing",
+          "wakeup_ovms": "OVMS wakeup",
+          "wakeup_cp": "CP wakeup",
+          "charging": "Charging",
+          "charge_ended": "Charge ended",
+          "interrupted": "Interrupted",
+          "disabling": "Disabling",
+          "cooldown": "Cooldown",
+          "start_failed": "Start failed"
+        }
+      },
+      "desired_reason": {
+        "name": "Desired reason",
+        "state": {
+          "safety_lock": "Safety lock",
+          "override": "Override",
+          "rfid": "RFID",
+          "one_shot": "Tonight",
+          "target_soc_reached": "Target SOC reached",
+          "climate": "Pre-climatisation",
+          "schedule": "Weekly plan",
+          "default_off": "Default off"
+        }
+      },
+      "health": {
+        "name": "System-Health",
+        "state": {
+          "healthy": "Healthy",
+          "degraded": "Degraded",
+          "error": "Error"
+        }
+      },
+      "next_charge_start": {
+        "name": "Next charge start"
+      },
+      "expected_departure_soc": {
+        "name": "Expected SOC at departure"
+      },
+      "last_event": {
+        "name": "Last event"
+      }
+    },
+    "binary_sensor": {
+      "override_active": {
+        "name": "Override active"
+      },
+      "data_conflict": {
+        "name": "Data conflict"
+      },
+      "problem": {
+        "name": "Problem"
+      }
+    },
+    "switch": {
+      "dry_run": {
+        "name": "Dry-Run"
+      }
+    },
+    "button": {
+      "charge_now": {
+        "name": "Charge now"
+      },
+      "stop_charging": {
+        "name": "Stop charging"
+      },
+      "charge_tonight": {
+        "name": "Charge tonight"
+      },
+      "clear_override": {
+        "name": "Clear override"
+      },
+      "reset": {
+        "name": "Reset error"
+      }
+    }
+  }
+}

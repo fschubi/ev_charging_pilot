@@ -111,6 +111,8 @@ class ChargingCenter:
         self.recorder = CommandRecorder()
         self.events: deque[dict[str, Any]] = deque(maxlen=20000)
         self.statistics: dict[str, Any] = {}
+        # One sample per minute for the cockpit chart (24 h, not persisted).
+        self.history: deque[tuple[str, float | None, float | None]] = deque(maxlen=1440)
         self.last_replay: dict[str, Any] | None = None
         self._listeners: list[CALLBACK_TYPE] = []
         self._unsubs: list[CALLBACK_TYPE] = []
@@ -254,10 +256,25 @@ class ChargingCenter:
         async with self._lock:
             now = dt_util.utcnow()
             result = self.engine.tick(now, self._raw_states())
+            self._sample_history(now)
             await self._handle(result)
             if self._statistics_at is None or \
                     (now - self._statistics_at).total_seconds() >= STATISTICS_REFRESH_S:
                 self.refresh_statistics(now)
+
+    def _sample_history(self, now: datetime) -> None:
+        minute = now.replace(second=0, microsecond=0).isoformat()
+        if self.history and self.history[-1][0] == minute:
+            return
+        power = self.engine.values.get(Inp.CHARGE_POWER)
+        soc = self.engine.soc
+        self.history.append((
+            minute,
+            round(float(power.normalized)) if power and power.available
+            and power.normalized is not None else None,
+            round(float(soc.normalized), 1) if soc.available and soc.normalized is not None
+            else None,
+        ))
 
     async def async_run(self, action: Callable[[datetime], TickResult]) -> TickResult:
         """Run a user action against the engine, then a regular tick."""

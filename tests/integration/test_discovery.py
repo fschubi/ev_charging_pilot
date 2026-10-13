@@ -28,6 +28,11 @@ HALO = [
               "temperature", "°C"),
     Candidate("switch.kitchen_light", "hue"),
     Candidate("sensor.house_power", "shelly", "power", "W"),
+    # Sensors of another charging integration that mention the wallbox.
+    Candidate("sensor.evcc_cstotal_wallbox_halo_charging_sessions_loadpoint_chargedenergy",
+              "evcc_intg", "energy", "kWh"),
+    Candidate("sensor.wallbox_halo_charge_power", "evcc_intg", "power", "kW"),
+    Candidate("switch.wallbox_halo_loadpoint_enable", "evcc_intg"),
 ]
 OVMS = [
     Candidate("sensor.ovms_smart_v_b_soc", "mqtt", "battery", "%"),

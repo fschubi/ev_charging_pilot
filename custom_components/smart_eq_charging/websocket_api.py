@@ -140,7 +140,10 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             "climate_enabled": center.settings.climate_enabled,
             "odometer_source": str(center.settings.odometer_source),
             "price_eur_kwh": center.settings.price_history[-1].eur_per_kwh,
+            "vehicle_charger_kw": center.settings.vehicle_charger_kw,
+            "max_power_kw": center.settings.max_power_kw,
         },
+        "history": [list(item) for item in center.history],
         "entities": {k.value: v for k, v in center.entity_ids.items()},
     }
 

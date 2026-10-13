@@ -609,8 +609,9 @@ class Engine:
         plan = self.plans[0] if self.plans else DEFAULT_PLAN
         self.one_shot = OneShot.for_next(plan, now, self.tz, departure_time)
         local = self.one_shot.departure_at.astimezone(self.tz)
+        day = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")[local.weekday()]
         return self._user_event(now, "ONE_SHOT_SET",
-                                f"Heute Nacht laden, Abfahrt {local:%a %H:%M}")
+                                f"Heute Nacht laden, Abfahrt {day} {local:%H:%M}")
 
     def cancel_one_shot(self, now: datetime) -> TickResult:
         self.one_shot = None

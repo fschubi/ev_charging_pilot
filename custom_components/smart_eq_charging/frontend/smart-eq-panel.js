@@ -46,6 +46,194 @@ const dateTime = (iso) =>
   iso ? new Date(iso).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "–";
 const dateOnly = (iso) => (iso ? new Date(iso).toLocaleDateString("de-DE") : "–");
 
+// ------------------------------------------------------------------ graphics
+
+const HEALTH_TEXT = {
+  CP_STATE_UNKNOWN: "Shelly (CP-Relais) nicht erreichbar – Zustand der CP-Leitung unbekannt. Aus Sicherheitsgründen schaltet die Automatik nichts.",
+  CP_OPEN: "CP-Leitung ist offen (Shelly-Relais aus). Die Automatik versucht, sie zu schließen.",
+  CP_NOT_RESTORED: "CP-Relais nach dem Puls nicht zurückgestellt – bitte Shelly prüfen und dann „Fehler zurücksetzen“.",
+  CHARGER_UNAVAILABLE: "Wallbox nicht erreichbar (Cloud/Internet?).",
+  REPEATED_START_FAILURE: "Mehrere Ladestarts hintereinander fehlgeschlagen – nach Prüfung „Fehler zurücksetzen“.",
+  HALO_SCHEDULE_ON: "Der interne Zeitplan der Halo ist an – bitte in der Halo-App ausschalten.",
+  SHELLY_CONFIG_DRIFT: "Shelly-Konfiguration weicht ab (auto_on / Einschaltzustand / Pulsdauer).",
+  OVMS_OFFLINE: "OVMS liefert keine Daten.",
+  SOC_STALE: "SOC ist veraltet – SOC-Funktionen pausieren.",
+  TEMPERATURE_MISSING: "Keine Außentemperatur – automatische Klimaprofile pausieren.",
+};
+const SEASON_LABELS = { winter: "Winter", spring: "Frühling", summer: "Sommer", autumn: "Herbst" };
+
+const socColor = (soc) =>
+  soc === null ? "var(--disabled-text-color, #888)"
+    : soc < 20 ? "var(--error-color, #db4437)"
+    : soc < 50 ? "var(--warning-color, #ffa600)"
+    : "var(--success-color, #43a047)";
+
+/** The smart fortwo 453 (side view) with wallbox and cable. */
+function carSvg({ plugged, charging, error, soc, kw }) {
+  const led = error ? "var(--error-color, #db4437)" : charging ? "var(--success-color, #43a047)"
+    : plugged ? "var(--info-color, #039be5)" : "var(--disabled-text-color, #777)";
+  const fill = soc === null ? 0 : Math.max(0, Math.min(100, soc));
+  const width = 76 * fill / 100;
+  return `
+  <svg class="car" viewBox="0 0 370 170" role="img" aria-label="smart fortwo ${plugged ? "eingesteckt" : "nicht eingesteckt"}">
+    <defs>
+      <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#7d93ab"/><stop offset="1" stop-color="#2f3d4d"/>
+      </linearGradient>
+      <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fbfcfd"/><stop offset="1" stop-color="#cfd5dc"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="155" cy="152" rx="135" ry="7" fill="rgba(0,0,0,.28)"/>
+    <!-- wallbox -->
+    <rect x="318" y="38" width="32" height="64" rx="8" fill="#2a2f36" stroke="#4a5260"/>
+    <circle cx="334" cy="62" r="10" fill="none" stroke="${led}" stroke-width="3" class="${charging ? "pulse" : ""}"/>
+    <rect x="331" y="102" width="6" height="48" fill="#3a404a"/>
+    <!-- body -->
+    <path d="M30 128 C26 118 27 106 34 100 C44 92 60 88 74 86 L82 84 C92 66 104 48 118 40
+             C124 36 132 34 142 34 L236 34 C250 34 258 38 262 46 C270 62 274 84 274 104
+             C274 116 272 124 266 128 L262 128 A30 30 0 0 0 202 128 L108 128 A30 30 0 0 0 48 128 Z"
+          fill="url(#body)" stroke="#9aa3ad" stroke-width="1.2"/>
+    <!-- windows -->
+    <path d="M120 45 L196 42 C200 42 202 45 201 49 L197 82 L104 83 Z" fill="url(#glass)"/>
+    <path d="M220 44 L241 44 C248 44 251 49 251 55 L253 80 L212 82 Z" fill="url(#glass)"/>
+    <!-- tridion safety cell -->
+    <path d="M85 92 L117 41 C123 37 131 35.5 142 35.5 L236 35.5 C247 35.5 254 40 257 50"
+          fill="none" stroke="#2b2f36" stroke-width="8" stroke-linecap="round"/>
+    <path d="M214 38 C207 70 202 98 199 125" fill="none" stroke="#2b2f36" stroke-width="12" stroke-linecap="round"/>
+    <path d="M110 125 L199 125" stroke="#2b2f36" stroke-width="6" stroke-linecap="round"/>
+    <!-- details -->
+    <path d="M104 86 L104 122" stroke="#aab2bb" stroke-width="1.2"/>
+    <rect x="176" y="90" width="14" height="3.5" rx="1.7" fill="#8e979f"/>
+    <path d="M100 68 L110 66 L110 74 L101 75 Z" fill="#2b2f36"/>
+    <ellipse cx="40" cy="101" rx="9" ry="5.5" fill="#fff7d6" stroke="#b9b29a"/>
+    <rect x="267" y="66" width="6" height="24" rx="3" fill="#c62828"/>
+    <!-- battery on the door -->
+    <rect x="114" y="98" width="80" height="16" rx="4" fill="rgba(0,0,0,.18)" stroke="#9aa3ad"/>
+    <rect x="194" y="102" width="3" height="8" rx="1" fill="#9aa3ad"/>
+    <rect x="116" y="100" width="${width.toFixed(1)}" height="12" rx="3" fill="${socColor(soc)}"/>
+    <text x="154" y="110" text-anchor="middle" class="carsoc">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
+    <!-- wheels -->
+    ${[78, 232].map((x) => `<circle cx="${x}" cy="128" r="23" fill="#1d1f22"/>
+      <circle cx="${x}" cy="128" r="14" fill="#9ea6ae"/><circle cx="${x}" cy="128" r="5" fill="#5d646b"/>`).join("")}
+    <!-- charge port and cable -->
+    <rect x="255" y="86" width="11" height="13" rx="3" fill="${plugged ? "#2b2f36" : "#bfc6cd"}" stroke="#8e979f"/>
+    ${plugged ? `
+      <path d="M262 96 C278 152 312 154 326 102" fill="none" stroke="#2b2f36" stroke-width="5" stroke-linecap="round"/>
+      ${charging ? `<path d="M262 96 C278 152 312 154 326 102" fill="none" stroke="var(--success-color, #43a047)"
+            stroke-width="3" stroke-linecap="round" stroke-dasharray="3 9" class="flow"/>` : ""}` : ""}
+    ${charging ? `<text x="334" y="30" text-anchor="middle" class="kw">${num(kw, 1, "kW")}</text>` : ""}
+  </svg>`;
+}
+
+/** Circular SOC gauge with markers for minimum and preferred SOC. */
+function socRing(soc, min, pref) {
+  const r = 52, c = 2 * Math.PI * r;
+  const val = soc === null ? 0 : Math.max(0, Math.min(100, soc));
+  const marker = (pct, color) => {
+    const a = (pct / 100) * 2 * Math.PI - Math.PI / 2;
+    const x1 = 70 + Math.cos(a) * (r - 11), y1 = 70 + Math.sin(a) * (r - 11);
+    const x2 = 70 + Math.cos(a) * (r + 11), y2 = 70 + Math.sin(a) * (r + 11);
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
+  };
+  return `<svg viewBox="0 0 140 140" class="gauge" role="img" aria-label="Ladestand">
+    <circle cx="70" cy="70" r="${r}" fill="none" stroke="var(--divider-color, #444)" stroke-width="12"/>
+    ${val > 0 ? `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${socColor(soc)}" stroke-width="12" stroke-linecap="round"
+      stroke-dasharray="${(c * val / 100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 70 70)"/>` : ""}
+    ${min ? marker(min, "var(--warning-color, #ffa600)") : ""}
+    ${pref ? marker(pref, "var(--primary-color, #03a9f4)") : ""}
+    <text x="70" y="72" text-anchor="middle" class="gbig">${soc === null ? "–" : Math.round(soc)}<tspan class="gunit">${soc === null ? "" : "%"}</tspan></text>
+    <text x="70" y="94" text-anchor="middle" class="gsub">${soc === null ? "kein SOC" : "Ladestand"}</text>
+  </svg>`;
+}
+
+/** Half-circle power gauge 0 … max kW. */
+function powerGauge(kw, max) {
+  const frac = Math.max(0, Math.min(1, kw / (max || 1)));
+  const a = Math.PI * (1 - frac);
+  const x = 70 + Math.cos(a) * 52, y = 82 - Math.sin(a) * 52;
+  return `<svg viewBox="0 0 140 110" class="gauge" role="img" aria-label="Ladeleistung">
+    <path d="M18 82 A52 52 0 0 1 122 82" fill="none" stroke="var(--divider-color, #444)" stroke-width="12" stroke-linecap="round"/>
+    ${frac > 0.005 ? `<path d="M18 82 A52 52 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}" fill="none" stroke="var(--primary-color, #03a9f4)" stroke-width="12" stroke-linecap="round"/>` : ""}
+    <text x="70" y="78" text-anchor="middle" class="gbig">${num(kw, 1)}<tspan class="gunit"> kW</tspan></text>
+    <text x="18" y="102" text-anchor="middle" class="gsub">0</text>
+    <text x="122" y="102" text-anchor="middle" class="gsub">${num(max, 1)}</text>
+  </svg>`;
+}
+
+/** The night ahead: price curve, charging window / cheap blocks, now and departure. */
+function timelineSvg(s) {
+  const now = Date.now();
+  const w = s.next_window;
+  const startT = w ? Math.min(now, new Date(w.start).getTime() - 3600e3) : now;
+  const endT = w ? new Date(w.departure).getTime() + 1800e3 : now + 12 * 3600e3;
+  const span = Math.max(3600e3, endT - startT);
+  const W = 800, top = 18, bottom = 92, left = 6, right = 794;
+  const X = (t) => left + ((t - startT) / span) * (right - left);
+  const slots = (s.prices.slots || []).filter((p) => new Date(p.end).getTime() > startT && new Date(p.start).getTime() < endT);
+  let priceArea = "";
+  if (slots.length) {
+    const prices = slots.map((p) => p.eur_per_kwh);
+    const lo = Math.min(...prices), hi = Math.max(...prices);
+    const Y = (p) => bottom - 8 - ((p - lo) / ((hi - lo) || 1)) * (bottom - top - 26);
+    const pts = slots.flatMap((p) => [[X(Math.max(startT, new Date(p.start).getTime())), Y(p.eur_per_kwh)],
+      [X(Math.min(endT, new Date(p.end).getTime())), Y(p.eur_per_kwh)]]);
+    priceArea = `<path d="M${pts.map((p) => p.map((v) => v.toFixed(1)).join(" ")).join(" L")} L${pts[pts.length - 1][0].toFixed(1)} ${bottom} L${pts[0][0].toFixed(1)} ${bottom} Z"
+      fill="var(--warning-color, #ffa600)" opacity=".16"/>
+      <path d="M${pts.map((p) => p.map((v) => v.toFixed(1)).join(" ")).join(" L")}" fill="none" stroke="var(--warning-color, #ffa600)" stroke-width="1.5" opacity=".8"/>`;
+  }
+  const blocks = w ? (w.blocks.length ? w.blocks : [[w.start, w.departure]]) : [];
+  const charge = blocks.map(([a, b]) => `<rect x="${X(new Date(a).getTime()).toFixed(1)}" y="${bottom - 14}" width="${Math.max(2, X(new Date(b).getTime()) - X(new Date(a).getTime())).toFixed(1)}" height="14" rx="3" fill="var(--primary-color, #03a9f4)"/>`).join("");
+  const ticks = [];
+  const hour = 3600e3;
+  for (let t = Math.ceil(startT / hour) * hour; t <= endT; t += hour * (span > 14 * hour ? 2 : 1)) {
+    ticks.push(`<line x1="${X(t).toFixed(1)}" y1="${bottom}" x2="${X(t).toFixed(1)}" y2="${bottom + 4}" stroke="var(--secondary-text-color)"/>
+      <text x="${X(t).toFixed(1)}" y="${bottom + 16}" text-anchor="middle" class="tl">${new Date(t).getHours()}</text>`);
+  }
+  // Labels sit beside their line: "fertig" to the left, everything else to the right.
+  const marker = (t, label, color, dash, side = "start") => {
+    const x = X(t);
+    const anchor = side === "end" || x > right - 60 ? "end" : "start";
+    const tx = anchor === "end" ? x - 4 : x + 4;
+    return `<line x1="${x.toFixed(1)}" y1="${top}" x2="${x.toFixed(1)}" y2="${bottom}" stroke="${color}" stroke-width="2" ${dash ? 'stroke-dasharray="4 3"' : ""}/>
+    <text x="${tx.toFixed(1)}" y="${top + 10}" text-anchor="${anchor}" class="tl" style="fill:${color}">${label}</text>`;
+  };
+  return `<svg viewBox="0 0 ${W} 112" class="timeline" role="img" aria-label="Ladeplan der Nacht">
+    <line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" stroke="var(--divider-color)"/>
+    ${priceArea}${charge}${ticks.join("")}
+    ${w ? marker(new Date(w.ready_at).getTime(), "fertig", "var(--success-color, #43a047)", true, "end") : ""}
+    ${w ? marker(new Date(w.departure).getTime(), "Abfahrt", "var(--primary-text-color)", false) : ""}
+    ${now >= startT && now <= endT ? marker(now, "jetzt", "var(--error-color, #db4437)", false) : ""}
+  </svg>`;
+}
+
+/** Last 24 h: charging power (area) and SOC (line). */
+function historySvg(history, maxKw) {
+  const W = 800, top = 10, bottom = 100, left = 6, right = 794;
+  if (!history || history.length < 2) {
+    return `<p class="sub">Der Verlauf füllt sich ab jetzt minütlich (die letzten 24 Stunden).</p>`;
+  }
+  const t0 = new Date(history[0][0]).getTime();
+  const t1 = new Date(history[history.length - 1][0]).getTime();
+  const X = (t) => left + ((t - t0) / ((t1 - t0) || 1)) * (right - left);
+  const YP = (w) => bottom - (Math.min(w / 1000, maxKw) / maxKw) * (bottom - top);
+  const YS = (soc) => bottom - (soc / 100) * (bottom - top);
+  const power = history.filter((h) => h[1] !== null);
+  const socs = history.filter((h) => h[2] !== null);
+  const area = power.length ? `<path d="M${X(new Date(power[0][0]).getTime()).toFixed(1)} ${bottom} ${power.map((h) => `L${X(new Date(h[0]).getTime()).toFixed(1)} ${YP(h[1]).toFixed(1)}`).join(" ")} L${X(new Date(power[power.length - 1][0]).getTime()).toFixed(1)} ${bottom} Z"
+    fill="var(--primary-color, #03a9f4)" opacity=".35"/>` : "";
+  const line = socs.length > 1 ? `<path d="${socs.map((h, i) => `${i ? "L" : "M"}${X(new Date(h[0]).getTime()).toFixed(1)} ${YS(h[2]).toFixed(1)}`).join(" ")}"
+    fill="none" stroke="var(--success-color, #43a047)" stroke-width="2"/>` : "";
+  return `<svg viewBox="0 0 ${W} 118" class="timeline" role="img" aria-label="Verlauf">
+    <line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" stroke="var(--divider-color)"/>
+    ${area}${line}
+    <text x="${left}" y="${bottom + 14}" class="tl">${time(history[0][0])}</text>
+    <text x="${right}" y="${bottom + 14}" text-anchor="end" class="tl">${time(history[history.length - 1][0])}</text>
+  </svg>
+  <div class="legend"><span class="dot" style="background:var(--primary-color)"></span>Ladeleistung
+    <span class="dot" style="background:var(--success-color)"></span>SOC</div>`;
+}
+
 const STYLE = `
   :host { display: block; background: var(--primary-background-color); min-height: 100vh;
           color: var(--primary-text-color); font-family: var(--paper-font-body1_-_font-family, inherit); }
@@ -98,9 +286,32 @@ const STYLE = `
   .bar { height: 8px; border-radius: 4px; background: var(--divider-color); overflow: hidden; }
   .bar > div { height: 100%; background: var(--primary-color); }
   .notice { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }
+  .notice .reason { margin: 4px 0 0; }
   svg text { fill: var(--secondary-text-color); font-size: 10px; }
   .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 16px;
            border-radius: 8px; background: var(--primary-text-color); color: var(--card-background-color); z-index: 5; }
+  .hero { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; }
+  .hero .col { text-align: center; }
+  .hero .label { font-size: 13px; color: var(--secondary-text-color); margin-top: 2px; }
+  svg.car { width: 100%; max-height: 230px; }
+  svg.gauge { width: 100%; max-width: 170px; }
+  svg.timeline { width: 100%; height: auto; display: block; }
+  .carsoc { font-size: 10px; font-weight: 600; fill: #1d1f22; }
+  .kw { font-size: 13px; font-weight: 600; fill: var(--success-color, #43a047); }
+  .gbig { font-size: 28px; font-weight: 500; fill: var(--primary-text-color); }
+  .gunit { font-size: 13px; fill: var(--secondary-text-color); }
+  .gsub { font-size: 10px; fill: var(--secondary-text-color); }
+  .tl { font-size: 11px; fill: var(--secondary-text-color); }
+  .flow { animation: flow 0.9s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -12; } }
+  .pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; }
+  .legend { font-size: 12px; color: var(--secondary-text-color); display: flex; gap: 14px; align-items: center; margin-top: 4px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+  .reason { font-size: 13px; margin: 6px 0 0; }
+  @media (prefers-reduced-motion: reduce) { .flow, .pulse { animation: none; } }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr 1fr; } .hero .carcol { grid-column: 1 / -1; } }
   @media (max-width: 600px) { main { padding: 8px; } .grid { gap: 8px; } }
 `;
 
@@ -391,63 +602,86 @@ class SmartEqPanel extends HTMLElement {
   _cockpit(s) {
     const w = s.next_window;
     const soc = s.soc && s.soc.value !== null ? s.soc : null;
-    const power = s.values.charge_power;
+    const powerW = s.values.charge_power && s.values.charge_power.value !== null ? s.values.charge_power.value : 0;
+    const kw = powerW / 1000;
     const health = s.health.status;
     const ex = s.executor;
     const desired = s.desired || {};
     const e = w ? w.estimate : {};
     const healthClass = { HEALTHY: "ok", DEGRADED: "warn", ERROR: "bad" }[health];
     const has = (key) => key in s.entities;
+    const plugged = !["DISCONNECTED", null, undefined].includes(ex.state);
+    const charging = ex.state === "CHARGING" || ex.state === "CHARGE_STABILIZING";
+    const maxKw = Math.min(s.settings.vehicle_charger_kw || 4.6, s.settings.max_power_kw || 11);
+    const reasons = s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("");
     const notice = s.mode !== "live"
       ? `<div class="notice info">Modus <b>${esc(s.mode)}</b>: Die Integration protokolliert nur, was sie schalten würde. Live erst nach Messphase, Dry-Run und Einzeltest (Grundsatz 11).</div>` : "";
-    return `${notice}
+    const errorBox = health === "ERROR"
+      ? `<div class="notice bad"><b>Automatik gesperrt.</b>${reasons}</div>` : "";
+    return `${notice}${errorBox}
     <div class="grid">
-      <div class="card">
-        <h2>Status</h2>
-        <div class="big">${esc(STATE_LABELS[ex.state] || ex.state || "–")}</div>
-        <div class="sub">seit ${time(ex.since)} · Soll: ${esc(REASON_LABELS[desired.reason] || desired.reason || "–")}
-          (${desired.charger_enabled === true ? "Halo an" : desired.charger_enabled === false ? "Halo aus" : "nicht eingreifen"})</div>
-        ${ex.failure_code ? `<p><span class="pill bad">${esc(ex.failure_code)}</span></p>` : ""}
-        ${s.override ? `<p><span class="pill info">Override: ${esc(s.override.mode)}</span></p>` : ""}
-        ${s.one_shot ? `<p><span class="pill info">Heute Nacht bis ${dateTime(s.one_shot.departure_at)}</span></p>` : ""}
-        ${!s.automation_enabled ? `<p><span class="pill warn">Automatik aus</span></p>` : ""}
+      <div class="card wide">
+        <div class="hero">
+          <div class="col carcol">
+            ${carSvg({ plugged, charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null, kw })}
+            <div class="big">${esc(STATE_LABELS[ex.state] || ex.state || "–")}</div>
+            <div class="chips">
+              <span class="pill ${plugged ? "info" : "muted"}">${plugged ? "eingesteckt" : "nicht eingesteckt"}</span>
+              <span class="pill ${healthClass}">${esc(HEALTH_LABELS[health] || health)}</span>
+              ${s.override ? `<span class="pill info">Override: ${esc(s.override.mode)}</span>` : ""}
+              ${s.one_shot ? `<span class="pill info">Heute Nacht bis ${time(s.one_shot.departure_at)}</span>` : ""}
+              ${!s.automation_enabled ? `<span class="pill warn">Automatik aus</span>` : ""}
+              ${ex.failure_code ? `<span class="pill bad">${esc(ex.failure_code)}</span>` : ""}
+            </div>
+            <div class="sub">Soll: ${esc(REASON_LABELS[desired.reason] || desired.reason || "–")}
+              (${desired.charger_enabled === true ? "Halo an" : desired.charger_enabled === false ? "Halo aus" : "nicht eingreifen"}) · seit ${time(ex.since)}</div>
+          </div>
+          <div class="col">
+            ${socRing(soc ? soc.value : null, w ? w.minimum_soc_pct : null, w ? w.preferred_soc_pct : null)}
+            <div class="label">${soc ? `<span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : "OVMS fehlt"}</div>
+            ${w ? `<div class="label">Ziel ${w.preferred_soc_pct} % · min. ${w.minimum_soc_pct} %</div>` : ""}
+          </div>
+          <div class="col">
+            ${powerGauge(kw, maxKw)}
+            <div class="label">${s.session ? `Session ${num(s.session.energy_kwh, 2, "kWh")}` : "keine laufende Session"}</div>
+            <div class="label">${num(s.prices.current_eur_kwh * 100, 1, "ct/kWh")} ${s.prices.dynamic ? "(dynamisch)" : "(Festpreis)"}</div>
+          </div>
+        </div>
       </div>
-      <div class="card">
-        <h2>Akku</h2>
-        <div class="big">${soc ? num(soc.value, 0, "%") : "–"}</div>
-        ${soc ? `<div class="bar"><div style="width:${Math.min(100, soc.value)}%"></div></div>` : ""}
-        <div class="sub">${soc ? `<span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span> · ${dateTime(soc.updated_at)}` : "kein SOC (OVMS fehlt)"}</div>
-      </div>
-      <div class="card">
-        <h2>Leistung</h2>
-        <div class="big">${power ? num(power.value / 1000, 2, "kW") : "–"}</div>
-        <div class="sub">${s.session ? `Session ${num(s.session.energy_kwh, 2, "kWh")} seit ${time(s.session.started_at)}` : "keine laufende Session"}</div>
-      </div>
-      <div class="card">
-        <h2>Nächste Abfahrt</h2>
-        <div class="big">${w ? dateTime(w.departure) : "–"}</div>
-        <div class="sub">${w ? `${esc(w.name)} · Start ${dateTime(w.start)}${w.fallback_without_soc ? " (fester Start, kein SOC)" : ""}` : "kein aktiver Plan"}</div>
+      <div class="card wide">
+        <h2>Nächste Ladung ${w ? `<span class="sub">· ${esc(w.name)} · Abfahrt ${dateTime(w.departure)}</span>` : ""}</h2>
+        ${w ? timelineSvg(s) : `<p class="sub">Kein aktiver Ladeplan.</p>`}
+        <div class="legend"><span class="dot" style="background:var(--primary-color)"></span>${w && w.blocks.length ? "Ladeblöcke (günstigste Zeit)" : "Ladefenster"}
+          ${(s.prices.slots || []).length ? (() => {
+            const p = s.prices.slots.map((x) => x.eur_per_kwh * 100);
+            return `<span class="dot" style="background:var(--warning-color)"></span>Strompreis ${num(Math.min(...p), 0)}–${num(Math.max(...p), 0)} ct/kWh`;
+          })() : ""}</div>
       </div>
       <div class="card">
         <h2>Prognose <span class="sub">(Schätzung)</span></h2>
-        <div class="row"><span>Erwarteter SOC</span><b>${num(e.expected_soc_at_departure, 0, "%")}</b></div>
+        <div class="row"><span>Erwarteter SOC bei Abfahrt</span><b>${num(e.expected_soc_at_departure, 0, "%")}</b></div>
         <div class="row"><span>Mindest-SOC ${w ? w.minimum_soc_pct + " %" : ""}</span>${this._yesNo(e.minimum_reachable)}</div>
         <div class="row"><span>Wunsch-SOC ${w ? w.preferred_soc_pct + " %" : ""}</span>${this._yesNo(e.preferred_reachable)}</div>
+        <div class="row"><span>Start</span><span>${w ? dateTime(w.start) : "–"}${w && w.fallback_without_soc ? " (fest, kein SOC)" : ""}</span></div>
         <div class="row"><span>Voraussichtlich fertig</span><span>${time(e.finish_at)}</span></div>
+        <div class="row"><span>Kosten</span><span>${num(e.cost_eur, 2, "€")}</span></div>
       </div>
       <div class="card">
         <h2>System</h2>
         <div class="big"><span class="pill ${healthClass}">${esc(HEALTH_LABELS[health] || health)}</span></div>
-        <div class="sub">${s.health.reasons.length ? s.health.reasons.map(esc).join(", ") : "alles erreichbar"}</div>
+        ${reasons || `<p class="sub">alles erreichbar</p>`}
         ${s.data_conflict ? `<p><span class="pill bad">Datenkonflikt Halo/OVMS</span></p>` : ""}
         ${s.climate ? `<p class="sub">Klima ${s.climate.duration_min} min ab ${time(s.climate.start_at)}${s.climate.blocked ? ` – gesperrt: ${esc(s.climate.blocked)}` : ""}</p>` : ""}
+        ${s.prices.error ? `<p><span class="pill warn">${esc(s.prices.error)}</span></p>` : ""}
       </div>
       <div class="card">
-        <h2>Strompreis</h2>
-        <div class="big">${num(s.prices.current_eur_kwh * 100, 1, "ct/kWh")}</div>
-        <div class="sub">${s.prices.dynamic ? `dynamisch (${esc(s.prices.source)})` : "Festpreis"}${s.prices.error ? ` · <span class="pill warn">${esc(s.prices.error)}</span>` : ""}</div>
-        ${w && w.estimate.cost_eur !== null ? `<div class="row"><span>Nächste Ladung (Schätzung)</span><b>${num(w.estimate.cost_eur, 2, "€")}</b></div>` : ""}
-        ${w && w.blocks.length ? `<div class="sub">Günstigste Zeit: ${w.blocks.map((b) => `${time(b[0])}–${time(b[1])}`).join(", ")}</div>` : ""}
+        <h2>Letzte Ladung</h2>
+        ${s.last_result ? `<div class="big">${s.last_result.success ? num(s.last_result.energy_kwh, 2, "kWh") : `<span class="pill bad">${esc(s.last_result.failure_code)}</span>`}</div>
+          <div class="sub">${dateTime(s.last_result.at)}</div>` : `<p class="sub">Noch keine Ladung aufgezeichnet.</p>`}
+      </div>
+      <div class="card wide">
+        <h2>Verlauf (24 h)</h2>
+        ${historySvg(s.history, maxKw)}
       </div>
       <div class="card wide">
         <h2>Schnellaktionen</h2>
@@ -464,8 +698,6 @@ class SmartEqPanel extends HTMLElement {
           <button class="act danger" data-service="reset_error" ${ex.failure_code || health === "ERROR" ? "" : "disabled"}>Fehler zurücksetzen</button>
         </div>
       </div>
-      ${s.last_result ? `<div class="card wide"><h2>Letztes Ladeergebnis</h2>
-        <div class="row"><span>${dateTime(s.last_result.at)}</span><span>${s.last_result.success ? `<span class="pill ok">ok</span> ${num(s.last_result.energy_kwh, 2, "kWh")}` : `<span class="pill bad">${esc(s.last_result.failure_code)}</span>`}</span></div></div>` : ""}
     </div>`;
   }
 
@@ -571,7 +803,7 @@ class SmartEqPanel extends HTMLElement {
     const external = (c.external && c.external.items) || [];
     const group = (title, entries) => `<div class="card wide"><h2>${title}</h2><div class="scroll"><table>
       <tr><th></th><th class="n">km</th><th class="n">Fahrzeug kWh/100</th><th class="n">Netz kWh/100*</th><th class="n">Rekup. %</th><th class="n">Neben kWh</th><th class="n">€*</th></tr>
-      ${Object.entries(entries).map(([k, g]) => `<tr><td>${esc(k)}</td><td class="n">${num(g.distance_km, 0)}</td><td class="n">${num(g.vehicle_kwh_100km, 1)}</td>
+      ${Object.entries(entries).map(([k, g]) => `<tr><td>${esc(SEASON_LABELS[k] || (k + " °C"))}</td><td class="n">${num(g.distance_km, 0)}</td><td class="n">${num(g.vehicle_kwh_100km, 1)}</td>
         <td class="n">${num(g.grid_kwh_100km, 1)}</td><td class="n">${num(g.recuperation_share_pct, 0)}</td><td class="n">${num(g.auxiliary_kwh, 1)}</td><td class="n">${num(g.cost_eur, 2)}</td></tr>`).join("")}
       </table></div><p class="sub">* geschätzt aus Fahrzeugverbrauch und gemessenem Ladeverlust</p></div>`;
     return `<div class="grid">
@@ -627,7 +859,7 @@ class SmartEqPanel extends HTMLElement {
     return `<div class="grid">
       <div class="card"><h2>Health</h2>
         <div class="big"><span class="pill ${{ HEALTHY: "ok", DEGRADED: "warn", ERROR: "bad" }[s.health.status]}">${esc(HEALTH_LABELS[s.health.status])}</span></div>
-        <div class="sub">${s.health.reasons.map(esc).join(", ") || "keine Auffälligkeiten"}</div></div>
+        ${s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("") || `<div class="sub">keine Auffälligkeiten</div>`}</div>
       <div class="card"><h2>CP / Failsafe</h2>
         <div class="row"><span>Checkliste §3.6</span>${this._yesNo(s.settings.cp_failsafe_verified)}</div>
         <div class="row"><span>Shelly-Konfiguration</span>${this._yesNo(s.health.shelly_config_ok)}</div>

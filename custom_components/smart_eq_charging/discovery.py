@@ -18,6 +18,9 @@ from .const import CONF_NOTIFY_SERVICE, CONF_SHELLY_HOST
 from .core.inputs import Inp
 
 HALO_PLATFORMS = ("chargeamps", "chargeamps_halo", "charge_amps")
+# Other charging integrations name their sensors after the wallbox too –
+# they must never be taken for the Halo's own entities.
+FOREIGN_WORDS = ("evcc", "loadpoint", "openwb", "wallbox_ocpp")
 HALO_WORDS = ("halo", "chargeamps", "charge_amps", "wallbox")
 CP_WORDS = ("cp_unterbrechung", "cp_relay", "control_pilot", "_cp_", "cp ", "pilot")
 
@@ -52,11 +55,26 @@ def _best(candidates: list[Candidate], score) -> Candidate | None:
     return scored[0][1]
 
 
-def _halo(c: Candidate) -> bool:
+def _halo(c: Candidate) -> int:
+    """0 = not the Halo; 10 = entity of the Chargeamps integration; 1 = name match only."""
     # The Shelly in the CP line is often named after the wallbox – never take it.
-    if c.platform == "shelly" or c.has(*CP_WORDS):
-        return False
-    return (c.platform or "") in HALO_PLATFORMS or c.has(*HALO_WORDS)
+    if c.platform == "shelly" or c.has(*CP_WORDS) or c.has(*FOREIGN_WORDS):
+        return 0
+    if (c.platform or "") in HALO_PLATFORMS:
+        return 10
+    if c.platform not in (None, "template") and c.platform.startswith(("evcc", "mqtt")):
+        return 0
+    return 1 if c.has(*HALO_WORDS) else 0
+
+
+def _rule(domains: tuple[str, ...], match, bonus=lambda c: 0):
+    """Score = origin (integration ≫ name) + specific bonus."""
+    def score(c: Candidate) -> int:
+        origin = _halo(c)
+        if c.domain not in domains or not origin or not match(c):
+            return 0
+        return origin * 10 + bonus(c)
+    return score
 
 
 def _phase(c: Candidate) -> bool:
@@ -65,25 +83,31 @@ def _phase(c: Candidate) -> bool:
 
 # Each rule returns a score > 0 for a plausible entity; higher is better.
 HALO_RULES = {
-    Inp.CHARGER_ENABLE: lambda c: c.domain == "switch" and _halo(c) and not c.has(
-        "schedule", "zeitplan", "light", "dimmer", "led", "lock") and (
-        3 if c.has("connector") else 1),
-    Inp.CABLE_CONNECTED: lambda c: c.domain == "binary_sensor" and _halo(c) and c.has(
-        "cable", "kabel", "plug", "connected") and (3 if c.has("cable", "kabel") else 1),
-    Inp.CHARGE_POWER: lambda c: c.domain == "sensor" and _halo(c) and not _phase(c) and (
-        c.device_class == "power" or c.unit in ("W", "kW") or c.has("power", "leistung")) and (
-        3 if c.has("connector") else 2),
-    Inp.TOTAL_ENERGY: lambda c: c.domain == "sensor" and _halo(c) and (
-        c.device_class == "energy" or c.unit in ("kWh", "Wh")) and (
-        3 if c.has("total", "gesamt") else 1),
-    Inp.CHARGER_STATUS: lambda c: c.domain == "sensor" and _halo(c) and c.has("status") and (
-        3 if c.has("connector") else 1),
-    Inp.MAX_CURRENT: lambda c: c.domain in ("number", "sensor") and _halo(c) and c.has(
-        "max_current", "maximum_current", "current_limit") and (3 if c.domain == "number" else 1),
-    Inp.CABLE_LOCK: lambda c: _halo(c) and (c.domain == "lock" or c.has("cable_lock")) and (
-        3 if c.domain == "lock" else 1),
-    Inp.INTERNAL_SCHEDULE: lambda c: c.domain == "switch" and _halo(c) and c.has(
-        "schedule", "zeitplan") and 2,
+    Inp.CHARGER_ENABLE: _rule(
+        ("switch",),
+        lambda c: not c.has("schedule", "zeitplan", "light", "dimmer", "led", "lock"),
+        lambda c: 3 if c.has("connector") else 0),
+    Inp.CABLE_CONNECTED: _rule(
+        ("binary_sensor",), lambda c: c.has("cable", "kabel", "plug", "connected"),
+        lambda c: 3 if c.has("cable", "kabel") else 0),
+    Inp.CHARGE_POWER: _rule(
+        ("sensor",),
+        lambda c: not _phase(c) and (c.device_class == "power" or c.unit in ("W", "kW")),
+        lambda c: 3 if c.has("connector") else 0),
+    Inp.TOTAL_ENERGY: _rule(
+        ("sensor",), lambda c: c.device_class == "energy" or c.unit in ("kWh", "Wh"),
+        # The wallbox-wide total meter, not a per-session counter.
+        lambda c: (5 if c.has("total_energy", "gesamt") else 2 if c.has("total") else 0)
+        - (4 if c.has("session", "charged") else 0)),
+    Inp.CHARGER_STATUS: _rule(
+        ("sensor",), lambda c: c.has("status"), lambda c: 3 if c.has("connector") else 0),
+    Inp.MAX_CURRENT: _rule(
+        ("number", "sensor"), lambda c: c.has("max_current", "maximum_current", "current_limit"),
+        lambda c: 3 if c.domain == "number" else 0),
+    Inp.CABLE_LOCK: _rule(
+        ("lock", "binary_sensor", "sensor"), lambda c: c.domain == "lock" or c.has("cable_lock"),
+        lambda c: 3 if c.domain == "lock" else 0),
+    Inp.INTERNAL_SCHEDULE: _rule(("switch",), lambda c: c.has("schedule", "zeitplan")),
 }
 
 # Standard OVMS v3 metric names as they appear in MQTT entity IDs.

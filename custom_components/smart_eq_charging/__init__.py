@@ -27,7 +27,7 @@ from .websocket_api import async_register as async_register_ws
 
 _LOGGER = logging.getLogger(__name__)
 PANEL_FILE = Path(__file__).parent / "frontend" / "smart-eq-panel.js"
-PANEL_VERSION = "0.6.1"
+PANEL_VERSION = "0.6.2"
 
 type ChargingConfigEntry = ConfigEntry[ChargingCenter]
 

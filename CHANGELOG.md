@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.2 – 2026-10-13
+
+- **Grafisches Cockpit:** smart-fortwo-Illustration mit Wallbox und Ladekabel
+  (animiert beim Laden, Akkuanzeige an der Tür), SOC-Ring mit Mindest-/Wunsch-Marken,
+  Leistungs-Tacho, Zeitleiste der Nacht mit Ladeblöcken, Preiskurve und Abfahrt,
+  24-h-Verlauf von Leistung und SOC.
+- Health-Gründe im Klartext; bei gesperrter Automatik ein deutlicher Hinweis.
+- Erkennung: Entitäten der Chargeamps-Integration haben klar Vorrang, Sensoren
+  anderer Lade-Integrationen werden nie mehr vorgeschlagen.
+- Deutsche Wochentage und Jahreszeiten, Dezimalkomma in den Grafiken.
+
 ## 0.6.1 – 2026-10-13
 
 - **Einrichtung mit automatischer Erkennung:** Die Integration sucht Halo-Entitäten

@@ -23,11 +23,12 @@ from .coordinator import ChargingCenter
 from .core.settings import OPT_MODE
 from .reports import ReportView
 from .services import async_register_services, async_unregister_services
+from .vehicle_image import VehicleImageView
 from .websocket_api import async_register as async_register_ws
 
 _LOGGER = logging.getLogger(__name__)
 PANEL_FILE = Path(__file__).parent / "frontend" / "smart-eq-panel.js"
-PANEL_VERSION = "0.6.3"
+PANEL_VERSION = "0.7.0"
 
 type ChargingConfigEntry = ConfigEntry[ChargingCenter]
 
@@ -43,6 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> 
     if not hass.data.get(f"{DOMAIN}_views_registered"):
         hass.data[f"{DOMAIN}_views_registered"] = True
         hass.http.register_view(ReportView())
+        hass.http.register_view(VehicleImageView())
     await _async_register_panel(hass)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True

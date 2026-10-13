@@ -71,7 +71,11 @@ custom_components/smart_eq_charging/
   reports.py           PDF erzeugen/listen, ReportView (/api/smart_eq_charging/report, Login nötig)
   services.py (21), websocket_api.py, export.py, diagnostics.py, config_flow.py
   sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs smart_eq_* (§12)
-  frontend/smart-eq-panel.js   Panel, Vanilla-JS, keine Steuerlogik
+  frontend/smart-eq-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
+  settings_schema.py   Optionen als Formular-Schema für den Einstellungen-Reiter (get/set_settings)
+  vehicle_image.py     Fahrzeugfoto: Upload (Admin), Auslieferung (Login), /api/smart_eq_charging/vehicle_image
+  discovery.py         Auto-Erkennung der Entitäten im Config Flow (Chargeamps-Plattform zuerst)
+  brand/               Integrations-Icon (tools/make_brand.py)
 phase0/                HA-Package Phase 0 + Messprotokoll
 dashboards/            YAML-Standard-Dashboard
 tools/gen_translations.py   erzeugt strings.json + translations/{de,en}.json – NICHT von Hand editieren
@@ -125,8 +129,6 @@ HACS-Validierung scheitert, solange das Repo privat ist.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-13 – Masterplan vollständig.** Fassung mit §12–§16 übernommen,
-  Defaults an §13.2 angeglichen.
 - **2026-10-13 – Phase 0 + Kern-Engine.** Wakeup-Kette im Package, `core/engine.py`
   als HA-freie Tick-Pipeline, Replay, Sessions, Trips, Statistik, Klima.
 - **2026-10-13 – v0.5.0 komplette Integration.** Entitäten/Services/WS nach §12,
@@ -134,3 +136,7 @@ HACS-Validierung scheitert, solange das Repo privat ist.
   YAML-Dashboard, Replay mit Poll-Nachbildung. ~100 Tests grün.
 - **2026-10-13 – v0.6.0 Tibber, PDF, Fremdladeerkennung.** Repo öffentlich, evcc
   aus der Doku entfernt, Release für HACS-Testinstallation. 121 Tests grün.
+- **2026-10-13 – v0.6.1–v0.7.0 nach erstem Test bei Frank.** Auto-Erkennung im
+  Config Flow, grafisches Cockpit, Shelly per Klick konfigurieren, Reiter
+  Einstellungen, eigenes Fahrzeugfoto statt Zeichnung (Frank: Zeichnung war „kein 453“),
+  Ladeziel-Regler, Icon. 133 Tests grün.

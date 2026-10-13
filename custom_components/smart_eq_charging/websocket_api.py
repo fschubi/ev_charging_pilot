@@ -14,7 +14,10 @@ from .const import DOMAIN
 from .coordinator import ChargingCenter
 from .core.model import Value
 from .core.planner import ChargeWindow, WeeklySchedule
+from .core.settings import DEFAULT_OPTIONS
 from .reports import async_create_report, async_list_reports
+from .settings_schema import GROUPS, apply_changes, current_values
+from .vehicle_image import IMAGE_URL
 
 PREFIX = DOMAIN
 
@@ -146,6 +149,8 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             "max_power_kw": center.settings.max_power_kw,
         },
         "history": [list(item) for item in center.history],
+        "vehicle_image": f"{IMAGE_URL}?v={center.vehicle_image_version}"
+        if center.vehicle_image_version else None,
         "entities": {k.value: v for k, v in center.entity_ids.items()},
     }
 
@@ -328,9 +333,41 @@ async def ws_list_reports(hass, connection, msg) -> None:
     _send(connection, msg, {"items": await async_list_reports(center)})
 
 
-COMMANDS = (ws_create_report, ws_list_reports, ws_state, ws_health, ws_plan_preview,
-            ws_sessions, ws_trips, ws_external, ws_month, ws_year, ws_temperature, ws_events,
-            ws_get_plans, ws_set_plans, ws_replay)
+@websocket_api.websocket_command({vol.Required("type"): f"{PREFIX}/get_settings"})
+@callback
+def ws_get_settings(hass, connection, msg) -> None:
+    if center := _require(connection, msg, hass):
+        _send(connection, msg, {
+            "groups": GROUPS,
+            "values": current_values(dict(center.entry.options)),
+            "price_history": list(dict(center.entry.options).get("price_history")
+                                  or DEFAULT_OPTIONS["price_history"]),
+            "is_admin": connection.user.is_admin,
+        })
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/set_settings", vol.Required("values"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_set_settings(hass, connection, msg) -> None:
+    center = _require(connection, msg, hass)
+    if center is None:
+        return
+    entry = center.entry
+    try:
+        options = apply_changes(dict(entry.options), dict(msg["values"]))
+    except (ValueError, TypeError) as err:
+        connection.send_error(msg["id"], "invalid", str(err))
+        return
+    # Saving reloads the entry (except a pure mode change) – the panel reconnects itself.
+    hass.config_entries.async_update_entry(entry, options=options)
+    _send(connection, msg, {"values": current_values(options)})
+
+
+COMMANDS = (ws_get_settings, ws_set_settings, ws_create_report, ws_list_reports, ws_state,
+            ws_health, ws_plan_preview, ws_sessions, ws_trips, ws_external, ws_month, ws_year,
+            ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)
 
 
 def async_register(hass: HomeAssistant) -> None:

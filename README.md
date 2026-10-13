@@ -60,7 +60,8 @@ Messphase, deren Ergebnisse die vorläufigen Zeitkonstanten ersetzen.
 | Ladeplan | Wochenpläne bearbeiten (mehrere), kommende Ladefenster, Klima je Plan |
 | Hausstrom → Smart EQ | Heim-kWh und Kosten je Monat, Monatsvergleich, Sessions |
 | Drive & Energy | Strecke, Verbrauch, Temperatur-/Saisonstatistik, Fahrten, Fremdladen |
-| Diagnose | Health, CP/Failsafe, Datenqualität je Wert, Event Log, Replay |
+| Diagnose | Health, CP/Failsafe (inkl. „Shelly konfigurieren“), Datenqualität je Wert, Event Log, Replay |
+| Einstellungen | Alle Optionen als Formular, Strompreis mit Historie, eigenes Fahrzeugfoto |
 
 **Push beim Einstecken:** *Normaler Plan* · *Heute Nacht laden* · *Jetzt laden*.
 

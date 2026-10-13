@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.0 – 2026-10-13
+
+- **Neuer Reiter „Einstellungen“** im Panel: alle Optionen (Laden, Wakeup/CP,
+  Planung, Strompreis, Klima, Datenqualität, Benachrichtigungen, Statistik,
+  Fremdladen, OVMS-Befehle) als Formular; Speichern übernimmt sie wie der
+  Options-Flow. Strompreis manuell mit „gültig ab“ und Preis-Historie.
+- **Eigenes Fahrzeugfoto:** Upload im Reiter Einstellungen (PNG/JPG/WebP, wird im
+  Browser auf 1600 px verkleinert), Anzeige im Cockpit; Download nur mit Login,
+  Upload nur für Administratoren. Die gezeichnete Fahrzeuggrafik entfällt –
+  ohne Foto zeigt das Cockpit eine Akku-/Stecker-Grafik.
+- **Ladeziel-Karte** im Cockpit: Mindest-/Wunsch-SOC per Regler, Abfahrtszeit.
+- Fremdladen: Preis pro kWh als Alternative zu den Kosten.
+- Integrations-Icon (`brand/`), damit die Geräteseite ein Logo zeigt.
+
 ## 0.6.3 – 2026-10-13
 
 - **Shelly-Konfiguration:** Die Prüfung zeigt jetzt jede Abweichung mit Ist- und

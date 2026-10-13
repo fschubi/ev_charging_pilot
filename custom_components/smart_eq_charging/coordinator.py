@@ -115,6 +115,7 @@ class ChargingCenter:
         self.history: deque[tuple[str, float | None, float | None]] = deque(maxlen=1440)
         self.last_replay: dict[str, Any] | None = None
         self.shelly_deviations: list[dict[str, Any]] | None = None
+        self.vehicle_image_version: int | None = None
         self._listeners: list[CALLBACK_TYPE] = []
         self._unsubs: list[CALLBACK_TYPE] = []
         self._lock = asyncio.Lock()
@@ -153,6 +154,10 @@ class ChargingCenter:
         self.entry.async_create_background_task(
             self.hass, self._drift_check(), f"{DOMAIN} drift check")
         self.price_fetcher.start(self.settings)
+        from .vehicle_image import image_version
+
+        self.vehicle_image_version = await self.hass.async_add_executor_job(
+            image_version, self.hass)
         await self.async_tick()
 
     async def async_shutdown(self) -> None:

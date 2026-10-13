@@ -31,7 +31,7 @@ const QUALITY_CLASS = {
 };
 const VIEWS = [
   ["cockpit", "Cockpit"], ["plan", "Ladeplan"], ["home", "Hausstrom → Smart EQ"],
-  ["drive", "Drive & Energy"], ["diag", "Diagnose"],
+  ["drive", "Drive & Energy"], ["diag", "Diagnose"], ["settings", "Einstellungen"],
 ];
 
 const esc = (value) =>
@@ -79,86 +79,26 @@ const socColor = (soc) =>
     : soc < 50 ? "var(--warning-color, #ffa600)"
     : "var(--success-color, #43a047)";
 
-/** smart fortwo 453 (side view, facing left), 1 m ≈ 100 units, with wallbox and cable. */
-function carSvg({ plugged, charging, error, soc, kw }) {
+/** Battery with SOC fill, plug and wallbox – shown below the photo (or alone without one). */
+function batterySvg({ plugged, charging, error, soc, kw }) {
   const led = error ? "var(--error-color, #db4437)" : charging ? "var(--success-color, #43a047)"
     : plugged ? "var(--info-color, #039be5)" : "var(--disabled-text-color, #777)";
   const fill = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-  const width = 74 * fill / 100;
-  const tri = "#1e2227";
-  const wheel = (x) => `
-    <circle cx="${x}" cy="150" r="29" fill="#16181b"/>
-    <circle cx="${x}" cy="150" r="19" fill="#b9c0c7"/>
-    ${[0, 72, 144, 216, 288].map((a) => {
-      const r = (a * Math.PI) / 180;
-      return `<line x1="${x}" y1="150" x2="${(x + Math.cos(r) * 17).toFixed(1)}" y2="${(150 + Math.sin(r) * 17).toFixed(1)}" stroke="#7d868f" stroke-width="5" stroke-linecap="round"/>`;
-    }).join("")}
-    <circle cx="${x}" cy="150" r="5" fill="#4b5157"/>`;
+  const w = 212 * fill / 100;
   return `
-  <svg class="car" viewBox="0 0 380 190" role="img" aria-label="smart fortwo 453 ${plugged ? "eingesteckt" : "nicht eingesteckt"}">
-    <defs>
-      <linearGradient id="g453" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#7f95ad"/><stop offset="1" stop-color="#26313d"/>
-      </linearGradient>
-      <linearGradient id="b453" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#eef1f4"/><stop offset="1" stop-color="#c9d0d7"/>
-      </linearGradient>
-    </defs>
-    <ellipse cx="158" cy="180" rx="150" ry="6" fill="rgba(0,0,0,.3)"/>
-
-    <!-- wallbox on its post -->
-    <rect x="349" y="118" width="6" height="62" fill="#3a404a"/>
-    <rect x="336" y="54" width="32" height="64" rx="9" fill="#2a2f36" stroke="#4a5260"/>
-    <circle cx="352" cy="78" r="10" fill="none" stroke="${led}" stroke-width="3" class="${charging ? "pulse" : ""}"/>
-
-    <!-- body: very short, tall, wheels at the corners -->
-    <path d="M28 150 C21 146 19 133 20 121 C21 111 24 103 32 98 C43 92 58 89 72 87
-             L127 23 C131 16 137 12 147 12 L262 12 C276 12 284 18 287 30
-             C290 50 292 90 292 118 C292 136 291 146 286 150
-             L284 150 A35 35 0 0 0 214 150 L97 150 A35 35 0 0 0 27 150 Z"
-          fill="url(#b453)" stroke="#a3acb5" stroke-width="1.2"/>
-
-    <!-- glass: long raked windscreen line, big door window, small rear quarter -->
-    <path d="M93 82 L131 26 L215 24 C219 24 221 27 221 31 L219 72 C174 75 130 79 93 82 Z" fill="url(#g453)"/>
-    <path d="M252 26 L265 26 C272 26 276 31 277 39 L278 64 L252 66 Z" fill="url(#g453)"/>
-    <path d="M80 88 L129 23" stroke="${tri}" stroke-width="6" stroke-linecap="round"/>
-
-    <!-- tridion safety cell: the big "C" – roof frame, wide spine behind the door, sill -->
-    <path d="M127 22 C131 15 138 12.5 148 12.5 L240 12.5 C246 12.5 249 16 249 23
-             L247 108 C246 132 236 147 212 147 L102 147 C98 147 97 140 101 139
-             L204 139 C216 139 223 130 224 112 L225 32 C225 25 222 21 215 21 L130 22 Z"
-          fill="${tri}"/>
-    <path d="M249 16 L262 13 C274 13 281 18 284 28" fill="none" stroke="${tri}" stroke-width="7" stroke-linecap="round"/>
-
-    <!-- door, handle, mirror -->
-    <path d="M88 89 C90 108 93 125 99 137" fill="none" stroke="#aeb6be" stroke-width="1.2"/>
-    <rect x="198" y="86" width="15" height="4" rx="2" fill="#8e979f"/>
-    <path d="M90 73 L104 69 L106 80 L92 82 Z" fill="${tri}"/>
-
-    <!-- front: headlight high at the bonnet edge, lower bumper -->
-    <path d="M22 108 C28 98 44 92 68 88 C63 95 50 104 25 112 Z" fill="#fff6d2" stroke="#b3ad95"/>
-    <path d="M20 122 C27 125 35 125 42 122 L41 133 C33 136 25 135 21 132 Z" fill="${tri}"/>
-    <path d="M27 150 A35 35 0 0 1 97 150" fill="none" stroke="#9aa3ad" stroke-width="3"/>
-    <path d="M214 150 A35 35 0 0 1 284 150" fill="none" stroke="#9aa3ad" stroke-width="3"/>
-
-    <!-- rear: tall tail light -->
-    <rect x="285" y="42" width="7" height="60" rx="3.5" fill="#c62828"/>
-
-    <!-- battery gauge on the door -->
-    <rect x="116" y="100" width="78" height="16" rx="4" fill="rgba(0,0,0,.18)" stroke="#9aa3ad"/>
-    <rect x="194" y="104" width="3" height="8" rx="1" fill="#9aa3ad"/>
-    <rect x="118" y="102" width="${width.toFixed(1)}" height="12" rx="3" fill="${socColor(soc)}"/>
-    <text x="155" y="112" text-anchor="middle" class="carsoc">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
-
-    ${wheel(62)}${wheel(249)}
-
-    <!-- charge port above the rear wheel, cable to the wallbox -->
-    <rect x="258" y="86" width="12" height="14" rx="3" fill="${plugged ? tri : "#c3cad1"}" stroke="#8e979f"/>
-    ${plugged ? `
-      <path d="M266 98 C282 172 324 172 344 118" fill="none" stroke="${tri}" stroke-width="5" stroke-linecap="round"/>
-      ${charging ? `<path d="M266 98 C282 172 324 172 344 118" fill="none" stroke="var(--success-color, #43a047)"
-            stroke-width="3" stroke-linecap="round" stroke-dasharray="3 9" class="flow"/>` : ""}` : ""}
-    ${charging ? `<text x="352" y="46" text-anchor="middle" class="kw">${(kw || 0).toFixed(1).replace(".", ",")} kW</text>` : ""}
+  <svg class="battery" viewBox="0 0 380 110" role="img" aria-label="Akku ${soc === null ? "unbekannt" : Math.round(soc) + " Prozent"}">
+    <rect x="8" y="20" width="230" height="70" rx="14" fill="none" stroke="var(--primary-text-color)" stroke-width="5" opacity=".85"/>
+    <rect x="240" y="42" width="12" height="26" rx="4" fill="var(--primary-text-color)" opacity=".85"/>
+    ${w > 0 ? `<rect x="17" y="29" width="${w.toFixed(1)}" height="52" rx="8" fill="${socColor(soc)}" class="${charging ? "pulse-soft" : ""}"/>` : ""}
+    <text x="123" y="64" text-anchor="middle" class="batt">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
+    ${charging ? `<path d="M46 34 L32 58 L44 58 L38 78 L56 50 L44 50 L50 34 Z" fill="#ffd600" stroke="rgba(0,0,0,.4)" opacity=".9"/>` : ""}
+    <!-- cable to the wallbox -->
+    ${plugged ? `<path d="M252 55 C290 55 290 55 326 55" fill="none" stroke="var(--secondary-text-color)" stroke-width="5" stroke-linecap="round"/>
+      ${charging ? `<path d="M252 55 L326 55" fill="none" stroke="var(--success-color, #43a047)" stroke-width="3" stroke-dasharray="3 9" stroke-linecap="round" class="flow"/>` : ""}`
+      : `<path d="M300 55 L326 55" fill="none" stroke="var(--secondary-text-color)" stroke-width="5" stroke-linecap="round" opacity=".5"/>`}
+    <rect x="326" y="18" width="40" height="74" rx="9" fill="#2a2f36" stroke="#4a5260"/>
+    <circle cx="346" cy="45" r="11" fill="none" stroke="${led}" stroke-width="3.5" class="${charging ? "pulse" : ""}"/>
+    ${charging ? `<text x="346" y="80" text-anchor="middle" class="kwsmall">${num(kw, 1)} kW</text>` : ""}
   </svg>`;
 }
 
@@ -270,6 +210,18 @@ function historySvg(history, maxKw) {
     <span class="dot" style="background:var(--success-color)"></span>SOC</div>`;
 }
 
+/** Downscale large photos in the browser before upload; PNG keeps its transparency. */
+async function shrinkImage(file, maxWidth) {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap || bitmap.width <= maxWidth) return file;
+  const canvas = document.createElement("canvas");
+  canvas.width = maxWidth;
+  canvas.height = Math.round(bitmap.height * maxWidth / bitmap.width);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const type = file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b || file), type, 0.9));
+}
+
 const STYLE = `
   :host { display: block; background: var(--primary-background-color); min-height: 100vh;
           color: var(--primary-text-color); font-family: var(--paper-font-body1_-_font-family, inherit); }
@@ -297,11 +249,11 @@ const STYLE = `
   .row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 14px; }
   .row span:first-child { color: var(--secondary-text-color); }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  button.act { border: 1px solid var(--divider-color); background: var(--card-background-color);
+  .act { border: 1px solid var(--divider-color); background: var(--card-background-color);
                color: var(--primary-text-color); border-radius: 18px; padding: 8px 14px; cursor: pointer; font: inherit; }
-  button.act.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
-  button.act.danger { color: var(--error-color); }
-  button.act:disabled { opacity: .45; cursor: default; }
+  .act.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
+  .act.danger { color: var(--error-color); }
+  .act:disabled { opacity: .45; cursor: default; }
   .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
   .ok { background: rgba(46,125,50,.15); color: var(--success-color, #2e7d32); }
   .info { background: rgba(2,136,209,.15); color: var(--info-color, #0288d1); }
@@ -329,10 +281,26 @@ const STYLE = `
   .hero { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; }
   .hero .col { text-align: center; }
   .hero .label { font-size: 13px; color: var(--secondary-text-color); margin-top: 2px; }
-  svg.car { width: 100%; max-height: 230px; }
+  svg.battery { width: 100%; max-width: 460px; }
+  .photo { position: relative; border-radius: 14px; overflow: hidden; }
+  .photo img { width: 100%; max-height: 300px; object-fit: contain; display: block; }
+  .photo.charging::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+     background: linear-gradient(90deg, transparent, var(--success-color, #43a047), transparent);
+     background-size: 50% 100%; background-repeat: no-repeat; animation: sweep 1.6s linear infinite; }
+  @keyframes sweep { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+  .pulse-soft { animation: pulse 2.4s ease-in-out infinite; }
+  .batt { font-size: 22px; font-weight: 600; fill: #fff; paint-order: stroke; stroke: rgba(0,0,0,.35); stroke-width: 3px; }
+  .kwsmall { font-size: 11px; font-weight: 600; fill: var(--success-color, #43a047); }
+  .hint { font-size: 12px; color: var(--secondary-text-color); }
+  input[type=range] { width: 100%; padding: 0; accent-color: var(--primary-color); }
+  .slider { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; margin: 8px 0; }
+  .slider b { min-width: 48px; text-align: right; }
+  .setgroup { margin-bottom: 4px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field .help { font-size: 11px; color: var(--secondary-text-color); }
+  .check { flex-direction: row; align-items: center; gap: 8px; color: var(--primary-text-color); }
   svg.gauge { width: 100%; max-width: 170px; }
   svg.timeline { width: 100%; height: auto; display: block; }
-  .carsoc { font-size: 10px; font-weight: 600; fill: #1d1f22; }
   .kw { font-size: 13px; font-weight: 600; fill: var(--success-color, #43a047); }
   .gbig { font-size: 28px; font-weight: 500; fill: var(--primary-text-color); }
   .gunit { font-size: 13px; fill: var(--secondary-text-color); }
@@ -413,8 +381,24 @@ class SmartEqPanel extends HTMLElement {
     } catch (err) {
       this._error = err.message || String(err);
     }
+    await this._loadPhoto();
     await this._loadView();
     this._render();
+  }
+
+  async _loadPhoto() {
+    const url = this._state && this._state.vehicle_image;
+    if (url === this._photoSrc) return;
+    this._photoSrc = url;
+    if (this._photoUrl) URL.revokeObjectURL(this._photoUrl);
+    this._photoUrl = null;
+    if (!url) return;
+    try {
+      const response = await this._hass.fetchWithAuth(url);
+      if (response.ok) this._photoUrl = URL.createObjectURL(await response.blob());
+    } catch (err) {
+      this._photoUrl = null;
+    }
   }
 
   async _loadView() {
@@ -439,6 +423,8 @@ class SmartEqPanel extends HTMLElement {
       } else if (this._view === "diag") {
         c.events = await this._ws("get_events", { limit: 200, ...(this._eventFilter ? { category: this._eventFilter } : {}) });
         if (!c.replay) c.replay = await this._ws("get_replay");
+      } else if (this._view === "settings" && !c.settings) {
+        c.settings = await this._ws("get_settings");
       } else if (this._view === "plan" && this._plans === null && this._state) {
         this._plans = JSON.parse(JSON.stringify(this._state.plans));
       }
@@ -457,16 +443,16 @@ class SmartEqPanel extends HTMLElement {
 
   // ------------------------------------------------------------------ render
 
-  _render() {
+  _render(force = false) {
     const s = this._state;
     const mode = s ? s.mode : "";
     const modeLabel = { dry_run: "DRY-RUN", live: "LIVE", replay: "REPLAY" }[mode] || "";
     const body = !s
       ? `<div class="card">${this._error ? `Fehler: ${esc(this._error)}` : "Lade …"}</div>`
       : { cockpit: () => this._cockpit(s), plan: () => this._planView(s), home: () => this._home(),
-          drive: () => this._drive(), diag: () => this._diag(s) }[this._view]();
+          drive: () => this._drive(), diag: () => this._diag(s), settings: () => this._settingsView(s) }[this._view]();
     const focused = this.shadowRoot.activeElement;
-    if (focused && ["INPUT", "SELECT"].includes(focused.tagName)) {
+    if (!force && focused && ["INPUT", "SELECT"].includes(focused.tagName)) {
       // Never re-render under the user's cursor while a form field is being edited.
       return;
     }
@@ -494,6 +480,8 @@ class SmartEqPanel extends HTMLElement {
       }));
     root.querySelectorAll("[data-action]").forEach((el) =>
       el.addEventListener(el.tagName === "BUTTON" ? "click" : "change", (ev) => this._action(el.dataset.action, el, ev)));
+    root.querySelectorAll('input[type=range][data-action="target"]').forEach((el) =>
+      el.addEventListener("input", () => { el.closest(".slider").querySelector("b").textContent = `${el.value} %`; }));
   }
 
   _action(action, el) {
@@ -547,6 +535,24 @@ class SmartEqPanel extends HTMLElement {
         this._createReport(el.dataset.month ? Number(el.dataset.month) : null); break;
       case "open-report":
         this._openReport(el.dataset.url); break;
+      case "target":
+        this._targetDraft = { ...(this._targetDraft || {}),
+          [el.dataset.field]: el.type === "range" ? Number(el.value) : el.value };
+        this._render(true); break;
+      case "target-save":
+        this._saveTarget(); break;
+      case "setting":
+        this._settingsDraft = { ...(this._settingsDraft || {}), [el.dataset.key]:
+          el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value };
+        break;
+      case "settings-save":
+        this._saveSettings(); break;
+      case "settings-discard":
+        this._settingsDraft = null; this._render(true); break;
+      case "photo-upload":
+        this._uploadPhoto(el); break;
+      case "photo-delete":
+        this._deletePhoto(); break;
       case "configure-shelly":
         this._configureShelly(); break;
       case "external-cost":
@@ -585,6 +591,105 @@ class SmartEqPanel extends HTMLElement {
     const data = this._form("odometer");
     if (!data.odometer_km) { this._toast("Kilometerstand angeben"); return; }
     this._call("add_manual_odometer", data, "Kilometerstand erfasst");
+  }
+
+  _settingsView(s) {
+    const cfg = this._cache.settings;
+    if (!cfg) return `<div class="card">Lade Einstellungen …</div>`;
+    const draft = this._settingsDraft || {};
+    const value = (key) => (key in draft ? draft[key] : cfg.values[key]);
+    const admin = cfg.is_admin;
+    const field = (f) => {
+      const v = value(f.key);
+      const help = f.help ? `<span class="help">${esc(f.help)}</span>` : "";
+      const attrs = `data-action="setting" data-key="${f.key}" ${admin ? "" : "disabled"}`;
+      if (f.type === "bool") {
+        return `<label class="field check"><input type="checkbox" ${v ? "checked" : ""} ${attrs}>${esc(f.label)}</label>`;
+      }
+      let input;
+      if (f.type === "select") {
+        input = `<select ${attrs}>${f.options.map((o) => `<option value="${esc(o.value)}" ${o.value === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+      } else if (f.type === "number") {
+        input = `<input type="number" min="${f.min}" max="${f.max}" step="${f.step}" value="${esc(v)}" ${attrs}>`;
+      } else if (f.type === "date") {
+        input = `<input type="date" value="${esc(v)}" ${attrs}>`;
+      } else if (f.type === "time") {
+        input = `<input type="time" value="${esc(String(v || "").slice(0, 5))}" ${attrs}>`;
+      } else {
+        input = `<input type="text" value="${esc(v ?? "")}" ${attrs} ${f.type === "entity" ? 'placeholder="sensor.…"' : ""}>`;
+      }
+      return `<label class="field">${esc(f.label)}${f.unit ? ` <span class="help">(${esc(f.unit)})</span>` : ""}${input}${help}</label>`;
+    };
+    const dirty = Object.keys(draft).length > 0;
+    const history = (cfg.price_history || []).slice().reverse().map((p) =>
+      `<tr><td>${dateOnly(p.valid_from)}</td><td class="n">${num(p.eur_per_kwh, 3, "€/kWh")}</td></tr>`).join("");
+    return `<div class="grid">
+      ${admin ? "" : `<div class="notice warn wide">Nur Administratoren können Einstellungen ändern.</div>`}
+      <div class="card wide">
+        <h2>Fahrzeugfoto</h2>
+        <div class="hero" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+          <div>${this._photoUrl ? `<div class="photo"><img src="${this._photoUrl}" alt="Fahrzeug"></div>` : `<p class="sub">Noch kein Foto – im Cockpit erscheint dann die Akku-Grafik.</p>`}</div>
+          <div>
+            <p class="hint">Am schönsten: <b>Seitenansicht</b>, <b>PNG mit transparentem Hintergrund</b> (freigestellt), Querformat etwa 2:1, mindestens 1200 px breit. JPG und WebP gehen auch. Große Bilder werden beim Hochladen auf 1600 px verkleinert.</p>
+            <div class="actions">
+              <label class="act primary" style="cursor:pointer">Foto wählen …<input type="file" accept="image/png,image/jpeg,image/webp" data-action="photo-upload" style="display:none" ${admin ? "" : "disabled"}></label>
+              ${this._photoUrl ? `<button class="act danger" data-action="photo-delete" ${admin ? "" : "disabled"}>Foto entfernen</button>` : ""}
+            </div>
+          </div>
+        </div>
+      </div>
+      ${this._targetCard(s)}
+      <div class="card">
+        <h2>Strompreis-Historie</h2>
+        <div class="scroll"><table><tr><th>gültig ab</th><th class="n">Preis</th></tr>${history}</table></div>
+        <p class="hint">Neuen Preis unten unter „Strompreis“ eintragen – alte Monate bleiben unverändert.</p>
+      </div>
+      ${cfg.groups.map((g) => `<div class="card wide setgroup">
+        <h2>${esc(g.title)}</h2>
+        <div class="form">${g.fields.map(field).join("")}</div>
+      </div>`).join("")}
+      <div class="card wide actions" style="position:sticky;bottom:8px">
+        <button class="act primary" data-action="settings-save" ${dirty && admin ? "" : "disabled"}>Speichern</button>
+        <button class="act" data-action="settings-discard" ${dirty ? "" : "disabled"}>Verwerfen</button>
+        <span class="hint">${dirty ? `${Object.keys(draft).length} Änderung(en) nicht gespeichert` : "Alle Einstellungen gespeichert"}</span>
+      </div>
+    </div>`;
+  }
+
+  async _saveSettings() {
+    try {
+      await this._ws("set_settings", { values: this._settingsDraft || {} });
+      this._settingsDraft = null;
+      this._cache.settings = null;
+      this._toast("Einstellungen gespeichert – Integration lädt neu");
+      setTimeout(() => this._refresh(), 2500);
+    } catch (err) {
+      this._toast(`Fehler: ${err.message || err}`);
+    }
+  }
+
+  async _uploadPhoto(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    try {
+      const blob = await shrinkImage(file, 1600);
+      const form = new FormData();
+      form.append("file", blob, file.name);
+      const response = await this._hass.fetchWithAuth("/api/smart_eq_charging/vehicle_image", { method: "POST", body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { this._toast(`Fehler: ${data.error || response.status}`); return; }
+      this._toast("Foto gespeichert");
+      await this._refresh();
+    } catch (err) {
+      this._toast(`Fehler: ${err.message || err}`);
+    }
+  }
+
+  async _deletePhoto() {
+    if (!confirm("Fahrzeugfoto entfernen?")) return;
+    await this._hass.fetchWithAuth("/api/smart_eq_charging/vehicle_image", { method: "DELETE" });
+    this._toast("Foto entfernt");
+    await this._refresh();
   }
 
   async _configureShelly() {
@@ -674,7 +779,9 @@ class SmartEqPanel extends HTMLElement {
       <div class="card wide">
         <div class="hero">
           <div class="col carcol">
-            ${carSvg({ plugged, charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null, kw })}
+            ${this._photoUrl ? `<div class="photo ${charging ? "charging" : ""}"><img src="${this._photoUrl}" alt="Fahrzeug"></div>` : ""}
+            ${batterySvg({ plugged, charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null, kw })}
+            ${!this._photoUrl ? `<div class="hint">Eigenes Fahrzeugfoto: Reiter „Einstellungen“</div>` : ""}
             <div class="big">${esc(STATE_LABELS[ex.state] || ex.state || "–")}</div>
             <div class="chips">
               <span class="pill ${plugged ? "info" : "muted"}">${plugged ? "eingesteckt" : "nicht eingesteckt"}</span>
@@ -708,6 +815,7 @@ class SmartEqPanel extends HTMLElement {
             return `<span class="dot" style="background:var(--warning-color)"></span>Strompreis ${num(Math.min(...p), 0)}–${num(Math.max(...p), 0)} ct/kWh`;
           })() : ""}</div>
       </div>
+      ${this._targetCard(s)}
       <div class="card">
         <h2>Prognose <span class="sub">(Schätzung)</span></h2>
         <div class="row"><span>Erwarteter SOC bei Abfahrt</span><b>${num(e.expected_soc_at_departure, 0, "%")}</b></div>
@@ -752,6 +860,43 @@ class SmartEqPanel extends HTMLElement {
         </div>
       </div>
     </div>`;
+  }
+
+  _targetCard(s) {
+    const p = (s.plans || [])[0];
+    if (!p) return "";
+    const d = this._targetDraft || {};
+    const min = d.minimum_departure_soc_pct ?? p.minimum_departure_soc_pct;
+    const pref = d.preferred_departure_soc_pct ?? p.preferred_departure_soc_pct;
+    const dep = d.departure_time ?? p.departure_time;
+    return `<div class="card">
+      <h2>Ladeziel <span class="sub">· ${esc(p.name)}</span></h2>
+      <div class="slider"><label>Mindest-SOC bei Abfahrt<input type="range" min="10" max="100" step="5" value="${min}" data-action="target" data-field="minimum_departure_soc_pct"></label><b>${min} %</b></div>
+      <div class="slider"><label>Wunsch-SOC (Ladeziel)<input type="range" min="10" max="100" step="5" value="${pref}" data-action="target" data-field="preferred_departure_soc_pct"></label><b>${pref} %</b></div>
+      <div class="slider"><label>Abfahrt<input type="time" value="${esc(dep)}" data-action="target" data-field="departure_time"></label><b></b></div>
+      <div class="actions"><button class="act primary" data-action="target-save" ${this._targetDraft ? "" : "disabled"}>Übernehmen</button></div>
+      <p class="hint">Gilt für den Plan „${esc(p.name)}“; weitere Pläne im Reiter Ladeplan.</p>
+    </div>`;
+  }
+
+  async _saveTarget() {
+    const plans = JSON.parse(JSON.stringify(this._state.plans));
+    const d = this._targetDraft || {};
+    if (d.minimum_departure_soc_pct > (d.preferred_departure_soc_pct ?? plans[0].preferred_departure_soc_pct)) {
+      d.preferred_departure_soc_pct = d.minimum_departure_soc_pct;
+    }
+    Object.assign(plans[0], d);
+    if (plans[0].preferred_departure_soc_pct < plans[0].minimum_departure_soc_pct) {
+      plans[0].minimum_departure_soc_pct = plans[0].preferred_departure_soc_pct;
+    }
+    try {
+      await this._ws("set_plans", { plans });
+      this._targetDraft = null;
+      this._toast("Ladeziel gespeichert");
+      await this._refresh();
+    } catch (err) {
+      this._toast(`Fehler: ${err.message || err}`);
+    }
   }
 
   _yesNo(value) {
@@ -882,6 +1027,7 @@ class SmartEqPanel extends HTMLElement {
           <label>kWh<input type="number" step="0.01" min="0" name="energy_kwh"></label>
           <label>Ort<select name="source"><option value="public">Öffentlich</option><option value="workplace">Arbeitgeber</option><option value="other_home">Andere Wallbox</option></select></label>
           <label>Kosten €<input type="number" step="0.01" min="0" name="cost_eur"></label>
+          <label>oder €/kWh<input type="number" step="0.001" min="0" name="price_eur_kwh"></label>
           <label>Anbieter<input name="provider"></label>
           <label>Kilometerstand<input type="number" min="0" name="odometer_km"></label>
           <button class="act primary" data-action="external-add">Speichern</button>

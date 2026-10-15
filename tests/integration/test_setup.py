@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 from homeassistant.config_entries import ConfigEntryState
@@ -115,6 +117,9 @@ async def test_websocket_state_and_plans(hass, entry, halo, hass_ws_client):
     msg = await client.receive_json()
     assert msg["success"]
     assert msg["result"]["executor"]["state"] == "IDLE"
+    manifest = json.loads((Path(__file__).parents[2] / "custom_components" / "ev_charging_pilot"
+                           / "manifest.json").read_text())
+    assert msg["result"]["version"] == manifest["version"]
     assert msg["result"]["plans"][0]["id"] == "plan-werktage"
     await client.send_json({"id": 2, "type": f"{DOMAIN}/set_plans", "plans": [
         {"id": "we", "name": "Wochenende", "weekdays": ["sat", "sun"],

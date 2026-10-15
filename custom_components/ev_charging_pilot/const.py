@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Final
 
 from .core.inputs import Inp
 
 DOMAIN: Final = "ev_charging_pilot"
+
+
+def _manifest_version() -> str:
+    """Integration version from manifest.json – the single source of truth."""
+    try:
+        data = json.loads((Path(__file__).parent / "manifest.json").read_text(encoding="utf-8"))
+        return str(data.get("version") or "0.0.0").strip()
+    except (OSError, ValueError):
+        return "0.0.0"
+
+
+# Read once at import (HA imports integrations in an executor thread).
+VERSION: Final = _manifest_version()
 NAME: Final = "EV Charging Pilot"
 ENTITY_PREFIX: Final = "ev_pilot"
 

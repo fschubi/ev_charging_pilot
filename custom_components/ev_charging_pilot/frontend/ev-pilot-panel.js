@@ -231,6 +231,7 @@ const STYLE = `
   header h1 { font-size: 20px; font-weight: 400; margin: 0; flex: 1; white-space: nowrap;
               overflow: hidden; text-overflow: ellipsis; }
   .menu { background: none; border: none; color: inherit; font-size: 22px; cursor: pointer; }
+  .version { font-size: 12px; font-weight: 400; opacity: .75; margin-left: 10px; vertical-align: middle; }
   .badge { font-size: 12px; padding: 3px 8px; border-radius: 10px; background: rgba(255,255,255,.2); }
   .badge.live { background: var(--success-color, #2e7d32); }
   nav { display: flex; gap: 4px; padding: 8px 16px 0; overflow-x: auto;
@@ -433,6 +434,23 @@ class EvPilotPanel extends HTMLElement {
     }
   }
 
+  /** Integration version: WS state first, then panel config, then ?v= of the script URL. */
+  _version() {
+    const fromState = this._state && this._state.version;
+    if (fromState) return String(fromState);
+    const fromConfig = this._panel && this._panel.config && this._panel.config.ev_pilot_version;
+    if (fromConfig) return String(fromConfig);
+    try {
+      for (const script of document.querySelectorAll("script[src]")) {
+        const src = script.getAttribute("src") || "";
+        if (!src.includes("ev_charging_pilot")) continue;
+        const v = new URL(src, window.location.href).searchParams.get("v");
+        if (v) return v;
+      }
+    } catch (err) { /* ignore */ }
+    return "";
+  }
+
   _setView(view) {
     this._view = view;
     localStorage.setItem("ev-pilot-view", view);
@@ -460,7 +478,7 @@ class EvPilotPanel extends HTMLElement {
       <style>${STYLE}</style>
       <header>
         <button class="menu" data-menu title="Menü">☰</button>
-        <h1>${esc(s ? s.name : "EV Charging Pilot")}</h1>
+        <h1>${esc(s ? s.name : "EV Charging Pilot")}${this._version() ? `<span class="version">v${esc(this._version())}</span>` : ""}</h1>
         ${modeLabel ? `<span class="badge ${mode === "live" ? "live" : ""}">${modeLabel}</span>` : ""}
       </header>
       <nav>${VIEWS.map(([id, label]) => `<button data-view="${id}" class="${this._view === id ? "active" : ""}">${id === "home" && s ? `Hausstrom → ${esc(s.vehicle_name)}` : label}</button>`).join("")}</nav>

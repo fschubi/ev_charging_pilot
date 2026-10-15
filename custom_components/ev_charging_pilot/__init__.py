@@ -18,6 +18,7 @@ from .const import (
     PANEL_TITLE,
     PANEL_URL,
     PLATFORMS,
+    VERSION,
 )
 from .coordinator import ChargingCenter
 from .core.settings import OPT_MODE
@@ -28,7 +29,6 @@ from .websocket_api import async_register as async_register_ws
 
 _LOGGER = logging.getLogger(__name__)
 PANEL_FILE = Path(__file__).parent / "frontend" / "ev-pilot-panel.js"
-PANEL_VERSION = "0.8.0"
 
 type ChargingConfigEntry = ConfigEntry[ChargingCenter]
 
@@ -110,11 +110,12 @@ async def _async_register_panel(hass: HomeAssistant, title: str) -> None:
         frontend_url_path=PANEL_PATH,
         require_admin=False,
         config={
+            "ev_pilot_version": VERSION,
             "_panel_custom": {
                 "name": PANEL_COMPONENT,
                 "embed_iframe": False,
                 "trust_external": False,
-                "js_url": f"{PANEL_URL}?v={PANEL_VERSION}",
+                "js_url": f"{PANEL_URL}?v={VERSION}",
             },
         },
     )

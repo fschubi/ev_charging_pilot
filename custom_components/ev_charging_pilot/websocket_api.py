@@ -10,7 +10,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 from .coordinator import ChargingCenter
 from .core.model import Value
 from .core.planner import ChargeWindow, WeeklySchedule
@@ -81,6 +81,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
     return {
         "name": center.name,
         "vehicle_name": center.vehicle_name,
+        "version": VERSION,
         "mode": str(center.mode),
         "automation_enabled": engine.automation_enabled,
         "executor": {

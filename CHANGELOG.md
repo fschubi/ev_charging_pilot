@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2 – 2026-10-15
+
+- Das Panel zeigt die installierte Version neben dem Titel (z. B. „Smarty Charging
+  Pilot v0.8.2“). Einzige Quelle ist die `manifest.json`; sie dient auch als
+  Cache-Buster für die Panel-Datei, damit nach einem Update sicher die neue lädt.
+
 ## 0.8.1 – 2026-10-15
 
 - Neues Logo: Akku mit Ladestand und Blitz über einer Auto-Silhouette

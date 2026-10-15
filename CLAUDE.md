@@ -15,7 +15,8 @@ smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt.
 - Repo: https://github.com/fschubi/ev_charging_pilot (Branch `main`, **öffentlich**,
   HACS-Custom-Repo, Releases als Tags `vX.Y.Z`)
 - Domain: `ev_charging_pilot` · Entitäten `*.ev_pilot_*` · Panel `/ev-pilot` ·
-  `single_config_entry: true` · HA ≥ 2025.6 · Version 0.8.0
+  `single_config_entry: true` · HA ≥ 2025.6 · Version in `manifest.json` (einzige Quelle,
+  `const.VERSION` → Panel-Kopf und `?v=`-Cache-Buster)
 - Lokaler Ordner heißt weiterhin `smart453_charging_center` (nur das Repo wurde umbenannt).
 - **Spezifikation: [`docs/masterplan-v1.3.md`](docs/masterplan-v1.3.md)** (vollständig, §1–§16).
   Abschnittsverweise im Code (`§6.2`) beziehen sich darauf.

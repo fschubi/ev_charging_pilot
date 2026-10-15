@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.3 – 2026-10-15
+
+- **SOH im Cockpit:** Akkugesundheit (und Reichweite, falls vorhanden) unter dem
+  SOC-Ring.
+- **Fahrzeug-Status klarer:** Die Diagnose trennt jetzt „Fahrzeugdaten (lesen)“ –
+  verbunden/Qualität/zuletzt – von „Wakeup-“ und „Klima-Befehl (senden)“ und nennt
+  für eine Sperre jeden Grund (Schalter aus, kein Befehlsweg, Befehl nicht eingetragen).
+- Option heißt jetzt „Befehle ans Fahrzeug erlauben (OVMS-Wakeup, Klima)“ statt
+  „OVMS-Funktionen aktiv“ – das Lesen der Daten war davon nie betroffen.
+
 ## 0.8.2 – 2026-10-15
 
 - Das Panel zeigt die installierte Version neben dem Titel (z. B. „Smarty Charging

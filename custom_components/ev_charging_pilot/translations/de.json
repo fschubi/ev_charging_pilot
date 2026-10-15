@@ -157,7 +157,7 @@
         "title": "Wakeup und CP",
         "data": {
           "start_detection_wait_s": "Wartezeit bis Wakeup",
-          "ovms_enabled": "OVMS-Funktionen aktiv (erst nach Test!)",
+          "ovms_enabled": "Befehle ans Fahrzeug erlauben (OVMS-Wakeup, Klima) – erst nach Test",
           "ovms_wait_s": "Wartezeit nach OVMS-Wakeup",
           "cp_fallback_enabled": "CP-Puls als Rückfall",
           "post_cp_wait_s": "Wartezeit nach CP-Puls",

@@ -816,6 +816,7 @@ class EvPilotPanel extends HTMLElement {
             ${socRing(soc ? soc.value : null, w ? w.minimum_soc_pct : null, w ? w.preferred_soc_pct : null)}
             <div class="label">${soc ? `<span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : "kein Fahrzeug-SOC"}</div>
             ${w ? `<div class="label">Ziel ${w.preferred_soc_pct} % · min. ${w.minimum_soc_pct} %</div>` : ""}
+            ${this._sohChip(s)}
           </div>
           <div class="col">
             ${powerGauge(kw, maxKw)}
@@ -915,6 +916,37 @@ class EvPilotPanel extends HTMLElement {
     } catch (err) {
       this._toast(`Fehler: ${err.message || err}`);
     }
+  }
+
+  _sohChip(s) {
+    const soh = s.values.ovms_soh;
+    const range = s.values.ovms_range;
+    const parts = [];
+    if (soh && soh.value !== null) {
+      const cls = soh.value >= 90 ? "ok" : soh.value >= 80 ? "info" : "warn";
+      parts.push(`<span class="pill ${cls}" title="Akkugesundheit (State of Health)">SOH ${num(soh.value, 0, "%")}</span>`);
+    } else if ("ovms_soh" in s.entities) {
+      parts.push(`<span class="pill muted" title="Akkugesundheit">SOH –</span>`);
+    }
+    if (range && range.value !== null) parts.push(`<span class="pill muted">${num(range.value, 0, "km")} Reichweite</span>`);
+    return parts.length ? `<div class="chips">${parts.join("")}</div>` : "";
+  }
+
+  _vehicleLinkRows(s) {
+    const v = s.vehicle_link || {};
+    const why = { switch_off: "Schalter „Befehle ans Fahrzeug erlauben“ ist aus (Einstellungen → Wakeup und CP)",
+      no_path: "kein Befehlsweg (MQTT-Topic oder Script unter „Neu konfigurieren“ → Fahrzeug)",
+      no_command: "Befehl nicht eingetragen (Einstellungen → OVMS-Befehle)" };
+    const cmd = (label, reasons) => `<div class="row"><span>${label}</span>${reasons && reasons.length
+      ? `<span class="pill warn">gesperrt</span>` : `<span class="pill ok">bereit</span>`}</div>
+      ${(reasons || []).map((r) => `<div class="hint">· ${esc(why[r] || r)}</div>`).join("")}`;
+    const dataOk = v.data_quality === "GOOD" || v.data_quality === "LAST_KNOWN_VALID";
+    return `<div class="row"><span>Fahrzeugdaten (lesen)</span>${!v.data_configured
+        ? `<span class="pill muted">nicht eingerichtet</span>`
+        : `<span class="pill ${dataOk ? "ok" : "warn"}">${dataOk ? "verbunden" : esc(v.data_quality || "–")}</span>`}</div>
+      ${v.data_configured && v.data_updated_at ? `<div class="hint">zuletzt ${dateTime(v.data_updated_at)}</div>` : ""}
+      ${cmd("Wakeup-Befehl (senden)", v.wakeup_blocked)}
+      ${cmd("Klima-Befehl (senden)", v.climate_blocked)}`;
   }
 
   _yesNo(value) {
@@ -1085,7 +1117,7 @@ class EvPilotPanel extends HTMLElement {
         ${s.health.shelly_host ? `<div class="actions" style="margin-top:8px"><button class="act ${s.health.shelly_config_ok === false ? "primary" : ""}" data-action="configure-shelly">Shelly konfigurieren</button></div>` : ""}
         <div class="row"><span>Puls-Maskierung aktiv</span><span>${s.executor.cp_masked ? "ja" : "nein"}</span></div></div>
       <div class="card"><h2>Fahrzeug</h2>
-        <div class="row"><span>OVMS-Funktionen</span><span>${s.settings.ovms_enabled ? "aktiv" : "gesperrt"}</span></div>
+        ${this._vehicleLinkRows(s)}
         <div class="row"><span>HV-Zyklen heute</span><span>${s.hv_cycles_today ?? "–"}</span></div>
         <div class="row"><span>12 V</span><span>${s.values.ovms_12v ? num(s.values.ovms_12v.value, 1, "V") : "–"}</span></div>
         <div class="row"><span>Außentemperatur</span><span>${num(s.outside_temperature.value, 1, "°C")} (${esc(s.outside_temperature.source)})</span></div></div>

@@ -120,6 +120,11 @@ async def test_websocket_state_and_plans(hass, entry, halo, hass_ws_client):
     manifest = json.loads((Path(__file__).parents[2] / "custom_components" / "ev_charging_pilot"
                            / "manifest.json").read_text())
     assert msg["result"]["version"] == manifest["version"]
+    link = msg["result"]["vehicle_link"]
+    assert link["data_configured"] is False
+    assert set(link["wakeup_blocked"]) == {"switch_off", "no_path", "no_command"}
+    # The climate command has a default text, so only switch and path are missing.
+    assert set(link["climate_blocked"]) == {"switch_off", "no_path"}
     assert msg["result"]["plans"][0]["id"] == "plan-werktage"
     await client.send_json({"id": 2, "type": f"{DOMAIN}/set_plans", "plans": [
         {"id": "we", "name": "Wochenende", "weekdays": ["sat", "sun"],

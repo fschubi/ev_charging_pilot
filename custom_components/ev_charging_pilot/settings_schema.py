@@ -63,7 +63,9 @@ GROUPS: list[dict[str, Any]] = [
     ]},
     {"id": "wakeup", "title": "Wakeup und CP", "fields": [
         _n("start_detection_wait_s", "Wartezeit bis Wakeup", 15, 900, 5, "s"),
-        _b("ovms_enabled", "OVMS-Funktionen aktiv (erst nach Test)"),
+        _b("ovms_enabled", "Befehle ans Fahrzeug erlauben (OVMS-Wakeup, Klima)",
+           help="Nur einschalten, wenn die Befehle am Auto getestet sind. Das Lesen der "
+                "Fahrzeugdaten (SOC, SOH …) funktioniert auch ohne."),
         _n("ovms_wait_s", "Wartezeit nach OVMS-Wakeup", 10, 600, 5, "s"),
         _b("cp_fallback_enabled", "CP-Puls als Rückfall"),
         _n("post_cp_wait_s", "Wartezeit nach CP-Puls", 15, 900, 5, "s"),

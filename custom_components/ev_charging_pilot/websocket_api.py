@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, VERSION
 from .coordinator import ChargingCenter
+from .core.inputs import Inp
 from .core.model import Value
 from .core.planner import ChargeWindow, WeeklySchedule
 from .core.settings import DEFAULT_OPTIONS
@@ -70,6 +71,34 @@ def _window(window: ChargeWindow | None) -> dict[str, Any] | None:
             "finish_at": _iso(e.finish_at),
             "cost_eur": e.cost_eur,
         },
+    }
+
+
+def vehicle_link(center: ChargingCenter) -> dict[str, Any]:
+    """Reading vehicle data and sending commands are separate – show both (§1.2)."""
+    soc = center.engine.soc
+    settings = center.settings
+    path = ("mqtt" if center.ports.ovms_topic else "script" if center.ports.ovms_script
+            else None)
+
+    def blocked(command: str) -> list[str]:
+        reasons = []
+        if not settings.ovms_enabled:
+            reasons.append("switch_off")
+        if path is None:
+            reasons.append("no_path")
+        if not command:
+            reasons.append("no_command")
+        return reasons
+
+    return {
+        "data_configured": Inp.OVMS_SOC in center.entity_ids,
+        "data_quality": str(soc.quality),
+        "data_updated_at": _iso(soc.updated_at),
+        "commands_enabled": settings.ovms_enabled,
+        "command_path": path,
+        "wakeup_blocked": blocked(settings.ovms_wakeup_command),
+        "climate_blocked": blocked(settings.ovms_climate_command),
     }
 
 
@@ -151,6 +180,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             "max_power_kw": center.settings.max_power_kw,
         },
         "history": [list(item) for item in center.history],
+        "vehicle_link": vehicle_link(center),
         "vehicle_image": f"{IMAGE_URL}?v={center.vehicle_image_version}"
         if center.vehicle_image_version else None,
         "entities": {k.value: v for k, v in center.entity_ids.items()},

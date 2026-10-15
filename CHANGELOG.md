@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1 – 2026-10-15
+
+- Neues Logo: Akku mit Ladestand und Blitz über einer Auto-Silhouette
+  (`brand/icon.png`, `icon@2x.png`, `logo.png`, `logo@2x.png`).
+
 ## 0.8.0 – 2026-10-15
 
 **Neuer Name: EV Charging Pilot.** Die Integration ist herstellerneutral und

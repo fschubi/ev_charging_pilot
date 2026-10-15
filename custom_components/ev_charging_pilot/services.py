@@ -112,7 +112,7 @@ RESPONSE = {"add_external_charge", "export", "start_replay", "create_replay_data
 def _center(hass: HomeAssistant) -> ChargingCenter:
     entries = hass.config_entries.async_loaded_entries(DOMAIN)
     if not entries:
-        raise HomeAssistantError("Smart EQ Charging Center ist nicht geladen")
+        raise HomeAssistantError("EV Charging Pilot ist nicht geladen")
     return entries[0].runtime_data
 
 

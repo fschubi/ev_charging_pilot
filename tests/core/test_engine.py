@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime, time
 
-from custom_components.smart_eq_charging.core.executor import ExecState
-from custom_components.smart_eq_charging.core.inputs import Inp
-from custom_components.smart_eq_charging.core.model import Reason
-from custom_components.smart_eq_charging.core.planner import OverrideMode, WeeklySchedule
-from custom_components.smart_eq_charging.core.ports import CommandKind
+from custom_components.ev_charging_pilot.core.executor import ExecState
+from custom_components.ev_charging_pilot.core.inputs import Inp
+from custom_components.ev_charging_pilot.core.model import Reason
+from custom_components.ev_charging_pilot.core.planner import OverrideMode, WeeklySchedule
+from custom_components.ev_charging_pilot.core.ports import CommandKind
 
 from .world import TZ, WITH_CP, WITH_OVMS, World
 

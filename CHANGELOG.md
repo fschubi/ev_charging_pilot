@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.0 – 2026-10-15
+
+**Neuer Name: EV Charging Pilot.** Die Integration ist herstellerneutral und
+funktioniert mit jeder Wallbox und jedem Fahrzeug, die Home Assistant als Entitäten
+kennt.
+
+- **Fahrzeugname frei wählbar** (Einrichtung und Panel → Einstellungen → Allgemein):
+  Seitenleiste, Panel-Titel, Gerät, Push-Titel und PDF heißen dann z. B.
+  „Smarty Charging Pilot“.
+- Domain `ev_charging_pilot`, Entitäten `*.ev_pilot_*`, Panel `/ev-pilot`,
+  GitHub-Repo `fschubi/ev_charging_pilot`.
+- Texte neutral: „Wallbox“ statt „Halo“, „Fahrzeug“ statt „OVMS“.
+- **Achtung, inkompatibel:** Wegen der neuen Domain muss eine bestehende Installation
+  („Smart EQ Charging Center“) entfernt und neu eingerichtet werden.
+
 ## 0.7.0 – 2026-10-13
 
 - **Neuer Reiter „Einstellungen“** im Panel: alle Optionen (Laden, Wakeup/CP,

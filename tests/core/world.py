@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from custom_components.smart_eq_charging.core.engine import Engine, EngineConfig, TickResult
-from custom_components.smart_eq_charging.core.inputs import Inp, RawState
-from custom_components.smart_eq_charging.core.ports import CommandKind
-from custom_components.smart_eq_charging.core.settings import Settings
+from custom_components.ev_charging_pilot.core.engine import Engine, EngineConfig, TickResult
+from custom_components.ev_charging_pilot.core.inputs import Inp, RawState
+from custom_components.ev_charging_pilot.core.ports import CommandKind
+from custom_components.ev_charging_pilot.core.settings import Settings
 
 TZ = ZoneInfo("Europe/Berlin")
 

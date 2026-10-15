@@ -2,28 +2,29 @@
   "config": {
     "step": {
       "user": {
-        "title": "Smart EQ Charging Center",
-        "description": "Name and start mode. In dry-run the integration only logs what it would do.",
+        "title": "EV Charging Pilot",
+        "description": "Name your vehicle – it becomes e.g. 'Smarty Charging Pilot'. In dry-run the integration only logs what it would do.",
         "data": {
-          "name": "Name",
+          "vehicle_name": "Name of your vehicle",
           "dry_run": "Start in dry-run"
         },
         "data_description": {
+          "vehicle_name": "e.g. Smarty – can be changed later.",
           "dry_run": "Recommended: only log at first."
         }
       },
       "halo": {
         "title": "Charger",
-        "description": "**{found}**\n\nEntities come from the HACS integration 'Chargeamps'. Only the first four fields are required.",
+        "description": "**{found}**\n\nEntities of your wallbox integration (e.g. Chargeamps, go-e, Easee, Wallbox, Zaptec, KEBA …). Only the first four fields are required.",
         "data": {
-          "charger_enable": "Halo charging enable (switch)",
-          "cable_connected": "Halo cable connected",
-          "charge_power": "Halo charging power",
-          "total_energy": "Halo total energy meter",
-          "charger_status": "Halo status",
-          "max_current": "Halo max current",
-          "cable_lock": "Halo cable lock",
-          "internal_schedule": "Halo internal schedule (must stay off)"
+          "charger_enable": "Wallbox charging enable (switch)",
+          "cable_connected": "Wallbox cable connected",
+          "charge_power": "Wallbox charging power",
+          "total_energy": "Wallbox total energy meter",
+          "charger_status": "Wallbox status",
+          "max_current": "Wallbox max current",
+          "cable_lock": "Wallbox cable lock",
+          "internal_schedule": "Wallbox internal schedule (must stay off)"
         },
         "data_description": {
           "charger_enable": "The Chargeamps switch that enables charging (usually …_connector_1).",
@@ -33,11 +34,11 @@
           "charger_status": "Status text of the connector. Optional.",
           "max_current": "Maximum current of the connector. Optional.",
           "cable_lock": "Cable lock. Optional.",
-          "internal_schedule": "Internal Halo schedule. Optional – monitored so it stays off."
+          "internal_schedule": "Internal Wallbox schedule. Optional – monitored so it stays off."
         }
       },
       "shelly": {
-        "title": "CP interruption",
+        "title": "CP interruption (optional)",
         "description": "**{found}**\n\nShelly in the CP line. Leave empty without a Shelly.",
         "data": {
           "cp_relay": "Shelly CP relay",
@@ -59,23 +60,23 @@
         }
       },
       "ovms": {
-        "title": "Vehicle (OVMS)",
+        "title": "Vehicle",
         "description": "**{found}**\n\nOptional – OVMS can be added later via reconfigure.",
         "data": {
-          "ovms_soc": "OVMS SOC",
-          "ovms_soh": "OVMS SOH",
-          "ovms_range": "OVMS range",
-          "ovms_odometer": "OVMS odometer",
-          "ovms_charging": "OVMS charging",
-          "ovms_charge_power": "OVMS vehicle-side charge power",
-          "ovms_battery_temp": "OVMS battery temperature",
-          "ovms_hv_cycles": "OVMS HV contactor cycles",
-          "ovms_vehicle_on": "OVMS ready to drive",
-          "ovms_outside_temp": "OVMS outside temperature",
-          "ovms_energy_used": "OVMS trip energy used",
-          "ovms_energy_recd": "OVMS energy recovered",
-          "ovms_aux_consumption": "OVMS auxiliary consumption",
-          "ovms_12v": "OVMS 12 V voltage",
+          "ovms_soc": "Vehicle: SOC",
+          "ovms_soh": "Vehicle: SOH",
+          "ovms_range": "Vehicle: range",
+          "ovms_odometer": "Vehicle: odometer",
+          "ovms_charging": "Vehicle: charging",
+          "ovms_charge_power": "Vehicle: vehicle-side charge power",
+          "ovms_battery_temp": "Vehicle: battery temperature",
+          "ovms_hv_cycles": "Vehicle: HV contactor cycles",
+          "ovms_vehicle_on": "Vehicle: ready to drive",
+          "ovms_outside_temp": "Vehicle: outside temperature",
+          "ovms_energy_used": "Vehicle: trip energy used",
+          "ovms_energy_recd": "Vehicle: energy recovered",
+          "ovms_aux_consumption": "Vehicle: auxiliary consumption",
+          "ovms_12v": "Vehicle: 12 V voltage",
           "outside_temp": "Outside temperature (HA sensor)",
           "weather": "Weather (fallback outside temperature)",
           "ovms_command_topic": "OVMS command topic (MQTT)",
@@ -90,16 +91,16 @@
       },
       "reconfigure": {
         "title": "Reconfigure",
-        "description": "**{found}**\n\nEntities come from the HACS integration 'Chargeamps'. Only the first four fields are required.",
+        "description": "**{found}**\n\nEntities of your wallbox integration (e.g. Chargeamps, go-e, Easee, Wallbox, Zaptec, KEBA …). Only the first four fields are required.",
         "data": {
-          "charger_enable": "Halo charging enable (switch)",
-          "cable_connected": "Halo cable connected",
-          "charge_power": "Halo charging power",
-          "total_energy": "Halo total energy meter",
-          "charger_status": "Halo status",
-          "max_current": "Halo max current",
-          "cable_lock": "Halo cable lock",
-          "internal_schedule": "Halo internal schedule (must stay off)"
+          "charger_enable": "Wallbox charging enable (switch)",
+          "cable_connected": "Wallbox cable connected",
+          "charge_power": "Wallbox charging power",
+          "total_energy": "Wallbox total energy meter",
+          "charger_status": "Wallbox status",
+          "max_current": "Wallbox max current",
+          "cable_lock": "Wallbox cable lock",
+          "internal_schedule": "Wallbox internal schedule (must stay off)"
         },
         "data_description": {
           "charger_enable": "The Chargeamps switch that enables charging (usually …_connector_1).",
@@ -109,7 +110,7 @@
           "charger_status": "Status text of the connector. Optional.",
           "max_current": "Maximum current of the connector. Optional.",
           "cable_lock": "Cable lock. Optional.",
-          "internal_schedule": "Internal Halo schedule. Optional – monitored so it stays off."
+          "internal_schedule": "Internal Wallbox schedule. Optional – monitored so it stays off."
         }
       }
     },
@@ -146,9 +147,9 @@
           "stable_samples": "Stable samples (N)",
           "stable_min_s": "Minimum stable duration",
           "loss_timeout_s": "Charging loss timeout",
-          "min_switch_interval_s": "Minimum pause between Halo switches",
-          "confirm_timeout_s": "Wait for Halo confirmation",
-          "finished_statuses": "Halo status values meaning finished (comma separated)"
+          "min_switch_interval_s": "Minimum pause between Wallbox switches",
+          "confirm_timeout_s": "Wait for Wallbox confirmation",
+          "finished_statuses": "Wallbox status values meaning finished (comma separated)"
         },
         "description": "Provisional values until phase 0 measured them."
       },
@@ -174,7 +175,7 @@
         "data": {
           "usable_capacity_kwh": "Usable battery capacity",
           "charge_efficiency": "Charging efficiency",
-          "max_power_kw": "Halo limit",
+          "max_power_kw": "Wallbox limit",
           "vehicle_charger_kw": "On-board charger",
           "grid_limit_kw": "Grid limit §14a (0 = none)",
           "safety_margin_min": "Safety margin"
@@ -209,8 +210,8 @@
       "quality": {
         "title": "Data quality",
         "data": {
-          "max_age_halo_power_s": "Max age Halo power (3 × poll interval)",
-          "max_age_halo_energy_s": "Max age Halo meter",
+          "max_age_halo_power_s": "Max age Wallbox power (3 × poll interval)",
+          "max_age_halo_energy_s": "Max age Wallbox meter",
           "max_age_vehicle_charging_s": "Max age vehicle charging state",
           "max_age_soc_s": "Max age SOC while charging",
           "max_age_odometer_s": "Max age odometer",
@@ -737,7 +738,7 @@
     },
     "export": {
       "name": "Export",
-      "description": "CSV/JSON into /config/smart_eq_charging/export.",
+      "description": "CSV/JSON into /config/ev_charging_pilot/export.",
       "fields": {
         "dataset": {
           "name": "Dataset",
@@ -781,7 +782,7 @@
     },
     "create_report": {
       "name": "Create PDF report",
-      "description": "Monthly or yearly report into /config/smart_eq_charging/reports.",
+      "description": "Monthly or yearly report into /config/ev_charging_pilot/reports.",
       "fields": {
         "period": {
           "name": "Period",
@@ -822,8 +823,8 @@
           "description": "Name"
         },
         "poll_interval_s": {
-          "name": "Halo poll interval (M1)",
-          "description": "Halo poll interval (M1)"
+          "name": "Wallbox poll interval (M1)",
+          "description": "Wallbox poll interval (M1)"
         }
       }
     }

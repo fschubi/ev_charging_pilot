@@ -405,13 +405,13 @@ class Executor:
         if self._switch(snap, False):
             self._confirm_attempts = 1
             self._go(ExecState.DISABLING, snap.now, "CHARGER_DISABLE",
-                     f"Halo aus ({snap.desired.reason})")
+                     f"Wallbox aus ({snap.desired.reason})")
 
     def _start_enabling(self, snap: Snapshot) -> None:
         if self._switch(snap, True):
             self._confirm_attempts = 1
             self._go(ExecState.ENABLING, snap.now, "CHARGER_ENABLE",
-                     f"Halo an ({snap.desired.reason})")
+                     f"Wallbox an ({snap.desired.reason})")
 
     def _fail(self, snap: Snapshot, code: str, message: str) -> None:
         self.failure_code = code
@@ -565,7 +565,7 @@ class Executor:
                 return
             if _flag(snap.charger_on) is True:
                 self._go(ExecState.WAITING_FOR_CHARGE, snap.now, "WAIT_FOR_CHARGE",
-                         "Halo bereits an, warte auf Leistung")
+                         "Wallbox bereits an, warte auf Leistung")
             else:
                 self._start_enabling(snap)
             return
@@ -577,11 +577,11 @@ class Executor:
             return
         if _flag(snap.charger_on) is True:
             self._go(ExecState.WAITING_FOR_CHARGE, snap.now, "CHARGER_CONFIRMED",
-                     "Halo hat Freigabe bestätigt")
+                     "Wallbox hat Freigabe bestätigt")
             return
         if self._elapsed(snap.now) >= self.config.confirm_timeout_s:
             if self._confirm_attempts >= self.config.max_confirm_attempts:
-                self._fail(snap, "CHARGER_NOT_CONFIRMED", "Halo bestätigt die Freigabe nicht")
+                self._fail(snap, "CHARGER_NOT_CONFIRMED", "Wallbox bestätigt die Freigabe nicht")
                 return
             self._confirm_attempts += 1
             self._switch(snap, True, retry=True)
@@ -655,12 +655,12 @@ class Executor:
     def _in_disabling(self, snap: Snapshot) -> None:
         if _flag(snap.charger_on) is False:
             self._go(ExecState.COOLDOWN, snap.now, "CHARGER_OFF_CONFIRMED",
-                     "Halo hat Abschaltung bestätigt")
+                     "Wallbox hat Abschaltung bestätigt")
             return
         if self._elapsed(snap.now) >= self.config.confirm_timeout_s:
             if self._confirm_attempts >= self.config.max_confirm_attempts:
                 self._event(snap.now, Category.CHARGING, Severity.ERROR, "CHARGER_NOT_CONFIRMED",
-                            "Halo bestätigt die Abschaltung nicht")
+                            "Wallbox bestätigt die Abschaltung nicht")
                 self._go(ExecState.COOLDOWN, snap.now)
                 return
             self._confirm_attempts += 1

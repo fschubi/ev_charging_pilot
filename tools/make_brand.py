@@ -1,6 +1,6 @@
 """Render the integration icon (brand/icon.png, icon@2x.png) – battery with a bolt.
 
-Usage: .venv/bin/python tools/make_brand.py custom_components/smart_eq_charging/brand
+Usage: .venv/bin/python tools/make_brand.py custom_components/ev_charging_pilot/brand
 """
 
 import sys

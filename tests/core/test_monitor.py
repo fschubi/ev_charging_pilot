@@ -6,25 +6,25 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from custom_components.smart_eq_charging.core.climate import (
+from custom_components.ev_charging_pilot.core.climate import (
     climate_blocker,
     climate_request,
     homelink_level,
     planned_duration,
 )
-from custom_components.smart_eq_charging.core.costs import FixedPriceHistory, PricePoint
-from custom_components.smart_eq_charging.core.model import Quality, Value
-from custom_components.smart_eq_charging.core.monitor import Monitor
-from custom_components.smart_eq_charging.core.sessions import ChargeSession
-from custom_components.smart_eq_charging.core.settings import Settings
-from custom_components.smart_eq_charging.core.statistics import (
+from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory, PricePoint
+from custom_components.ev_charging_pilot.core.model import Quality, Value
+from custom_components.ev_charging_pilot.core.monitor import Monitor
+from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+from custom_components.ev_charging_pilot.core.settings import Settings
+from custom_components.ev_charging_pilot.core.statistics import (
     ExternalCharge,
     MonitorData,
     Reading,
     period_summary,
     temperature_statistics,
 )
-from custom_components.smart_eq_charging.core.trips import Trip, TripTracker
+from custom_components.ev_charging_pilot.core.trips import Trip, TripTracker
 
 from .world import TZ
 

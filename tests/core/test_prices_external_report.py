@@ -6,22 +6,22 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from custom_components.smart_eq_charging.core.external import ExternalChargeDetector
-from custom_components.smart_eq_charging.core.inputs import Inp
-from custom_components.smart_eq_charging.core.model import Quality, Value
-from custom_components.smart_eq_charging.core.monitor import Monitor
-from custom_components.smart_eq_charging.core.pdf import PdfDocument, text_width
-from custom_components.smart_eq_charging.core.prices import (
+from custom_components.ev_charging_pilot.core.external import ExternalChargeDetector
+from custom_components.ev_charging_pilot.core.inputs import Inp
+from custom_components.ev_charging_pilot.core.model import Quality, Value
+from custom_components.ev_charging_pilot.core.monitor import Monitor
+from custom_components.ev_charging_pilot.core.pdf import PdfDocument, text_width
+from custom_components.ev_charging_pilot.core.prices import (
     PriceSchedule,
     PriceSlot,
     cheapest_blocks,
     parse_price_attributes,
     parse_tibber_response,
 )
-from custom_components.smart_eq_charging.core.report import month_report, year_report
-from custom_components.smart_eq_charging.core.sessions import ChargeSession
-from custom_components.smart_eq_charging.core.settings import Settings
-from custom_components.smart_eq_charging.core.statistics import ExternalCharge
+from custom_components.ev_charging_pilot.core.report import month_report, year_report
+from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+from custom_components.ev_charging_pilot.core.settings import Settings
+from custom_components.ev_charging_pilot.core.statistics import ExternalCharge
 
 from .world import TZ, WITH_OVMS, World
 
@@ -127,7 +127,7 @@ def test_session_cost_uses_dynamic_price():
                   price_optimization=False)
     world.engine.set_prices(night_prices().slots)
     world.engine.set_override(world.now, __import__(
-        "custom_components.smart_eq_charging.core.planner", fromlist=["OverrideMode"]
+        "custom_components.ev_charging_pilot.core.planner", fromlist=["OverrideMode"]
     ).OverrideMode.UNTIL_UNPLUGGED)
     world.run(30 * 60)
     world.set(Inp.CABLE_CONNECTED, "off")

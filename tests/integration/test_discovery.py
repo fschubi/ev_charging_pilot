@@ -6,8 +6,8 @@ from homeassistant import config_entries
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
-from custom_components.smart_eq_charging.const import DOMAIN
-from custom_components.smart_eq_charging.discovery import Candidate, suggest
+from custom_components.ev_charging_pilot.const import DOMAIN
+from custom_components.ev_charging_pilot.discovery import Candidate, suggest
 
 # The entity IDs from masterplan §2 – the real installation.
 HALO = [
@@ -90,7 +90,7 @@ async def test_config_flow_prefills_discovered_entities(hass):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"name": "Smart EQ", "dry_run": True})
+        result["flow_id"], {"vehicle_name": "Smarty", "dry_run": True})
     assert result["step_id"] == "halo"
     assert "9 von 8" not in result["description_placeholders"]["found"]
     assert result["description_placeholders"]["found"].startswith("8 von 8")

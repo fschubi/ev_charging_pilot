@@ -51,7 +51,7 @@ class _Writer:
         d.text(MARGIN, d.height - 48, self.title, 20, bold=True, color=(1, 1, 1))
         d.text(MARGIN, d.height - 70, self.subtitle, 11, color=(1, 1, 1))
         d.text(d.width - MARGIN, 28, f"Seite {d.page_count}", 8, color=GREY, align="right")
-        d.text(MARGIN, 28, f"Smart EQ Charging Center · erstellt {self.generated}", 8, color=GREY)
+        d.text(MARGIN, 28, f"EV Charging Pilot · erstellt {self.generated}", 8, color=GREY)
         self.y = d.height - 120
 
     def ensure(self, height: float) -> None:
@@ -148,7 +148,7 @@ def _local(moment: datetime, tz: ZoneInfo) -> datetime:
 
 
 def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
-                 now: datetime, title_name: str = "Smart EQ") -> bytes:
+                 now: datetime, title_name: str = "EV Charging Pilot") -> bytes:
     tz = monitor.tz
     today = now.astimezone(tz).date()
     summary = monitor.month(year, month, settings, today)
@@ -160,7 +160,7 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
 
     w.heading("Hausabrechnung")
     w.figures([
-        ("Heimladen (Halo-Zähler)", _n(summary["home_energy_kwh"], 2, "kWh")),
+        ("Heimladen (Wallbox-Zähler)", _n(summary["home_energy_kwh"], 2, "kWh")),
         ("Kosten Heimladen", _n(summary["home_cost_eur"], 2, "€")),
         ("Ø Preis", _n(summary["home_cost_eur"] / summary["home_energy_kwh"], 3, "€/kWh")
          if summary["home_energy_kwh"] else "–"),
@@ -215,7 +215,7 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
     w.heading("Hinweise")
     w.note(f"Qualität der Bilanz: {summary['quality']}"
            f"{' · Datenlücken im Monat' if not summary['complete'] else ''}.")
-    w.note("Heim-kWh stammen aus dem internen Halo-Zähler – für die private Aufteilung im "
+    w.note("Heim-kWh stammen aus dem internen Zähler der Wallbox – für die private Aufteilung im "
            "Haushalt geeignet.")
     w.note("Für Erstattung durch Arbeitgeber oder steuerliche Abrechnung wäre ein "
            "MID-geeichter Zähler nötig.")
@@ -225,7 +225,7 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
 
 
 def year_report(monitor: Monitor, settings: Settings, year: int, now: datetime,
-                title_name: str = "Smart EQ") -> bytes:
+                title_name: str = "EV Charging Pilot") -> bytes:
     tz = monitor.tz
     today = now.astimezone(tz).date()
     summary = monitor.year(year, settings, today)

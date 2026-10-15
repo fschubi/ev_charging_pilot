@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from custom_components.smart_eq_charging.core.inputs import Inp, RawState
-from custom_components.smart_eq_charging.core.replay import ReplayDataset, run_replay
+from custom_components.ev_charging_pilot.core.inputs import Inp, RawState
+from custom_components.ev_charging_pilot.core.replay import ReplayDataset, run_replay
 
 from .world import TZ
 

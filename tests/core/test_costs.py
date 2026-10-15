@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.smart_eq_charging.core.costs import (
+from custom_components.ev_charging_pilot.core.costs import (
     EnergyInterval,
     FixedPriceHistory,
     IntervalAccumulator,

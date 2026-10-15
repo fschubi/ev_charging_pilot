@@ -6,8 +6,8 @@ import pytest
 from homeassistant.exceptions import ServiceValidationError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smart_eq_charging.const import DOMAIN
-from custom_components.smart_eq_charging.ha_ports import shelly_deviations
+from custom_components.ev_charging_pilot.const import DOMAIN
+from custom_components.ev_charging_pilot.ha_ports import shelly_deviations
 
 from .conftest import DATA, RELAY
 

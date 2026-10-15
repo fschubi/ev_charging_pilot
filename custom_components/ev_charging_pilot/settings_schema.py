@@ -42,6 +42,11 @@ def _s(key: str, label: str, options: dict[str, str], **extra: Any) -> dict[str,
 
 
 GROUPS: list[dict[str, Any]] = [
+    {"id": "general", "title": "Allgemein", "fields": [
+        _f("vehicle_name", "Name deines Fahrzeugs", "text",
+           help="Erscheint als „<Name> Charging Pilot“ in Seitenleiste, Panel, Gerät, "
+                "Push und PDF."),
+    ]},
     {"id": "charging", "title": "Laden", "fields": [
         _s("mode", "Betriebsmodus", {RunMode.DRY_RUN: "Dry-Run (nur protokollieren)",
                                      RunMode.LIVE: "Live (schaltet Hardware)",
@@ -51,9 +56,9 @@ GROUPS: list[dict[str, Any]] = [
         _n("stable_samples", "Stabile Messwerte (N)", 1, 10),
         _n("stable_min_s", "Mindestdauer stabil", 0, 600, 1, "s"),
         _n("loss_timeout_s", "Ladeverlust-Timeout", 30, 1800, 10, "s"),
-        _n("min_switch_interval_s", "Mindestpause zwischen Halo-Schaltungen", 30, 900, 10, "s"),
-        _n("confirm_timeout_s", "Wartezeit auf Halo-Bestätigung", 15, 600, 5, "s"),
-        _f("finished_statuses", "Halo-Status „fertig“ (kommagetrennt)", "text",
+        _n("min_switch_interval_s", "Mindestpause zwischen Wallbox-Schaltungen", 30, 900, 10, "s"),
+        _n("confirm_timeout_s", "Wartezeit auf Wallbox-Bestätigung", 15, 600, 5, "s"),
+        _f("finished_statuses", "Wallbox-Status „fertig“ (kommagetrennt)", "text",
            help="Nach Messung M3 eintragen, z. B. Finished"),
     ]},
     {"id": "wakeup", "title": "Wakeup und CP", "fields": [
@@ -74,7 +79,7 @@ GROUPS: list[dict[str, Any]] = [
     {"id": "planning", "title": "Planung", "fields": [
         _n("usable_capacity_kwh", "Nutzbare Akkukapazität", 5, 30, 0.1, "kWh"),
         _n("charge_efficiency", "Ladewirkungsgrad", 0.5, 1, 0.01),
-        _n("max_power_kw", "Halo-Limit", 1, 22, 0.1, "kW"),
+        _n("max_power_kw", "Wallbox-Limit", 1, 22, 0.1, "kW"),
         _n("vehicle_charger_kw", "Fahrzeuglader", 1, 22, 0.1, "kW"),
         _n("grid_limit_kw", "Netzlimit §14a (0 = keins)", 0, 22, 0.1, "kW"),
         _n("safety_margin_min", "Sicherheitsreserve", 0, 180, 5, "min"),
@@ -108,8 +113,8 @@ GROUPS: list[dict[str, Any]] = [
         _n("climate_warm_min", "Dauer warm", 0, 15, 5, "min"),
     ]},
     {"id": "quality", "title": "Datenqualität", "fields": [
-        _n("max_age_halo_power_s", "Max. Alter Halo-Leistung", 30, 3600, 10, "s"),
-        _n("max_age_halo_energy_s", "Max. Alter Halo-Zähler", 60, 7200, 10, "s"),
+        _n("max_age_halo_power_s", "Max. Alter Wallbox-Leistung", 30, 3600, 10, "s"),
+        _n("max_age_halo_energy_s", "Max. Alter Wallbox-Zähler", 60, 7200, 10, "s"),
         _n("max_age_vehicle_charging_s", "Max. Alter Ladezustand Fahrzeug", 30, 3600, 10, "s"),
         _n("max_age_soc_s", "Max. Alter SOC beim Laden", 60, 7200, 10, "s"),
         _n("max_age_odometer_s", "Max. Alter Kilometerstand", 60, 86400, 60, "s"),
@@ -157,6 +162,7 @@ def current_values(options: dict[str, Any]) -> dict[str, Any]:
     values = {**DEFAULT_OPTIONS, **options}
     history = values[OPT_PRICE_HISTORY]
     out = {key: values.get(key) for key in FIELDS if key in values}
+    out["vehicle_name"] = options.get("vehicle_name") or "Mein EV"
     out[PRICE_FIELD] = float(history[-1]["eur_per_kwh"])
     out[PRICE_VALID_FROM] = str(history[-1]["valid_from"])
     return out
@@ -178,6 +184,8 @@ def _coerce(field: dict[str, Any], value: Any) -> Any:
         if value not in allowed:
             raise ValueError(f"{field['label']}: ungültige Auswahl {value}")
         return value
+    if field["key"] == "vehicle_name":
+        return str(value or "").strip()[:40]
     if kind == "date":
         return date.fromisoformat(str(value)).isoformat()
     if kind == "time":

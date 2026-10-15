@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements-test.txt
 
       - name: Tests ausführen
-        run: pytest --cov=custom_components.smart_eq_charging --cov-report=term-missing
+        run: pytest --cov=custom_components.ev_charging_pilot --cov-report=term-missing
 
   panel:
     name: Panel (JS-Syntax)
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --check custom_components/smart_eq_charging/frontend/smart-eq-panel.js
+      - run: node --check custom_components/ev_charging_pilot/frontend/ev-pilot-panel.js
 
   ruff:
     name: ruff

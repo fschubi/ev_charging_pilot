@@ -80,6 +80,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
     session = engine.sessions.open
     return {
         "name": center.name,
+        "vehicle_name": center.vehicle_name,
         "mode": str(center.mode),
         "automation_enabled": engine.automation_enabled,
         "executor": {
@@ -162,7 +163,7 @@ def _send(connection, msg, payload) -> None:
 def _require(connection, msg, hass) -> ChargingCenter | None:
     center = _center(hass)
     if center is None:
-        connection.send_error(msg["id"], "not_loaded", "Smart EQ Charging Center ist nicht geladen")
+        connection.send_error(msg["id"], "not_loaded", "EV Charging Pilot ist nicht geladen")
     return center
 
 

@@ -2,10 +2,10 @@
 
 from datetime import UTC, datetime, timedelta
 
-from custom_components.smart_eq_charging.core.arbiter import arbitrate
-from custom_components.smart_eq_charging.core.health import HealthInputs, HealthStatus, evaluate
-from custom_components.smart_eq_charging.core.model import Desired, Quality, Reason, Value
-from custom_components.smart_eq_charging.core.quality import (
+from custom_components.ev_charging_pilot.core.arbiter import arbitrate
+from custom_components.ev_charging_pilot.core.health import HealthInputs, HealthStatus, evaluate
+from custom_components.ev_charging_pilot.core.model import Desired, Quality, Reason, Value
+from custom_components.ev_charging_pilot.core.quality import (
     QualityRule,
     charging_conflict,
     classify,

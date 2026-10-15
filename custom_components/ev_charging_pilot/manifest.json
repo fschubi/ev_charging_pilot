@@ -1,16 +1,16 @@
 {
-  "domain": "smart_eq_charging",
-  "name": "Smart EQ Charging Center",
+  "domain": "ev_charging_pilot",
+  "name": "EV Charging Pilot",
   "after_dependencies": ["frontend", "recorder", "mobile_app", "mqtt", "logbook"],
   "codeowners": ["@fschubi"],
   "config_flow": true,
   "dependencies": ["http", "websocket_api"],
-  "documentation": "https://github.com/fschubi/smart453_charging_center",
+  "documentation": "https://github.com/fschubi/ev_charging_pilot",
   "integration_type": "service",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/fschubi/smart453_charging_center/issues",
-  "loggers": ["custom_components.smart_eq_charging"],
+  "issue_tracker": "https://github.com/fschubi/ev_charging_pilot/issues",
+  "loggers": ["custom_components.ev_charging_pilot"],
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.7.0"
+  "version": "0.8.0"
 }

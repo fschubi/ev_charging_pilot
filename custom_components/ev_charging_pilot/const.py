@@ -6,9 +6,9 @@ from typing import Final
 
 from .core.inputs import Inp
 
-DOMAIN: Final = "smart_eq_charging"
-NAME: Final = "Smart EQ Charging Center"
-ENTITY_PREFIX: Final = "smart_eq"
+DOMAIN: Final = "ev_charging_pilot"
+NAME: Final = "EV Charging Pilot"
+ENTITY_PREFIX: Final = "ev_pilot"
 
 PLATFORMS: Final = ["sensor", "binary_sensor", "switch", "button", "select", "number", "time"]
 
@@ -22,14 +22,22 @@ STATISTICS_REFRESH_S: Final = 60
 BUS_EVENT: Final = f"{DOMAIN}_event"
 DATA_DIR: Final = DOMAIN  # below the HA config dir: replay datasets and exports
 
-PANEL_URL: Final = "/smart_eq_charging_panel"
-PANEL_PATH: Final = "smart-eq"
-PANEL_TITLE: Final = "Smart EQ"
+PANEL_URL: Final = "/ev_charging_pilot_panel"
+PANEL_PATH: Final = "ev-pilot"
+PANEL_TITLE: Final = NAME
 PANEL_ICON: Final = "mdi:car-electric"
-PANEL_COMPONENT: Final = "smart-eq-panel"
+PANEL_COMPONENT: Final = "ev-pilot-panel"
 
 # --- Config entry data (§13.1). Entities are always chosen via selector.
 CONF_NAME: Final = "name"
+# The vehicle's own name ("Smarty") – the UI then calls itself "Smarty Charging Pilot".
+CONF_VEHICLE_NAME: Final = "vehicle_name"
+DEFAULT_VEHICLE_NAME: Final = "Mein EV"
+
+
+def title_for(vehicle_name: str | None) -> str:
+    name = (vehicle_name or "").strip()
+    return f"{name} Charging Pilot" if name else NAME
 CONF_SHELLY_HOST: Final = "shelly_host"
 CONF_NOTIFY_SERVICE: Final = "notify_service"
 CONF_OVMS_COMMAND_TOPIC: Final = "ovms_command_topic"

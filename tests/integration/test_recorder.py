@@ -7,7 +7,7 @@ from datetime import timedelta
 import pytest
 from homeassistant.util import dt as dt_util
 
-from custom_components.smart_eq_charging.const import DOMAIN
+from custom_components.ev_charging_pilot.const import DOMAIN
 
 
 @pytest.fixture(autouse=True)

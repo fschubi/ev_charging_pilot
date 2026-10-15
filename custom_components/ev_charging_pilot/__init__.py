@@ -1,4 +1,4 @@
-"""Smart EQ 453 Charging Center – charging, wakeup, climate and statistics for the smart EQ 453."""
+"""EV Charging Pilot – charging, wakeup, climate and statistics for the smart EQ 453."""
 
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ from .vehicle_image import VehicleImageView
 from .websocket_api import async_register as async_register_ws
 
 _LOGGER = logging.getLogger(__name__)
-PANEL_FILE = Path(__file__).parent / "frontend" / "smart-eq-panel.js"
-PANEL_VERSION = "0.7.0"
+PANEL_FILE = Path(__file__).parent / "frontend" / "ev-pilot-panel.js"
+PANEL_VERSION = "0.8.0"
 
 type ChargingConfigEntry = ConfigEntry[ChargingCenter]
 
@@ -37,6 +37,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> 
     center = ChargingCenter(hass, entry)
     await center.async_setup()
     entry.runtime_data = center
+    if entry.title != center.name:
+        hass.config_entries.async_update_entry(entry, title=center.name)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = dict(entry.options)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     async_register_services(hass)
@@ -45,7 +47,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> 
         hass.data[f"{DOMAIN}_views_registered"] = True
         hass.http.register_view(ReportView())
         hass.http.register_view(VehicleImageView())
-    await _async_register_panel(hass)
+    await _async_register_panel(hass, center.name)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 
@@ -89,7 +91,7 @@ async def _async_options_updated(hass: HomeAssistant, entry: ChargingConfigEntry
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def _async_register_panel(hass: HomeAssistant) -> None:
+async def _async_register_panel(hass: HomeAssistant, title: str) -> None:
     """Sidebar panel (§12.5). No control logic inside – every action calls a service."""
     key = f"{DOMAIN}_panel_registered"
     if hass.data.get(key) or "frontend" not in hass.config.components:
@@ -103,7 +105,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     async_register_built_in_panel(
         hass,
         component_name="custom",
-        sidebar_title=PANEL_TITLE,
+        sidebar_title=title or PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
         frontend_url_path=PANEL_PATH,
         require_admin=False,

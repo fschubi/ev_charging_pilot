@@ -16,17 +16,18 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
-    CONF_NAME,
     CONF_NOTIFY_SERVICE,
     CONF_OVMS_COMMAND_SCRIPT,
     CONF_OVMS_COMMAND_TOPIC,
     CONF_SHELLY_HOST,
+    CONF_VEHICLE_NAME,
+    DEFAULT_VEHICLE_NAME,
     DOMAIN,
     HALO_OPTIONAL,
     HALO_REQUIRED,
     INPUT_DOMAINS,
-    NAME,
     OVMS_INPUTS,
+    title_for,
 )
 from .core.inputs import Inp
 from .core.settings import (
@@ -185,7 +186,7 @@ def _clean(data: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in data.items() if v not in (None, "")}
 
 
-class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
+class EvChargingPilotConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 2
 
     def __init__(self) -> None:
@@ -208,7 +209,8 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            self._data[CONF_NAME] = user_input[CONF_NAME]
+            vehicle = str(user_input[CONF_VEHICLE_NAME]).strip()[:40] or DEFAULT_VEHICLE_NAME
+            self._options[CONF_VEHICLE_NAME] = vehicle
             dry = user_input.get("dry_run", True)
             self._options[OPT_MODE] = (RunMode.DRY_RUN if dry else RunMode.LIVE).value
             # Pre-fill every field the discovery found; the user confirms them.
@@ -216,7 +218,7 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
             self._data = {**self._found, **self._data}
             return await self.async_step_halo()
         return self.async_show_form(step_id="user", data_schema=vol.Schema({
-            vol.Required(CONF_NAME, default=NAME): TEXT,
+            vol.Required(CONF_VEHICLE_NAME, default=DEFAULT_VEHICLE_NAME): TEXT,
             vol.Required("dry_run", default=True): BOOL,
         }))
 
@@ -258,10 +260,12 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
             self._merge(user_input, OVMS_KEYS)
             data = _clean(self._data)
             if self._reconfigure:
+                entry = self._get_reconfigure_entry()
                 return self.async_update_reload_and_abort(
-                    self._get_reconfigure_entry(), data=data, title=data[CONF_NAME])
-            return self.async_create_entry(title=data[CONF_NAME], data=data,
-                                           options=self._options)
+                    entry, data=data, title=title_for(entry.options.get(CONF_VEHICLE_NAME)))
+            return self.async_create_entry(
+                title=title_for(self._options.get(CONF_VEHICLE_NAME)), data=data,
+                options=self._options)
         return self.async_show_form(step_id="ovms", data_schema=ovms_schema(self._data),
                                     description_placeholders=self._placeholders(OVMS_KEYS))
 
@@ -284,10 +288,10 @@ class SmartEqChargingConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        return SmartEqChargingOptionsFlow()
+        return EvChargingPilotOptionsFlow()
 
 
-class SmartEqChargingOptionsFlow(OptionsFlow):
+class EvChargingPilotOptionsFlow(OptionsFlow):
     """A menu of the §13.2 groups; each page saves on its own."""
 
     def _current(self) -> dict[str, Any]:

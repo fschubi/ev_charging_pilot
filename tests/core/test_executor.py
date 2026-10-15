@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from custom_components.smart_eq_charging.core.executor import (
+from custom_components.ev_charging_pilot.core.executor import (
     ExecState,
     Executor,
     ExecutorConfig,
     Snapshot,
 )
-from custom_components.smart_eq_charging.core.health import Health, HealthStatus
-from custom_components.smart_eq_charging.core.model import Desired, Reason, Value
-from custom_components.smart_eq_charging.core.ports import CommandKind
+from custom_components.ev_charging_pilot.core.health import Health, HealthStatus
+from custom_components.ev_charging_pilot.core.model import Desired, Reason, Value
+from custom_components.ev_charging_pilot.core.ports import CommandKind
 
 T0 = datetime(2026, 10, 14, 3, 0, tzinfo=UTC)
 HEALTHY = Health(HealthStatus.HEALTHY)

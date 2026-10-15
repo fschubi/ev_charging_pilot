@@ -35,21 +35,22 @@ from .const import (
     ACTION_PLAN,
     ACTION_TONIGHT,
     BUS_EVENT,
-    CONF_NAME,
     CONF_OVMS_COMMAND_SCRIPT,
     CONF_OVMS_COMMAND_TOPIC,
     CONF_SHELLY_HOST,
+    CONF_VEHICLE_NAME,
     DATA_DIR,
+    DEFAULT_VEHICLE_NAME,
     DOMAIN,
     LOGBOOK_CODES,
     LOGBOOK_SEVERITIES,
-    NAME,
     STATISTICS_REFRESH_S,
     STORAGE_KEY_EVENTS,
     STORAGE_KEY_MONITOR,
     STORAGE_KEY_STATE,
     STORAGE_VERSION,
     TICK_SECONDS,
+    title_for,
 )
 from .core.engine import Engine, EngineConfig, Notification, TickResult
 from .core.inputs import Inp, RawState
@@ -106,7 +107,7 @@ class ChargingCenter:
             ),
             self.monitor,
         )
-        self.notifier = Notifier(hass, self.conf)
+        self.notifier = Notifier(hass, self.conf, self.vehicle_name)
         self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
         self.recorder = CommandRecorder()
         self.events: deque[dict[str, Any]] = deque(maxlen=20000)
@@ -133,8 +134,14 @@ class ChargingCenter:
         return self.settings.mode
 
     @property
+    def vehicle_name(self) -> str:
+        return str(self.entry.options.get(CONF_VEHICLE_NAME)
+                   or self.conf.get(CONF_VEHICLE_NAME) or DEFAULT_VEHICLE_NAME)
+
+    @property
     def name(self) -> str:
-        return self.conf.get(CONF_NAME) or NAME
+        """Display title, e.g. "Smarty Charging Pilot" (panel, device, PDF, logbook)."""
+        return title_for(self.vehicle_name)
 
     async def async_setup(self) -> None:
         self.engine.restore(await self._state_store.async_load() or {})

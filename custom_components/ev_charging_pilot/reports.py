@@ -19,11 +19,11 @@ if TYPE_CHECKING:
     from .coordinator import ChargingCenter
 
 REPORT_URL = f"/api/{DOMAIN}/report"
-NAME_RE = re.compile(r"^smart-eq-(\d{4})(-\d{2})?\.pdf$")
+NAME_RE = re.compile(r"^ev-pilot-(\d{4})(-\d{2})?\.pdf$")
 
 
 def report_name(year: int, month: int | None) -> str:
-    return f"smart-eq-{year}-{month:02d}.pdf" if month else f"smart-eq-{year}.pdf"
+    return f"ev-pilot-{year}-{month:02d}.pdf" if month else f"ev-pilot-{year}.pdf"
 
 
 def previous_month(now: datetime) -> tuple[int, int]:
@@ -57,7 +57,7 @@ async def async_list_reports(center: ChargingCenter) -> list[dict[str, Any]]:
         if not folder.exists():
             return []
         return [{"file": p.name, "url": f"{REPORT_URL}/{p.name}", "bytes": p.stat().st_size}
-                for p in sorted(folder.glob("smart-eq-*.pdf"), reverse=True)]
+                for p in sorted(folder.glob("ev-pilot-*.pdf"), reverse=True)]
 
     return await center.hass.async_add_executor_job(scan)
 

@@ -186,7 +186,7 @@ class Engine:
         self._notifications(now, result, plugged_in_event, cable_flag)
         if self.data_conflict and not self._was_conflict:
             result.events.append(Event(now, Category.HEALTH, Severity.WARNING, "DATA_CONFLICT",
-                                       "Halo und OVMS widersprechen sich beim Ladezustand"))
+                                       "Wallbox und Fahrzeug widersprechen sich beim Ladezustand"))
         return result
 
     # ------------------------------------------------------------- values
@@ -537,7 +537,7 @@ class Engine:
         self._health_push(now, result)
 
         if plugged_in and self.active_window is None and n.plug_in_action:
-            out.append(Notification("plug_in_action", "normal", "Smart EQ eingesteckt",
+            out.append(Notification("plug_in_action", "normal", "Eingesteckt",
                                     "Wie soll geladen werden?", actionable=True))
             result.events.append(Event(now, Category.USER, Severity.INFO, "PLUGGED_IN",
                                        "Eingesteckt – Auswahl per Push angeboten"))

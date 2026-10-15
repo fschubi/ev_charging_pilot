@@ -3,8 +3,8 @@
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from custom_components.smart_eq_charging.core.model import Quality, Reason, Value
-from custom_components.smart_eq_charging.core.planner import (
+from custom_components.ev_charging_pilot.core.model import Quality, Reason, Value
+from custom_components.ev_charging_pilot.core.planner import (
     ManualOverride,
     OneShot,
     OverrideMode,

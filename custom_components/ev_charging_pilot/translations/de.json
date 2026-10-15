@@ -2,28 +2,29 @@
   "config": {
     "step": {
       "user": {
-        "title": "Smart EQ Charging Center",
-        "description": "Name und Startmodus. Im Dry-Run protokolliert die Integration nur, was sie schalten würde (Grundsatz 11).",
+        "title": "EV Charging Pilot",
+        "description": "Gib deinem Fahrzeug einen Namen – daraus wird z. B. „Smarty Charging Pilot“. Im Dry-Run protokolliert die Integration zunächst nur, was sie schalten würde.",
         "data": {
-          "name": "Name",
+          "vehicle_name": "Name deines Fahrzeugs",
           "dry_run": "Im Dry-Run starten"
         },
         "data_description": {
+          "vehicle_name": "z. B. Smarty – änderbar im Panel unter Einstellungen.",
           "dry_run": "Empfohlen: Die Integration protokolliert zunächst nur, was sie schalten würde."
         }
       },
       "halo": {
         "title": "Wallbox",
-        "description": "**{found}**\n\nDie Entitäten stammen aus der HACS-Integration „Chargeamps“. Pflicht sind nur die vier oberen Felder.",
+        "description": "**{found}**\n\nDie Entitäten deiner Wallbox-Integration (z. B. Chargeamps, go-e, Easee, Wallbox, Zaptec, KEBA …). Pflicht sind nur die vier oberen Felder.",
         "data": {
-          "charger_enable": "Halo Ladefreigabe (Switch)",
-          "cable_connected": "Halo Kabel gesteckt",
-          "charge_power": "Halo Ladeleistung",
-          "total_energy": "Halo Gesamtenergiezähler",
-          "charger_status": "Halo Status",
-          "max_current": "Halo Maximalstrom",
-          "cable_lock": "Halo Kabelverriegelung",
-          "internal_schedule": "Halo interner Zeitplan (muss aus bleiben)"
+          "charger_enable": "Wallbox Ladefreigabe (Switch)",
+          "cable_connected": "Wallbox Kabel gesteckt",
+          "charge_power": "Wallbox Ladeleistung",
+          "total_energy": "Wallbox Gesamtenergiezähler",
+          "charger_status": "Wallbox Status",
+          "max_current": "Wallbox Maximalstrom",
+          "cable_lock": "Wallbox Kabelverriegelung",
+          "internal_schedule": "Wallbox interner Zeitplan (muss aus bleiben)"
         },
         "data_description": {
           "charger_enable": "Der Schalter der Chargeamps-Integration, der das Laden freigibt (meist switch.…_connector_1).",
@@ -33,12 +34,12 @@
           "charger_status": "Statustext des Anschlusses (z. B. Charging, Available). Optional.",
           "max_current": "Maximalstrom des Anschlusses. Optional, nur zur Anzeige.",
           "cable_lock": "Kabelverriegelung. Optional, nur zur Anzeige.",
-          "internal_schedule": "Interner Zeitplan der Halo. Optional – wird überwacht, damit er aus bleibt."
+          "internal_schedule": "Interner Zeitplan der Wallbox. Optional – wird überwacht, damit er aus bleibt."
         }
       },
       "shelly": {
-        "title": "CP-Unterbrechung",
-        "description": "**{found}**\n\nShelly 1 Mini in der CP-Leitung. Ohne Shelly einfach leer lassen und weiter – dann gibt es keinen CP-Wakeup.",
+        "title": "CP-Unterbrechung (optional)",
+        "description": "**{found}**\n\nOptional: ein Shelly-Relais in der CP-Leitung weckt schlafende Fahrzeuge. Ohne einfach leer lassen und weiter.",
         "data": {
           "cp_relay": "Shelly CP-Relais",
           "shelly_host": "Shelly IP/Hostname (für Puls und Drift-Check)"
@@ -59,23 +60,23 @@
         }
       },
       "ovms": {
-        "title": "Fahrzeug (OVMS)",
-        "description": "**{found}**\n\nKomplett überspringbar – OVMS kann später über „Neu konfigurieren“ ergänzt werden.",
+        "title": "Fahrzeug",
+        "description": "**{found}**\n\nFahrzeugdaten aus OVMS oder der Integration deines Herstellers. Komplett überspringbar – später über „Neu konfigurieren“ ergänzbar.",
         "data": {
-          "ovms_soc": "OVMS SOC",
-          "ovms_soh": "OVMS SOH",
-          "ovms_range": "OVMS Reichweite",
-          "ovms_odometer": "OVMS Kilometerstand",
-          "ovms_charging": "OVMS lädt",
-          "ovms_charge_power": "OVMS Ladeleistung Fahrzeugseite",
-          "ovms_battery_temp": "OVMS Batterietemperatur",
-          "ovms_hv_cycles": "OVMS HV-Kontaktorzyklen",
-          "ovms_vehicle_on": "OVMS fahrbereit",
-          "ovms_outside_temp": "OVMS Außentemperatur",
-          "ovms_energy_used": "OVMS Fahrtenergie verbraucht",
-          "ovms_energy_recd": "OVMS Rekuperation",
-          "ovms_aux_consumption": "OVMS Nebenverbrauch",
-          "ovms_12v": "OVMS 12-V-Spannung",
+          "ovms_soc": "Fahrzeug: SOC",
+          "ovms_soh": "Fahrzeug: SOH",
+          "ovms_range": "Fahrzeug: Reichweite",
+          "ovms_odometer": "Fahrzeug: Kilometerstand",
+          "ovms_charging": "Fahrzeug: lädt",
+          "ovms_charge_power": "Fahrzeug: Ladeleistung (fahrzeugseitig)",
+          "ovms_battery_temp": "Fahrzeug: Batterietemperatur",
+          "ovms_hv_cycles": "Fahrzeug: HV-Kontaktorzyklen",
+          "ovms_vehicle_on": "Fahrzeug: fahrbereit / eingeschaltet",
+          "ovms_outside_temp": "Fahrzeug: Außentemperatur",
+          "ovms_energy_used": "Fahrzeug: Fahrtenergie verbraucht",
+          "ovms_energy_recd": "Fahrzeug: Rekuperation",
+          "ovms_aux_consumption": "Fahrzeug: Nebenverbrauch",
+          "ovms_12v": "Fahrzeug: 12-V-Spannung",
           "outside_temp": "Außentemperatur (HA-Sensor)",
           "weather": "Wetter (Rückfall Außentemperatur)",
           "ovms_command_topic": "OVMS-Befehls-Topic (MQTT)",
@@ -90,16 +91,16 @@
       },
       "reconfigure": {
         "title": "Neu konfigurieren",
-        "description": "**{found}**\n\nDie Entitäten stammen aus der HACS-Integration „Chargeamps“. Pflicht sind nur die vier oberen Felder.",
+        "description": "**{found}**\n\nDie Entitäten deiner Wallbox-Integration (z. B. Chargeamps, go-e, Easee, Wallbox, Zaptec, KEBA …). Pflicht sind nur die vier oberen Felder.",
         "data": {
-          "charger_enable": "Halo Ladefreigabe (Switch)",
-          "cable_connected": "Halo Kabel gesteckt",
-          "charge_power": "Halo Ladeleistung",
-          "total_energy": "Halo Gesamtenergiezähler",
-          "charger_status": "Halo Status",
-          "max_current": "Halo Maximalstrom",
-          "cable_lock": "Halo Kabelverriegelung",
-          "internal_schedule": "Halo interner Zeitplan (muss aus bleiben)"
+          "charger_enable": "Wallbox Ladefreigabe (Switch)",
+          "cable_connected": "Wallbox Kabel gesteckt",
+          "charge_power": "Wallbox Ladeleistung",
+          "total_energy": "Wallbox Gesamtenergiezähler",
+          "charger_status": "Wallbox Status",
+          "max_current": "Wallbox Maximalstrom",
+          "cable_lock": "Wallbox Kabelverriegelung",
+          "internal_schedule": "Wallbox interner Zeitplan (muss aus bleiben)"
         },
         "data_description": {
           "charger_enable": "Der Schalter der Chargeamps-Integration, der das Laden freigibt (meist switch.…_connector_1).",
@@ -109,7 +110,7 @@
           "charger_status": "Statustext des Anschlusses (z. B. Charging, Available). Optional.",
           "max_current": "Maximalstrom des Anschlusses. Optional, nur zur Anzeige.",
           "cable_lock": "Kabelverriegelung. Optional, nur zur Anzeige.",
-          "internal_schedule": "Interner Zeitplan der Halo. Optional – wird überwacht, damit er aus bleibt."
+          "internal_schedule": "Interner Zeitplan der Wallbox. Optional – wird überwacht, damit er aus bleibt."
         }
       }
     },
@@ -146,9 +147,9 @@
           "stable_samples": "Stabile Messwerte (N)",
           "stable_min_s": "Mindestdauer stabil",
           "loss_timeout_s": "Ladeverlust-Timeout",
-          "min_switch_interval_s": "Mindestpause zwischen Halo-Schaltungen",
-          "confirm_timeout_s": "Wartezeit auf Halo-Bestätigung",
-          "finished_statuses": "Halo-Status „fertig“ (kommagetrennt, nach Messung)"
+          "min_switch_interval_s": "Mindestpause zwischen Wallbox-Schaltungen",
+          "confirm_timeout_s": "Wartezeit auf Wallbox-Bestätigung",
+          "finished_statuses": "Wallbox-Status „fertig“ (kommagetrennt, nach Messung)"
         },
         "description": "Vorläufige Werte bis zur Messphase (Phase 0). Live schaltet erst nach dem Gate von v0.1."
       },
@@ -174,7 +175,7 @@
         "data": {
           "usable_capacity_kwh": "Nutzbare Akkukapazität",
           "charge_efficiency": "Ladewirkungsgrad",
-          "max_power_kw": "Halo-Limit",
+          "max_power_kw": "Wallbox-Limit",
           "vehicle_charger_kw": "Fahrzeuglader",
           "grid_limit_kw": "Netzlimit §14a (0 = keins)",
           "safety_margin_min": "Sicherheitsreserve"
@@ -209,8 +210,8 @@
       "quality": {
         "title": "Datenqualität",
         "data": {
-          "max_age_halo_power_s": "Max. Alter Halo-Leistung (3 × Poll-Intervall)",
-          "max_age_halo_energy_s": "Max. Alter Halo-Zähler",
+          "max_age_halo_power_s": "Max. Alter Wallbox-Leistung (3 × Poll-Intervall)",
+          "max_age_halo_energy_s": "Max. Alter Wallbox-Zähler",
           "max_age_vehicle_charging_s": "Max. Alter Ladezustand Fahrzeug",
           "max_age_soc_s": "Max. Alter SOC beim Laden",
           "max_age_odometer_s": "Max. Alter Kilometerstand",
@@ -737,7 +738,7 @@
     },
     "export": {
       "name": "Export",
-      "description": "CSV/JSON nach /config/smart_eq_charging/export.",
+      "description": "CSV/JSON nach /config/ev_charging_pilot/export.",
       "fields": {
         "dataset": {
           "name": "Datensatz",
@@ -781,7 +782,7 @@
     },
     "create_report": {
       "name": "PDF-Bericht erstellen",
-      "description": "Monats- oder Jahresbericht nach /config/smart_eq_charging/reports.",
+      "description": "Monats- oder Jahresbericht nach /config/ev_charging_pilot/reports.",
       "fields": {
         "period": {
           "name": "Zeitraum",
@@ -822,8 +823,8 @@
           "description": "Name"
         },
         "poll_interval_s": {
-          "name": "Halo-Poll-Intervall (Messung M1)",
-          "description": "Halo-Poll-Intervall (Messung M1)"
+          "name": "Wallbox-Poll-Intervall (Messung M1)",
+          "description": "Wallbox-Poll-Intervall (Messung M1)"
         }
       }
     }

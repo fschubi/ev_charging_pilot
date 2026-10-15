@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.smart_eq_charging.const import DOMAIN
+from custom_components.ev_charging_pilot.const import DOMAIN
 
 from .conftest import CHARGER
 
@@ -23,49 +23,49 @@ async def test_entities_follow_masterplan_ids(hass, entry, halo):
     await _setup(hass, entry)
     assert entry.state is ConfigEntryState.LOADED
     for entity_id in (
-        "sensor.smart_eq_executor_state", "sensor.smart_eq_desired_reason",
-        "sensor.smart_eq_system_health", "sensor.smart_eq_next_charge_start",
-        "sensor.smart_eq_month_home_energy", "sensor.smart_eq_year_cost",
-        "binary_sensor.smart_eq_vehicle_connected", "binary_sensor.smart_eq_manual_override",
-        "switch.smart_eq_automation", "switch.smart_eq_dry_run",
-        "select.smart_eq_override_mode", "number.smart_eq_minimum_departure_soc",
-        "time.smart_eq_departure", "button.smart_eq_start_charge",
-        "button.smart_eq_one_shot_tonight",
+        "sensor.ev_pilot_executor_state", "sensor.ev_pilot_desired_reason",
+        "sensor.ev_pilot_system_health", "sensor.ev_pilot_next_charge_start",
+        "sensor.ev_pilot_month_home_energy", "sensor.ev_pilot_year_cost",
+        "binary_sensor.ev_pilot_vehicle_connected", "binary_sensor.ev_pilot_manual_override",
+        "switch.ev_pilot_automation", "switch.ev_pilot_dry_run",
+        "select.ev_pilot_override_mode", "number.ev_pilot_minimum_departure_soc",
+        "time.ev_pilot_departure", "button.ev_pilot_start_charge",
+        "button.ev_pilot_one_shot_tonight",
     ):
         assert hass.states.get(entity_id) is not None, entity_id
-    assert hass.states.get("switch.smart_eq_dry_run").state == "on"
-    assert hass.states.get("sensor.smart_eq_executor_state").state == "idle"
-    assert hass.states.get("sensor.smart_eq_system_health").state == "healthy"
+    assert hass.states.get("switch.ev_pilot_dry_run").state == "on"
+    assert hass.states.get("sensor.ev_pilot_executor_state").state == "idle"
+    assert hass.states.get("sensor.ev_pilot_system_health").state == "healthy"
     # Without OVMS and Shelly no vehicle sensors and no CP button.
-    assert hass.states.get("sensor.smart_eq_soc") is None
-    assert hass.states.get("button.smart_eq_cp_wakeup") is None
+    assert hass.states.get("sensor.ev_pilot_soc") is None
+    assert hass.states.get("button.ev_pilot_cp_wakeup") is None
 
 
 async def test_optional_entities_with_ovms_and_shelly(hass, full_entry, halo):
     await _setup(hass, full_entry)
-    assert hass.states.get("sensor.smart_eq_soc").state == "55.0"
-    assert hass.states.get("button.smart_eq_cp_wakeup") is not None
-    assert hass.states.get("binary_sensor.smart_eq_cp_failsafe_ok").state == "off"
+    assert hass.states.get("sensor.ev_pilot_soc").state == "55.0"
+    assert hass.states.get("button.ev_pilot_cp_wakeup") is not None
+    assert hass.states.get("binary_sensor.ev_pilot_cp_failsafe_ok").state == "off"
 
 
 async def test_start_charge_in_dry_run_only_logs(hass, entry, halo):
     calls = async_mock_service(hass, "homeassistant", "turn_on")
     await _setup(hass, entry)
     await hass.services.async_call(
-        "button", "press", {"entity_id": "button.smart_eq_start_charge"}, blocking=True)
+        "button", "press", {"entity_id": "button.ev_pilot_start_charge"}, blocking=True)
     await hass.async_block_till_done()
     assert calls == []
     center = entry.runtime_data
     assert any(e["code"] == "DRY_RUN" for e in center.events)
-    assert hass.states.get("binary_sensor.smart_eq_manual_override").state == "on"
-    assert hass.states.get("select.smart_eq_override_mode").state == "until_unplugged"
+    assert hass.states.get("binary_sensor.ev_pilot_manual_override").state == "on"
+    assert hass.states.get("select.ev_pilot_override_mode").state == "until_unplugged"
 
 
 async def test_live_mode_switches_halo(hass, entry, halo):
     calls = async_mock_service(hass, "homeassistant", "turn_on")
     await _setup(hass, entry)
     await hass.services.async_call(
-        "switch", "turn_off", {"entity_id": "switch.smart_eq_dry_run"}, blocking=True)
+        "switch", "turn_off", {"entity_id": "switch.ev_pilot_dry_run"}, blocking=True)
     await hass.async_block_till_done()
     assert entry.options["mode"] == "live"
     assert entry.state is ConfigEntryState.LOADED
@@ -77,14 +77,14 @@ async def test_live_mode_switches_halo(hass, entry, halo):
 async def test_automation_off_and_plan_entities(hass, entry, halo):
     await _setup(hass, entry)
     await hass.services.async_call(
-        "switch", "turn_off", {"entity_id": "switch.smart_eq_automation"}, blocking=True)
-    assert hass.states.get("sensor.smart_eq_desired_reason").state == "automation_off"
+        "switch", "turn_off", {"entity_id": "switch.ev_pilot_automation"}, blocking=True)
+    assert hass.states.get("sensor.ev_pilot_desired_reason").state == "automation_off"
     await hass.services.async_call(
-        "time", "set_value", {"entity_id": "time.smart_eq_departure", "time": "06:45:00"},
+        "time", "set_value", {"entity_id": "time.ev_pilot_departure", "time": "06:45:00"},
         blocking=True)
     await hass.services.async_call(
         "number", "set_value",
-        {"entity_id": "number.smart_eq_preferred_departure_soc", "value": 70}, blocking=True)
+        {"entity_id": "number.ev_pilot_preferred_departure_soc", "value": 70}, blocking=True)
     plan = entry.runtime_data.engine.plans[0]
     assert plan.departure_time.strftime("%H:%M") == "06:45"
     assert plan.preferred_departure_soc_pct == 70
@@ -132,7 +132,7 @@ async def test_websocket_state_and_plans(hass, entry, halo, hass_ws_client):
 
 
 async def test_diagnostics(hass, full_entry, halo):
-    from custom_components.smart_eq_charging.diagnostics import (
+    from custom_components.ev_charging_pilot.diagnostics import (
         async_get_config_entry_diagnostics,
     )
 

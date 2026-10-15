@@ -110,8 +110,7 @@ class PdfDocument:
         kids = b" ".join(b"%d 0 R" % i for i in page_ids)
         objects[pages_id - 1] = b"<< /Type /Pages /Kids [%s] /Count %d >>" % (kids, len(page_ids))
         objects[catalog - 1] = b"<< /Type /Catalog /Pages %d 0 R >>" % pages_id
-        info = add(b"<< /Title (" + _escape(self.title) + b") /Producer (Smart EQ Charging"
-                   b" Center) >>")
+        info = add(b"<< /Title (" + _escape(self.title) + b") /Producer (EV Charging Pilot) >>")
 
         out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
         offsets = []

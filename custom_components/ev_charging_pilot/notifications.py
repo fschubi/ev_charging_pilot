@@ -23,8 +23,9 @@ MOBILE_ACTION_EVENT = "mobile_app_notification_action"
 
 
 class Notifier:
-    def __init__(self, hass: HomeAssistant, conf: dict[str, Any]) -> None:
+    def __init__(self, hass: HomeAssistant, conf: dict[str, Any], vehicle_name: str) -> None:
         self.hass = hass
+        self.vehicle_name = vehicle_name
         target = conf.get(CONF_NOTIFY_SERVICE) or ""
         self.service = target.removeprefix("notify.") or None
 
@@ -33,7 +34,7 @@ class Notifier:
             return
         data: dict[str, Any] = {
             "push": {"interruption-level": INTERRUPTION.get(notification.priority, "active")},
-            "tag": f"smart_eq_{notification.category}",
+            "tag": f"ev_pilot_{notification.category}",
         }
         if notification.priority == "critical":
             data["push"]["sound"] = {"name": "default", "critical": 1, "volume": 1.0}
@@ -42,11 +43,12 @@ class Notifier:
         if notification.actionable:
             data["actions"] = list(ACTIONS)
         # Tapping a push opens the panel (iOS: url, Android: clickAction).
-        data["url"] = data["clickAction"] = "/smart-eq"
+        data["url"] = data["clickAction"] = "/ev-pilot"
         try:
             await self.hass.services.async_call(
                 "notify", self.service,
-                {"title": f"Smart EQ: {notification.title}", "message": notification.message,
+                {"title": f"{self.vehicle_name}: {notification.title}",
+                 "message": notification.message,
                  "data": data},
                 blocking=False,
             )

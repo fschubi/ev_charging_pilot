@@ -1,12 +1,12 @@
 /*
- * Smart EQ Charging Center – Sidebar-Panel (Masterplan §12.5).
+ * EV Charging Pilot – Sidebar-Panel (Masterplan §12.5).
  *
  * Keine Steuerlogik: Das Panel liest über die WebSocket-API und löst jede
  * Aktion über einen Service der Integration aus. Fünf Ansichten:
  * Cockpit · Ladeplan · Hausstrom · Drive & Energy · Diagnose.
  */
 
-const DOMAIN = "smart_eq_charging";
+const DOMAIN = "ev_charging_pilot";
 const REFRESH_MS = 5000;
 const WEEKDAYS = [
   ["mon", "Mo"], ["tue", "Di"], ["wed", "Mi"], ["thu", "Do"], ["fri", "Fr"], ["sat", "Sa"], ["sun", "So"],
@@ -30,7 +30,7 @@ const QUALITY_CLASS = {
   CONFLICT: "bad", INVALID: "bad", UNAVAILABLE: "muted",
 };
 const VIEWS = [
-  ["cockpit", "Cockpit"], ["plan", "Ladeplan"], ["home", "Hausstrom → Smart EQ"],
+  ["cockpit", "Cockpit"], ["plan", "Ladeplan"], ["home", "Hausstrom"],
   ["drive", "Drive & Energy"], ["diag", "Diagnose"], ["settings", "Einstellungen"],
 ];
 
@@ -54,7 +54,7 @@ const HEALTH_TEXT = {
   CP_NOT_RESTORED: "CP-Relais nach dem Puls nicht zurückgestellt – bitte Shelly prüfen und dann „Fehler zurücksetzen“.",
   CHARGER_UNAVAILABLE: "Wallbox nicht erreichbar (Cloud/Internet?).",
   REPEATED_START_FAILURE: "Mehrere Ladestarts hintereinander fehlgeschlagen – nach Prüfung „Fehler zurücksetzen“.",
-  HALO_SCHEDULE_ON: "Der interne Zeitplan der Halo ist an – bitte in der Halo-App ausschalten.",
+  HALO_SCHEDULE_ON: "Der interne Zeitplan der Wallbox ist an – bitte in der Wallbox-App ausschalten.",
   SHELLY_CONFIG_DRIFT: "Shelly-Konfiguration weicht ab (auto_on / Einschaltzustand / Pulsdauer).",
   OVMS_OFFLINE: "OVMS liefert keine Daten.",
   SOC_STALE: "SOC ist veraltet – SOC-Funktionen pausieren.",
@@ -319,11 +319,11 @@ const STYLE = `
   @media (max-width: 600px) { main { padding: 8px; } .grid { gap: 8px; } }
 `;
 
-class SmartEqPanel extends HTMLElement {
+class EvPilotPanel extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._view = localStorage.getItem("smart-eq-view") || "cockpit";
+    this._view = localStorage.getItem("ev-pilot-view") || "cockpit";
     this._state = null;
     this._cache = {};
     this._plans = null;
@@ -435,7 +435,7 @@ class SmartEqPanel extends HTMLElement {
 
   _setView(view) {
     this._view = view;
-    localStorage.setItem("smart-eq-view", view);
+    localStorage.setItem("ev-pilot-view", view);
     this._cache = {};
     this._plans = null;
     this._refresh();
@@ -460,10 +460,10 @@ class SmartEqPanel extends HTMLElement {
       <style>${STYLE}</style>
       <header>
         <button class="menu" data-menu title="Menü">☰</button>
-        <h1>${esc(s ? s.name : "Smart EQ")}</h1>
+        <h1>${esc(s ? s.name : "EV Charging Pilot")}</h1>
         ${modeLabel ? `<span class="badge ${mode === "live" ? "live" : ""}">${modeLabel}</span>` : ""}
       </header>
-      <nav>${VIEWS.map(([id, label]) => `<button data-view="${id}" class="${this._view === id ? "active" : ""}">${label}</button>`).join("")}</nav>
+      <nav>${VIEWS.map(([id, label]) => `<button data-view="${id}" class="${this._view === id ? "active" : ""}">${id === "home" && s ? `Hausstrom → ${esc(s.vehicle_name)}` : label}</button>`).join("")}</nav>
       <main>${body}</main>`;
     this._bind();
   }
@@ -675,7 +675,7 @@ class SmartEqPanel extends HTMLElement {
       const blob = await shrinkImage(file, 1600);
       const form = new FormData();
       form.append("file", blob, file.name);
-      const response = await this._hass.fetchWithAuth("/api/smart_eq_charging/vehicle_image", { method: "POST", body: form });
+      const response = await this._hass.fetchWithAuth("/api/ev_charging_pilot/vehicle_image", { method: "POST", body: form });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { this._toast(`Fehler: ${data.error || response.status}`); return; }
       this._toast("Foto gespeichert");
@@ -687,7 +687,7 @@ class SmartEqPanel extends HTMLElement {
 
   async _deletePhoto() {
     if (!confirm("Fahrzeugfoto entfernen?")) return;
-    await this._hass.fetchWithAuth("/api/smart_eq_charging/vehicle_image", { method: "DELETE" });
+    await this._hass.fetchWithAuth("/api/ev_charging_pilot/vehicle_image", { method: "DELETE" });
     this._toast("Foto entfernt");
     await this._refresh();
   }
@@ -792,11 +792,11 @@ class SmartEqPanel extends HTMLElement {
               ${ex.failure_code ? `<span class="pill bad">${esc(ex.failure_code)}</span>` : ""}
             </div>
             <div class="sub">Soll: ${esc(REASON_LABELS[desired.reason] || desired.reason || "–")}
-              (${desired.charger_enabled === true ? "Halo an" : desired.charger_enabled === false ? "Halo aus" : "nicht eingreifen"}) · seit ${time(ex.since)}</div>
+              (${desired.charger_enabled === true ? "Wallbox an" : desired.charger_enabled === false ? "Wallbox aus" : "nicht eingreifen"}) · seit ${time(ex.since)}</div>
           </div>
           <div class="col">
             ${socRing(soc ? soc.value : null, w ? w.minimum_soc_pct : null, w ? w.preferred_soc_pct : null)}
-            <div class="label">${soc ? `<span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : "OVMS fehlt"}</div>
+            <div class="label">${soc ? `<span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : "kein Fahrzeug-SOC"}</div>
             ${w ? `<div class="label">Ziel ${w.preferred_soc_pct} % · min. ${w.minimum_soc_pct} %</div>` : ""}
           </div>
           <div class="col">
@@ -829,7 +829,7 @@ class SmartEqPanel extends HTMLElement {
         <h2>System</h2>
         <div class="big"><span class="pill ${healthClass}">${esc(HEALTH_LABELS[health] || health)}</span></div>
         ${reasons || `<p class="sub">alles erreichbar</p>`}
-        ${s.data_conflict ? `<p><span class="pill bad">Datenkonflikt Halo/OVMS</span></p>` : ""}
+        ${s.data_conflict ? `<p><span class="pill bad">Datenkonflikt Wallbox/Fahrzeug</span></p>` : ""}
         ${s.health.shelly_deviations && s.health.shelly_deviations.length ? `${shellyRows(s.health.shelly_deviations)}
           <div class="actions" style="margin-top:8px"><button class="act primary" data-action="configure-shelly">Shelly konfigurieren</button></div>` : ""}
         ${s.climate ? `<p class="sub">Klima ${s.climate.duration_min} min ab ${time(s.climate.start_at)}${s.climate.blocked ? ` – ${esc(CLIMATE_BLOCKED[s.climate.blocked] || s.climate.blocked)}` : ""}</p>` : ""}
@@ -976,7 +976,7 @@ class SmartEqPanel extends HTMLElement {
       ${(c.reports || []).length ? `<div class="card wide"><h2>PDF-Berichte</h2><div class="actions">
         ${c.reports.map((r) => `<button class="act" data-action="open-report" data-url="${esc(r.url)}">${esc(r.file)}</button>`).join("")}</div></div>` : ""}
       <div class="card"><h2>Heimladen</h2><div class="big">${num(m.home_energy_kwh, 1, "kWh")}</div>
-        <div class="sub">Halo-Zähler, maßgeblich für die Hausabrechnung</div></div>
+        <div class="sub">Wallbox-Zähler, maßgeblich für die Hausabrechnung</div></div>
       <div class="card"><h2>Kosten Heimladen</h2><div class="big">${num(m.home_cost_eur, 2, "€")}</div>
         <div class="sub">${num(this._state?.prices.current_eur_kwh, 3, "€/kWh")} aktuell${this._state?.prices.dynamic ? " (dynamisch)" : ""}</div></div>
       <div class="card"><h2>Sessions</h2><div class="big">${m.sessions ?? "–"}</div>
@@ -1082,7 +1082,7 @@ class SmartEqPanel extends HTMLElement {
             <td><span class="pill ${sevClass[e.severity]}">${esc(e.code)}</span></td><td>${esc(e.message)}</td></tr>`).join("")}
         </table></div></div>
       <div class="card wide"><h2>Replay</h2>
-        <p class="sub">Datensätze liegen in <code>/config/smart_eq_charging/replay</code>; erstellen mit dem Service <code>create_replay_dataset</code>.</p>
+        <p class="sub">Datensätze liegen in <code>/config/ev_charging_pilot/replay</code>; erstellen mit dem Service <code>create_replay_dataset</code>.</p>
         <div class="form">
           <label>Datensatz<select name="replay_file">${(replay.files || []).map((f) => `<option>${esc(f)}</option>`).join("")}</select></label>
           <button class="act primary" data-action="replay-run" ${(replay.files || []).length ? "" : "disabled"}>Replay starten</button>
@@ -1097,6 +1097,6 @@ class SmartEqPanel extends HTMLElement {
   }
 }
 
-if (!customElements.get("smart-eq-panel")) {
-  customElements.define("smart-eq-panel", SmartEqPanel);
+if (!customElements.get("ev-pilot-panel")) {
+  customElements.define("ev-pilot-panel", EvPilotPanel);
 }

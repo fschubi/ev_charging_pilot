@@ -1,6 +1,6 @@
 """Generate strings.json + translations/{de,en}.json from one table.
 
-Usage: python3 tools/gen_translations.py custom_components/smart_eq_charging
+Usage: python3 tools/gen_translations.py custom_components/ev_charging_pilot
 """
 
 import json
@@ -15,33 +15,33 @@ def T(de, en):
 
 
 INPUTS = {
-    "charger_enable": T("Halo Ladefreigabe (Switch)", "Halo charging enable (switch)"),
-    "cable_connected": T("Halo Kabel gesteckt", "Halo cable connected"),
-    "charge_power": T("Halo Ladeleistung", "Halo charging power"),
-    "total_energy": T("Halo Gesamtenergiezähler", "Halo total energy meter"),
-    "charger_status": T("Halo Status", "Halo status"),
-    "max_current": T("Halo Maximalstrom", "Halo max current"),
-    "cable_lock": T("Halo Kabelverriegelung", "Halo cable lock"),
-    "internal_schedule": T("Halo interner Zeitplan (muss aus bleiben)",
-                           "Halo internal schedule (must stay off)"),
+    "charger_enable": T("Wallbox Ladefreigabe (Switch)", "Wallbox charging enable (switch)"),
+    "cable_connected": T("Wallbox Kabel gesteckt", "Wallbox cable connected"),
+    "charge_power": T("Wallbox Ladeleistung", "Wallbox charging power"),
+    "total_energy": T("Wallbox Gesamtenergiezähler", "Wallbox total energy meter"),
+    "charger_status": T("Wallbox Status", "Wallbox status"),
+    "max_current": T("Wallbox Maximalstrom", "Wallbox max current"),
+    "cable_lock": T("Wallbox Kabelverriegelung", "Wallbox cable lock"),
+    "internal_schedule": T("Wallbox interner Zeitplan (muss aus bleiben)",
+                           "Wallbox internal schedule (must stay off)"),
     "cp_relay": T("Shelly CP-Relais", "Shelly CP relay"),
     "shelly_host": T("Shelly IP/Hostname (für Puls und Drift-Check)",
                      "Shelly IP/hostname (pulse and drift check)"),
     "notify_service": T("Push-Ziel (notify.mobile_app_…)", "Push target (notify.mobile_app_…)"),
-    "ovms_soc": T("OVMS SOC", "OVMS SOC"),
-    "ovms_soh": T("OVMS SOH", "OVMS SOH"),
-    "ovms_range": T("OVMS Reichweite", "OVMS range"),
-    "ovms_odometer": T("OVMS Kilometerstand", "OVMS odometer"),
-    "ovms_charging": T("OVMS lädt", "OVMS charging"),
-    "ovms_charge_power": T("OVMS Ladeleistung Fahrzeugseite", "OVMS vehicle-side charge power"),
-    "ovms_battery_temp": T("OVMS Batterietemperatur", "OVMS battery temperature"),
-    "ovms_hv_cycles": T("OVMS HV-Kontaktorzyklen", "OVMS HV contactor cycles"),
-    "ovms_vehicle_on": T("OVMS fahrbereit", "OVMS ready to drive"),
-    "ovms_outside_temp": T("OVMS Außentemperatur", "OVMS outside temperature"),
-    "ovms_energy_used": T("OVMS Fahrtenergie verbraucht", "OVMS trip energy used"),
-    "ovms_energy_recd": T("OVMS Rekuperation", "OVMS energy recovered"),
-    "ovms_aux_consumption": T("OVMS Nebenverbrauch", "OVMS auxiliary consumption"),
-    "ovms_12v": T("OVMS 12-V-Spannung", "OVMS 12 V voltage"),
+    "ovms_soc": T("Fahrzeug: SOC", "Vehicle: SOC"),
+    "ovms_soh": T("Fahrzeug: SOH", "Vehicle: SOH"),
+    "ovms_range": T("Fahrzeug: Reichweite", "Vehicle: range"),
+    "ovms_odometer": T("Fahrzeug: Kilometerstand", "Vehicle: odometer"),
+    "ovms_charging": T("Fahrzeug: lädt", "Vehicle: charging"),
+    "ovms_charge_power": T("Fahrzeug: Ladeleistung (fahrzeugseitig)", "Vehicle: vehicle-side charge power"),
+    "ovms_battery_temp": T("Fahrzeug: Batterietemperatur", "Vehicle: battery temperature"),
+    "ovms_hv_cycles": T("Fahrzeug: HV-Kontaktorzyklen", "Vehicle: HV contactor cycles"),
+    "ovms_vehicle_on": T("Fahrzeug: fahrbereit / eingeschaltet", "Vehicle: ready to drive"),
+    "ovms_outside_temp": T("Fahrzeug: Außentemperatur", "Vehicle: outside temperature"),
+    "ovms_energy_used": T("Fahrzeug: Fahrtenergie verbraucht", "Vehicle: trip energy used"),
+    "ovms_energy_recd": T("Fahrzeug: Rekuperation", "Vehicle: energy recovered"),
+    "ovms_aux_consumption": T("Fahrzeug: Nebenverbrauch", "Vehicle: auxiliary consumption"),
+    "ovms_12v": T("Fahrzeug: 12-V-Spannung", "Vehicle: 12 V voltage"),
     "outside_temp": T("Außentemperatur (HA-Sensor)", "Outside temperature (HA sensor)"),
     "weather": T("Wetter (Rückfall Außentemperatur)", "Weather (fallback outside temperature)"),
     "ovms_command_topic": T("OVMS-Befehls-Topic (MQTT)", "OVMS command topic (MQTT)"),
@@ -64,8 +64,8 @@ FIELD_HELP = {
     "max_current": T("Maximalstrom des Anschlusses. Optional, nur zur Anzeige.",
                      "Maximum current of the connector. Optional."),
     "cable_lock": T("Kabelverriegelung. Optional, nur zur Anzeige.", "Cable lock. Optional."),
-    "internal_schedule": T("Interner Zeitplan der Halo. Optional – wird überwacht, damit er aus bleibt.",
-                           "Internal Halo schedule. Optional – monitored so it stays off."),
+    "internal_schedule": T("Interner Zeitplan der Wallbox. Optional – wird überwacht, damit er aus bleibt.",
+                           "Internal Wallbox schedule. Optional – monitored so it stays off."),
     "cp_relay": T("Das Shelly-Relais in der CP-Leitung (ON = CP geschlossen). Leer lassen, "
                   "wenn kein Shelly verbaut ist.",
                   "The Shelly relay in the CP line. Leave empty without a Shelly."),
@@ -90,11 +90,11 @@ OPTIONS = {
     "stable_samples": T("Stabile Messwerte (N)", "Stable samples (N)"),
     "stable_min_s": T("Mindestdauer stabil", "Minimum stable duration"),
     "loss_timeout_s": T("Ladeverlust-Timeout", "Charging loss timeout"),
-    "min_switch_interval_s": T("Mindestpause zwischen Halo-Schaltungen",
-                               "Minimum pause between Halo switches"),
-    "confirm_timeout_s": T("Wartezeit auf Halo-Bestätigung", "Wait for Halo confirmation"),
-    "finished_statuses": T("Halo-Status „fertig“ (kommagetrennt, nach Messung)",
-                           "Halo status values meaning finished (comma separated)"),
+    "min_switch_interval_s": T("Mindestpause zwischen Wallbox-Schaltungen",
+                               "Minimum pause between Wallbox switches"),
+    "confirm_timeout_s": T("Wartezeit auf Wallbox-Bestätigung", "Wait for Wallbox confirmation"),
+    "finished_statuses": T("Wallbox-Status „fertig“ (kommagetrennt, nach Messung)",
+                           "Wallbox status values meaning finished (comma separated)"),
     "start_detection_wait_s": T("Wartezeit bis Wakeup", "Wait before wakeup"),
     "ovms_enabled": T("OVMS-Funktionen aktiv (erst nach Test!)",
                       "OVMS functions enabled (only after testing!)"),
@@ -113,7 +113,7 @@ OPTIONS = {
                               "CP failsafe checklist §3.6 completed"),
     "usable_capacity_kwh": T("Nutzbare Akkukapazität", "Usable battery capacity"),
     "charge_efficiency": T("Ladewirkungsgrad", "Charging efficiency"),
-    "max_power_kw": T("Halo-Limit", "Halo limit"),
+    "max_power_kw": T("Wallbox-Limit", "Wallbox limit"),
     "vehicle_charger_kw": T("Fahrzeuglader", "On-board charger"),
     "grid_limit_kw": T("Netzlimit §14a (0 = keins)", "Grid limit §14a (0 = none)"),
     "safety_margin_min": T("Sicherheitsreserve", "Safety margin"),
@@ -128,9 +128,9 @@ OPTIONS = {
     "climate_cool_min": T("Dauer kühl", "Duration cool"),
     "climate_warm_above_c": T("Warm über", "Warm above"),
     "climate_warm_min": T("Dauer warm", "Duration warm"),
-    "max_age_halo_power_s": T("Max. Alter Halo-Leistung (3 × Poll-Intervall)",
-                              "Max age Halo power (3 × poll interval)"),
-    "max_age_halo_energy_s": T("Max. Alter Halo-Zähler", "Max age Halo meter"),
+    "max_age_halo_power_s": T("Max. Alter Wallbox-Leistung (3 × Poll-Intervall)",
+                              "Max age Wallbox power (3 × poll interval)"),
+    "max_age_halo_energy_s": T("Max. Alter Wallbox-Zähler", "Max age Wallbox meter"),
     "max_age_vehicle_charging_s": T("Max. Alter Ladezustand Fahrzeug",
                                     "Max age vehicle charging state"),
     "max_age_soc_s": T("Max. Alter SOC beim Laden", "Max age SOC while charging"),
@@ -353,15 +353,15 @@ SERVICES = {
     "set_plans": (T("Ladepläne setzen", "Set charge plans"),
                   T("Ersetzt alle Wochenpläne.", "Replaces all weekly plans.")),
     "export": (T("Export", "Export"),
-               T("CSV/JSON nach /config/smart_eq_charging/export.",
-                 "CSV/JSON into /config/smart_eq_charging/export.")),
+               T("CSV/JSON nach /config/ev_charging_pilot/export.",
+                 "CSV/JSON into /config/ev_charging_pilot/export.")),
     "start_replay": (T("Replay starten", "Start replay"),
                      T("Aufgezeichnete Nacht ohne Hardware durchspielen.",
                        "Run a recorded night without hardware.")),
     "stop_replay": (T("Replay beenden", "Stop replay"), T("", "")),
     "create_report": (T("PDF-Bericht erstellen", "Create PDF report"),
-                      T("Monats- oder Jahresbericht nach /config/smart_eq_charging/reports.",
-                        "Monthly or yearly report into /config/smart_eq_charging/reports.")),
+                      T("Monats- oder Jahresbericht nach /config/ev_charging_pilot/reports.",
+                        "Monthly or yearly report into /config/ev_charging_pilot/reports.")),
     "configure_shelly": (T("Shelly konfigurieren", "Configure Shelly"),
                          T("Setzt am Shelly die Failsafe-Werte aus §3.1: Einschaltzustand an, "
                            "Auto-On nach der CP-Pulsdauer.",
@@ -384,7 +384,7 @@ FIELDS = {
     "dataset": T("Datensatz", "Dataset"), "format": T("Format", "Format"),
     "start": T("Start", "Start"), "end": T("Ende", "End"), "file": T("Datei", "File"),
     "tick_s": T("Takt", "Tick"), "name": T("Name", "Name"),
-    "poll_interval_s": T("Halo-Poll-Intervall (Messung M1)", "Halo poll interval (M1)"),
+    "poll_interval_s": T("Wallbox-Poll-Intervall (Messung M1)", "Wallbox poll interval (M1)"),
     "period": T("Zeitraum", "Period"), "year": T("Jahr", "Year"), "month": T("Monat", "Month"),
 }
 SERVICE_FIELDS = {
@@ -409,28 +409,31 @@ def build(lang: str) -> dict:
         return item[lang]
 
     setup_desc = {
-        "user": T("Name und Startmodus. Im Dry-Run protokolliert die Integration nur, was sie "
-                  "schalten würde (Grundsatz 11).",
-                  "Name and start mode. In dry-run the integration only logs what it would do."),
-        "halo": T("**{found}**\n\nDie Entitäten stammen aus der HACS-Integration „Chargeamps“. "
-                  "Pflicht sind nur die vier oberen Felder.",
-                  "**{found}**\n\nEntities come from the HACS integration 'Chargeamps'. "
-                  "Only the first four fields are required."),
-        "shelly": T("**{found}**\n\nShelly 1 Mini in der CP-Leitung. Ohne Shelly einfach leer "
-                    "lassen und weiter – dann gibt es keinen CP-Wakeup.",
+        "user": T("Gib deinem Fahrzeug einen Namen – daraus wird z. B. „Smarty Charging Pilot“. "
+                  "Im Dry-Run protokolliert die Integration zunächst nur, was sie schalten würde.",
+                  "Name your vehicle – it becomes e.g. 'Smarty Charging Pilot'. In dry-run the "
+                  "integration only logs what it would do."),
+        "halo": T("**{found}**\n\nDie Entitäten deiner Wallbox-Integration (z. B. Chargeamps, "
+                  "go-e, Easee, Wallbox, Zaptec, KEBA …). Pflicht sind nur die vier oberen Felder.",
+                  "**{found}**\n\nEntities of your wallbox integration (e.g. Chargeamps, go-e, "
+                  "Easee, Wallbox, Zaptec, KEBA …). Only the first four fields are required."),
+        "shelly": T("**{found}**\n\nOptional: ein Shelly-Relais in der CP-Leitung weckt "
+                    "schlafende Fahrzeuge. Ohne einfach leer lassen und weiter.",
                     "**{found}**\n\nShelly in the CP line. Leave empty without a Shelly."),
         "notify": T("**{found}**\n\nPush-Ziel für Fehler und die Rückfrage beim Einstecken.",
                     "**{found}**\n\nPush target for errors and the plug-in question."),
-        "ovms": T("**{found}**\n\nKomplett überspringbar – OVMS kann später über „Neu "
-                  "konfigurieren“ ergänzt werden.",
+        "ovms": T("**{found}**\n\nFahrzeugdaten aus OVMS oder der Integration deines "
+                  "Herstellers. Komplett überspringbar – später über „Neu konfigurieren“ ergänzbar.",
                   "**{found}**\n\nOptional – OVMS can be added later via reconfigure."),
     }
-    titles = {"user": T("Smart EQ Charging Center", "Smart EQ Charging Center"),
-              "halo": T("Wallbox", "Charger"), "shelly": T("CP-Unterbrechung", "CP interruption"),
-              "notify": T("Benachrichtigungen", "Notifications"), "ovms": T("Fahrzeug (OVMS)",
-                                                                           "Vehicle (OVMS)")}
+    titles = {"user": T("EV Charging Pilot", "EV Charging Pilot"),
+              "halo": T("Wallbox", "Charger"), "shelly": T("CP-Unterbrechung (optional)",
+                                                          "CP interruption (optional)"),
+              "notify": T("Benachrichtigungen", "Notifications"), "ovms": T("Fahrzeug",
+                                                                           "Vehicle")}
     step_fields = {
-        "user": {"name": T("Name", "Name"), "dry_run": T("Im Dry-Run starten", "Start in dry-run")},
+        "user": {"vehicle_name": T("Name deines Fahrzeugs", "Name of your vehicle"),
+                 "dry_run": T("Im Dry-Run starten", "Start in dry-run")},
         "halo": {k: t(INPUTS[k]) for k in ("charger_enable", "cable_connected", "charge_power",
                                            "total_energy", "charger_status", "max_current",
                                            "cable_lock", "internal_schedule")},
@@ -446,7 +449,9 @@ def build(lang: str) -> dict:
                   "data": {k: (t(v) if isinstance(v, dict) else v) for k, v in fields.items()}}
         helps = {k: t(FIELD_HELP[k]) for k in fields if k in FIELD_HELP}
         if key == "user":
-            helps = {"dry_run": t(T("Empfohlen: Die Integration protokolliert zunächst nur, was "
+            helps = {"vehicle_name": t(T("z. B. Smarty – änderbar im Panel unter Einstellungen.",
+                                         "e.g. Smarty – can be changed later.")),
+                     "dry_run": t(T("Empfohlen: Die Integration protokolliert zunächst nur, was "
                                     "sie schalten würde.", "Recommended: only log at first."))}
         if helps:
             result["data_description"] = helps

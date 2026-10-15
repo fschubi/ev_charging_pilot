@@ -6,7 +6,7 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smart_eq_charging.const import DOMAIN
+from custom_components.ev_charging_pilot.const import DOMAIN
 
 from .conftest import CABLE, CHARGER, ENERGY, POWER, RELAY
 
@@ -19,7 +19,7 @@ async def test_user_flow_five_steps(hass):
         DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["step_id"] == "user"
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"name": "Smart EQ", "dry_run": True})
+        result["flow_id"], {"vehicle_name": "Smarty", "dry_run": True})
     assert result["step_id"] == "halo"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], HALO)
     assert result["step_id"] == "shelly"
@@ -33,9 +33,10 @@ async def test_user_flow_five_steps(hass):
     assert result["step_id"] == "ovms"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {"name": "Smart EQ", **HALO, "cp_relay": RELAY,
+    assert result["title"] == "Smarty Charging Pilot"
+    assert result["data"] == {**HALO, "cp_relay": RELAY,
                               "shelly_host": "192.0.2.10"}
-    assert result["options"] == {"mode": "dry_run"}
+    assert result["options"] == {"mode": "dry_run", "vehicle_name": "Smarty"}
 
 
 async def test_options_menu_saves_and_price_history(hass, entry, halo):

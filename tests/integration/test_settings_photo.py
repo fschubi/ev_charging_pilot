@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 from aiohttp import FormData
 
-from custom_components.smart_eq_charging.const import DOMAIN
-from custom_components.smart_eq_charging.settings_schema import GROUPS, apply_changes
+from custom_components.ev_charging_pilot.const import DOMAIN
+from custom_components.ev_charging_pilot.settings_schema import GROUPS, apply_changes
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
@@ -65,25 +65,25 @@ async def test_settings_ws_roundtrip(hass, entry, halo, hass_ws_client):
 async def test_vehicle_photo_upload_serve_delete(hass, entry, halo, hass_client, tmp_path):
     await _setup(hass, entry)
     client = await hass_client()
-    with patch("custom_components.smart_eq_charging.vehicle_image.image_dir",
+    with patch("custom_components.ev_charging_pilot.vehicle_image.image_dir",
                return_value=tmp_path):
         bad = FormData()
         bad.add_field("file", io.BytesIO(b"GIF89a....."), filename="x.gif")
-        response = await client.post("/api/smart_eq_charging/vehicle_image", data=bad)
+        response = await client.post("/api/ev_charging_pilot/vehicle_image", data=bad)
         assert response.status == 415
 
         form = FormData()
         form.add_field("file", io.BytesIO(PNG), filename="smart.png", content_type="image/png")
-        response = await client.post("/api/smart_eq_charging/vehicle_image", data=form)
+        response = await client.post("/api/ev_charging_pilot/vehicle_image", data=form)
         assert response.status == 200
         assert (tmp_path / "vehicle.png").exists()
         assert entry.runtime_data.vehicle_image_version is not None
 
-        response = await client.get("/api/smart_eq_charging/vehicle_image")
+        response = await client.get("/api/ev_charging_pilot/vehicle_image")
         assert response.status == 200
         assert (await response.read()).startswith(b"\x89PNG")
 
-        response = await client.delete("/api/smart_eq_charging/vehicle_image")
+        response = await client.delete("/api/ev_charging_pilot/vehicle_image")
         assert response.status == 200
         assert not (tmp_path / "vehicle.png").exists()
         assert entry.runtime_data.vehicle_image_version is None
@@ -92,4 +92,4 @@ async def test_vehicle_photo_upload_serve_delete(hass, entry, halo, hass_client,
 async def test_vehicle_photo_needs_login(hass, entry, halo, hass_client_no_auth):
     await _setup(hass, entry)
     client = await hass_client_no_auth()
-    assert (await client.get("/api/smart_eq_charging/vehicle_image")).status == 401
+    assert (await client.get("/api/ev_charging_pilot/vehicle_image")).status == 401

@@ -10,7 +10,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.smart_eq_charging.const import DOMAIN
+from custom_components.ev_charging_pilot.const import DOMAIN
 
 from .conftest import DATA
 
@@ -47,7 +47,7 @@ async def test_tibber_prices_feed_the_engine(hass, halo):
     assert calls
     assert center.engine.dynamic_prices
     assert len(center.engine.price_schedule.slots) == 48
-    assert hass.states.get("sensor.smart_eq_current_price").state == "0.3"
+    assert hass.states.get("sensor.ev_pilot_current_price").state == "0.3"
     response = await hass.services.async_call(DOMAIN, "refresh_prices", {}, blocking=True,
                                               return_response=True)
     assert response["slots"] == 48
@@ -59,7 +59,7 @@ async def test_missing_tibber_falls_back_and_logs(hass, halo):
     center = entry.runtime_data
     assert not center.engine.dynamic_prices
     assert any(e["code"] == "PRICE_SOURCE_PROBLEM" for e in center.events)
-    assert hass.states.get("sensor.smart_eq_current_price").state == "0.29"
+    assert hass.states.get("sensor.ev_pilot_current_price").state == "0.29"
 
 
 async def test_price_entity_with_nordpool_attributes(hass, halo):
@@ -85,28 +85,28 @@ async def test_report_service_and_authenticated_download(hass, halo, hass_client
         result = await hass.services.async_call(
             DOMAIN, "create_report", {"period": "month", "year": 2026, "month": 10},
             blocking=True, return_response=True)
-        assert result["file"] == "smart-eq-2026-10.pdf"
+        assert result["file"] == "ev-pilot-2026-10.pdf"
         year = await hass.services.async_call(
             DOMAIN, "create_report", {"period": "year", "year": 2026}, blocking=True,
             return_response=True)
-        assert year["file"] == "smart-eq-2026.pdf"
+        assert year["file"] == "ev-pilot-2026.pdf"
         client = await hass_client()
         response = await client.get(result["url"])
         assert response.status == 200
         assert (await response.read()).startswith(b"%PDF")
-        assert (await client.get("/api/smart_eq_charging/report/..%2Fsecrets.yaml")).status \
+        assert (await client.get("/api/ev_charging_pilot/report/..%2Fsecrets.yaml")).status \
             in (400, 404)
         ws = await hass_ws_client(hass)
         await ws.send_json({"id": 1, "type": f"{DOMAIN}/list_reports"})
         msg = await ws.receive_json()
-        assert {i["file"] for i in msg["result"]["items"]} == {"smart-eq-2026-10.pdf",
-                                                              "smart-eq-2026.pdf"}
+        assert {i["file"] for i in msg["result"]["items"]} == {"ev-pilot-2026-10.pdf",
+                                                              "ev-pilot-2026.pdf"}
 
 
 async def test_download_requires_auth(hass, halo, hass_client_no_auth):
     await _setup(hass, {})
     client = await hass_client_no_auth()
-    response = await client.get("/api/smart_eq_charging/report/smart-eq-2026-10.pdf")
+    response = await client.get("/api/ev_charging_pilot/report/ev-pilot-2026-10.pdf")
     assert response.status == 401
 
 
@@ -116,7 +116,7 @@ async def test_monthly_report_on_the_first(hass, halo, tmp_path):
     with patch.object(type(center), "data_dir", new=tmp_path):
         first = dt_util.now().replace(year=2026, month=11, day=1, hour=6, minute=0)
         report = await center.async_monthly_report(first)
-    assert report["file"] == "smart-eq-2026-10.pdf"
+    assert report["file"] == "ev-pilot-2026-10.pdf"
     assert any(e["code"] == "REPORT_CREATED" for e in center.events)
 
 

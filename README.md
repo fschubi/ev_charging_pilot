@@ -1,21 +1,26 @@
-# Smart EQ 453 Charging Center
+# EV Charging Pilot
 
-Home-Assistant-Integration, die das Laden eines **smart EQ fortwo 453** an einer
-**Charge Amps Halo** als einziges Steuerungssystem übernimmt:
-abfahrtsbasierte Ladeplanung, Laden in den günstigsten Stunden (Tibber oder
-andere dynamische Tarife), Wakeup-Kaskade (OVMS → CP-Puls über Shelly), Ziel-SOC,
+Home-Assistant-Integration, die das Laden deines **Elektroautos an deiner Wallbox**
+als einziges Steuerungssystem übernimmt – mit jeder Wallbox und jedem Fahrzeug, die
+Home Assistant als Entitäten kennt. Du gibst deinem Auto einen Namen, und die
+Oberfläche heißt dann z. B. **„Smarty Charging Pilot“**.
+
+Funktionen: abfahrtsbasierte Ladeplanung, Laden in den günstigsten Stunden (Tibber oder
+andere dynamische Tarife), Wakeup-Kaskade (Fahrzeug → CP-Puls über Shelly), Ziel-SOC,
 Vorklimatisierung, System-Health mit Push, Lade-Sessions mit Kosten, Fahrten,
 Monatsbilanz mit SOC-Ausgleich, automatische Fremdladeerkennung,
 PDF-Monatsberichte und ein eigenes Sidebar-Panel.
 
+Entwickelt und erprobt mit einem smart EQ fortwo 453, einer Charge Amps Halo, einem
+Shelly 1 Mini Gen3 in der CP-Leitung und OVMS v3.
 Spezifikation: [Masterplan v1.3](docs/masterplan-v1.3.md) · Stand: [Roadmap](docs/ROADMAP.md)
 
 > **Sicherheit zuerst.** Die Integration startet immer im **Dry-Run** und
 > protokolliert nur, was sie schalten würde. Live geht sie erst nach Messphase,
 > Dry-Run-Abgleich und Einzeltest (Grundsatz 11). Der CP-Wakeup bleibt gesperrt,
 > bis die Failsafe-Checkliste (§3.6) abgehakt und die Verdrahtung von einer
-> Elektrofachkraft abgenommen ist. OVMS-Befehle sind leer, bis sie am Fahrzeug
-> getestet wurden.
+> Elektrofachkraft abgenommen ist. Fahrzeugbefehle (OVMS) sind leer, bis sie am
+> Fahrzeug getestet wurden.
 
 ## Was die Integration beantwortet
 
@@ -30,35 +35,36 @@ Spezifikation: [Masterplan v1.3](docs/masterplan-v1.3.md) · Stand: [Roadmap](do
 | Komponente | Zweck | Pflicht |
 | --- | --- | --- |
 | Home Assistant ≥ 2025.6 | | ja |
-| HACS-Integration **Chargeamps** | Halo schalten und messen | ja |
+| Wallbox-Integration (z. B. Chargeamps, go-e, Easee, Wallbox, Zaptec, KEBA) mit Freigabe-Schalter, Kabelstatus, Leistung und Energiezähler | Laden schalten und messen | ja |
 | Shelly 1 Mini Gen3 in der CP-Leitung | Wakeup per CP-Puls | nein |
-| OVMS v3 (z. B. per MQTT) | SOC, Fahrten, Klima, Software-Wakeup | nein |
+| Fahrzeugdaten: OVMS v3 (MQTT) oder Hersteller-Integration | SOC, Fahrten, Klima, Wakeup | nein |
 | Companion-App | Push und Rückfrage beim Einstecken | empfohlen |
 | Tibber-Integration oder Preis-Sensor (Nordpool, EPEX …) | dynamischer Strompreis | nein |
 
 ## Installation
 
 1. HACS → ⋮ (oben rechts) → *Benutzerdefinierte Repositories* →
-   Repository `https://github.com/fschubi/smart453_charging_center`,
+   Repository `https://github.com/fschubi/ev_charging_pilot`,
    Typ *Integration* → *Hinzufügen*.
-2. „Smart EQ Charging Center“ installieren, Home Assistant neu starten.
-3. Einstellungen → Geräte & Dienste → *Smart EQ Charging Center* hinzufügen.
-   Fünf kurze Schritte: Name/Dry-Run → Halo → Shelly → Push-Ziel → OVMS (überspringbar).
+2. „EV Charging Pilot“ installieren, Home Assistant neu starten.
+3. Einstellungen → Geräte & Dienste → *EV Charging Pilot* hinzufügen.
+   Fünf kurze Schritte: Fahrzeugname/Dry-Run → Wallbox → CP-Relais (optional) → Push-Ziel →
+   Fahrzeug (überspringbar).
    Die Entitäten werden **automatisch erkannt und vorbelegt** – nur prüfen und bestätigen.
-4. In der Seitenleiste erscheint **Smart EQ**.
+4. In der Seitenleiste erscheint **„<Fahrzeugname> Charging Pilot“**.
 
 Vor dem Live-Betrieb: [Phase 0](phase0/README.md) – einfache Automation und
 Messphase, deren Ergebnisse die vorläufigen Zeitkonstanten ersetzen.
 
 ## Bedienung
 
-**Panel (Seitenleiste „Smart EQ“)** mit fünf Ansichten:
+**Panel (Seitenleiste „<Fahrzeugname> Charging Pilot“)** mit sechs Ansichten:
 
 | Ansicht | Inhalt |
 | --- | --- |
 | Cockpit | Status, SOC, Leistung, nächste Abfahrt, Prognose, Health, Schnellaktionen |
 | Ladeplan | Wochenpläne bearbeiten (mehrere), kommende Ladefenster, Klima je Plan |
-| Hausstrom → Smart EQ | Heim-kWh und Kosten je Monat, Monatsvergleich, Sessions |
+| Hausstrom → Fahrzeug | Heim-kWh und Kosten je Monat, Monatsvergleich, Sessions |
 | Drive & Energy | Strecke, Verbrauch, Temperatur-/Saisonstatistik, Fahrten, Fremdladen |
 | Diagnose | Health, CP/Failsafe (inkl. „Shelly konfigurieren“), Datenqualität je Wert, Event Log, Replay |
 | Einstellungen | Alle Optionen als Formular, Strompreis mit Historie, eigenes Fahrzeugfoto |
@@ -72,37 +78,37 @@ nicht mehrfach geweckt werden muss. Ohne SOC oder ohne Preise für die ganze Nac
 wird wie gewohnt geladen; Kosten werden je 15 Minuten mit dem echten Preis berechnet.
 
 **PDF-Berichte:** Panel → Hausstrom → *PDF Monat* / *PDF Jahr*, automatisch am
-Monatsersten um 06:00. Ablage in `/config/smart_eq_charging/reports`, Download nur
+Monatsersten um 06:00. Ablage in `/config/ev_charging_pilot/reports`, Download nur
 für angemeldete Benutzer.
 
-**Fremdladen:** Ladungen außer Haus werden aus OVMS-Daten erkannt (ohne das Auto
+**Fremdladen:** Ladungen außer Haus werden aus den Fahrzeugdaten erkannt (ohne das Auto
 zu wecken) und als *geschätzt* eingetragen; Kosten und Anbieter im Panel ergänzen.
 
-**Standard-Dashboard** ohne Panel: [dashboards/smart_eq_dashboard.yaml](dashboards/smart_eq_dashboard.yaml).
+**Standard-Dashboard** ohne Panel: [dashboards/ev_pilot_dashboard.yaml](dashboards/ev_pilot_dashboard.yaml).
 
 ## Entitäten (Auszug, §12)
 
 | Entität | Bedeutung |
 | --- | --- |
-| `sensor.smart_eq_executor_state` | Ladezustand (Bereit, Lädt, Wakeup CP, Start fehlgeschlagen …) |
-| `sensor.smart_eq_desired_reason` | Warum die Halo an/aus sein soll |
-| `sensor.smart_eq_system_health` | Gesund / Eingeschränkt / Fehler mit Gründen |
-| `sensor.smart_eq_next_charge_start`, `_next_departure`, `_estimated_finish` | Plan |
-| `sensor.smart_eq_expected_departure_soc` | Prognose (Schätzung) |
-| `sensor.smart_eq_month_home_energy`, `_month_cost`, `_year_*` … | Hausabrechnung und Kosten |
-| `sensor.smart_eq_soc`, `_soh`, `_range`, `_odometer`, `_hv_contactor_cycles` | Fahrzeug (mit OVMS) |
-| `binary_sensor.smart_eq_charging`, `_charge_problem`, `_cp_failsafe_ok`, `_data_conflict` … | Status |
-| `switch.smart_eq_automation`, `switch.smart_eq_dry_run` | Automatik, Dry-Run |
-| `select.smart_eq_override_mode`, `number.smart_eq_*_departure_soc`, `time.smart_eq_departure` | Plan bedienen |
+| `sensor.ev_pilot_executor_state` | Ladezustand (Bereit, Lädt, Wakeup CP, Start fehlgeschlagen …) |
+| `sensor.ev_pilot_desired_reason` | Warum die Wallbox an/aus sein soll |
+| `sensor.ev_pilot_system_health` | Gesund / Eingeschränkt / Fehler mit Gründen |
+| `sensor.ev_pilot_next_charge_start`, `_next_departure`, `_estimated_finish` | Plan |
+| `sensor.ev_pilot_expected_departure_soc` | Prognose (Schätzung) |
+| `sensor.ev_pilot_month_home_energy`, `_month_cost`, `_year_*` … | Hausabrechnung und Kosten |
+| `sensor.ev_pilot_soc`, `_soh`, `_range`, `_odometer`, `_hv_contactor_cycles` | Fahrzeug (mit Fahrzeugdaten) |
+| `binary_sensor.ev_charging_pilot`, `_charge_problem`, `_cp_failsafe_ok`, `_data_conflict` … | Status |
+| `switch.ev_pilot_automation`, `switch.ev_pilot_dry_run` | Automatik, Dry-Run |
+| `select.ev_pilot_override_mode`, `number.ev_pilot_*_departure_soc`, `time.ev_pilot_departure` | Plan bedienen |
 | Buttons | Jetzt laden · Stopp · Heute Nacht · Fahrzeug wecken · CP-Wakeup · Klima 5/10/15 · Klima stopp · Fehler zurücksetzen |
 
-## Services (`smart_eq_charging.*`)
+## Services (`ev_charging_pilot.*`)
 
 `start_charging`, `stop_charging`, `set_override`, `clear_override`,
 `start_one_shot`, `cancel_one_shot`, `vehicle_wakeup`, `cp_wakeup`,
 `reset_error`, `start_climate`, `stop_climate`, `add_external_charge`,
 `delete_external_charge`, `add_manual_odometer`, `set_plans`,
-`export` (CSV/JSON nach `/config/smart_eq_charging/export`),
+`export` (CSV/JSON nach `/config/ev_charging_pilot/export`),
 `create_report` (PDF), `refresh_prices`,
 `create_replay_dataset`, `start_replay`, `stop_replay`.
 
@@ -113,7 +119,7 @@ Alle Services laufen durch Arbiter und Executor – nie direkt auf die Hardware.
 Aufgezeichnete Nächte lassen sich ohne Hardware nachspielen (Gate v0.1):
 
 ```yaml
-action: smart_eq_charging.create_replay_dataset
+action: ev_charging_pilot.create_replay_dataset
 data: {start: "2026-10-14 02:30", end: "2026-10-14 06:30", name: nacht-2026-10-14}
 ```
 
@@ -124,7 +130,7 @@ Ergebnis zeigt, ob die Entscheidungen der Engine mit dem realen Schalten
 ## Architektur
 
 ```
-custom_components/smart_eq_charging/
+custom_components/ev_charging_pilot/
   core/          HA-freier Kern (nur stdlib): Engine, Planner, Arbiter, Executor,
                  Health, Datenqualität, Sessions, Trips, Statistik, Kosten, Replay
   coordinator.py Liest Entitäten, ruft Engine.tick(), führt Befehle aus (nur live)
@@ -141,7 +147,7 @@ uv venv -p 3.13 .venv
 uv pip install -p .venv/bin/python -r requirements-test.txt
 .venv/bin/python -m pytest
 uvx ruff check custom_components tests tools
-python3 tools/gen_translations.py custom_components/smart_eq_charging
+python3 tools/gen_translations.py custom_components/ev_charging_pilot
 ```
 
 Lizenz: MIT

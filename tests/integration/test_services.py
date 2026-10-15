@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
-from custom_components.smart_eq_charging.const import ACTION_TONIGHT, CONF_NOTIFY_SERVICE, DOMAIN
-from custom_components.smart_eq_charging.core.inputs import Inp, RawState
-from custom_components.smart_eq_charging.core.replay import ReplayDataset
+from custom_components.ev_charging_pilot.const import ACTION_TONIGHT, CONF_NOTIFY_SERVICE, DOMAIN
+from custom_components.ev_charging_pilot.core.inputs import Inp, RawState
+from custom_components.ev_charging_pilot.core.replay import ReplayDataset
 
 from .conftest import CABLE
 

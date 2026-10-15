@@ -1,11 +1,11 @@
-"""Shared base for all entities. Entity IDs follow masterplan §12 (smart_eq_*)."""
+"""Shared base for all entities. Entity IDs follow masterplan §12 (ev_pilot_*)."""
 
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
-from .const import DOMAIN, ENTITY_PREFIX, NAME
+from .const import DOMAIN, ENTITY_PREFIX
 from .coordinator import ChargingCenter
 
 
@@ -22,9 +22,9 @@ class ChargingEntity(Entity):
         self.entity_id = f"{self.platform_domain}.{ENTITY_PREFIX}_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, center.entry.entry_id)},
-            name=center.name or NAME,
+            name=center.name,
             manufacturer="fschubi",
-            model="Smart EQ 453 Charging Center",
+            model="EV Charging Pilot",
             entry_type=DeviceEntryType.SERVICE,
         )
 

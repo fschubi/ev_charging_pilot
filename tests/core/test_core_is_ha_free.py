@@ -3,7 +3,7 @@
 import ast
 from pathlib import Path
 
-CORE = Path(__file__).parents[2] / "custom_components" / "smart_eq_charging" / "core"
+CORE = Path(__file__).parents[2] / "custom_components" / "ev_charging_pilot" / "core"
 
 
 def test_core_has_no_homeassistant_imports():

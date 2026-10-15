@@ -7,14 +7,16 @@ den Anfang von `docs/CHANGELOG_DEV.md`.
 
 ## Projekt
 
-**Smart EQ 453 Charging Center** – Home-Assistant-Custom-Integration (HACS),
+**EV Charging Pilot** – Home-Assistant-Custom-Integration (HACS),
 die Laden, Wakeup, Vorklimatisierung, Diagnose und Verbrauchsstatistik des
 smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt.
 **evcc ist kein Thema** – nicht erwähnen, nichts darauf ausrichten (Entscheidung Frank).
 
-- Repo: https://github.com/fschubi/smart453_charging_center (Branch `main`, **öffentlich**,
+- Repo: https://github.com/fschubi/ev_charging_pilot (Branch `main`, **öffentlich**,
   HACS-Custom-Repo, Releases als Tags `vX.Y.Z`)
-- Domain: `smart_eq_charging` · `single_config_entry: true` · HA ≥ 2025.6 · Version 0.6.0
+- Domain: `ev_charging_pilot` · Entitäten `*.ev_pilot_*` · Panel `/ev-pilot` ·
+  `single_config_entry: true` · HA ≥ 2025.6 · Version 0.8.0
+- Lokaler Ordner heißt weiterhin `smart453_charging_center` (nur das Repo wurde umbenannt).
 - **Spezifikation: [`docs/masterplan-v1.3.md`](docs/masterplan-v1.3.md)** (vollständig, §1–§16).
   Abschnittsverweise im Code (`§6.2`) beziehen sich darauf.
 - Stand je Stufe und Gate: [`docs/ROADMAP.md`](docs/ROADMAP.md)
@@ -47,7 +49,7 @@ smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt.
 ## Aufbau
 
 ```
-custom_components/smart_eq_charging/
+custom_components/ev_charging_pilot/
   core/                HA-FREI (Test erzwingt das), nur stdlib
     engine.py          Herzstück: Engine.tick(now, raw) → Commands, Events, Sessions,
                        Trips, Notifications. Coordinator UND Replay treiben genau das.
@@ -68,12 +70,12 @@ custom_components/smart_eq_charging/
   ha_ports.py          Halo-Switch, Shelly-RPC, OVMS per MQTT-Topic oder Script
   notifications.py     Push + Actionable Notification (mobile_app_notification_action)
   price_source.py      PriceFetcher: Tibber-Service alle 30 min oder Preis-Entität
-  reports.py           PDF erzeugen/listen, ReportView (/api/smart_eq_charging/report, Login nötig)
+  reports.py           PDF erzeugen/listen, ReportView (/api/ev_charging_pilot/report, Login nötig)
   services.py (21), websocket_api.py, export.py, diagnostics.py, config_flow.py
-  sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs smart_eq_* (§12)
-  frontend/smart-eq-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
+  sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs ev_pilot_* (§12)
+  frontend/ev-pilot-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
   settings_schema.py   Optionen als Formular-Schema für den Einstellungen-Reiter (get/set_settings)
-  vehicle_image.py     Fahrzeugfoto: Upload (Admin), Auslieferung (Login), /api/smart_eq_charging/vehicle_image
+  vehicle_image.py     Fahrzeugfoto: Upload (Admin), Auslieferung (Login), /api/ev_charging_pilot/vehicle_image
   discovery.py         Auto-Erkennung der Entitäten im Config Flow (Chargeamps-Plattform zuerst)
   brand/               Integrations-Icon (tools/make_brand.py)
 phase0/                HA-Package Phase 0 + Messprotokoll
@@ -99,15 +101,14 @@ Wichtige Details:
 uv venv -p 3.13 .venv && uv pip install -p .venv/bin/python -r requirements-test.txt
 .venv/bin/python -m pytest                       # ~100 Tests, < 2 s
 uvx ruff check custom_components tests tools
-node --check custom_components/smart_eq_charging/frontend/smart-eq-panel.js
-python3 tools/gen_translations.py custom_components/smart_eq_charging
+node --check custom_components/ev_charging_pilot/frontend/ev-pilot-panel.js
+python3 tools/gen_translations.py custom_components/ev_charging_pilot
 ```
 
 Panel-Sichtprüfung: Testdaten per WS-Dump aus einer Testinstanz erzeugen und
-`smart-eq-panel` mit Fake-`hass` (callWS/callService) in einer HTML-Seite laden.
+`ev-pilot-panel` mit Fake-`hass` (callWS/callService) in einer HTML-Seite laden.
 
 CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
-HACS-Validierung scheitert, solange das Repo privat ist.
 
 ## Git-Workflow
 
@@ -129,8 +130,6 @@ HACS-Validierung scheitert, solange das Repo privat ist.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-13 – Phase 0 + Kern-Engine.** Wakeup-Kette im Package, `core/engine.py`
-  als HA-freie Tick-Pipeline, Replay, Sessions, Trips, Statistik, Klima.
 - **2026-10-13 – v0.5.0 komplette Integration.** Entitäten/Services/WS nach §12,
   Config-/Options-Flow nach §13, Push mit Rückfrage, Panel mit 5 Ansichten,
   YAML-Dashboard, Replay mit Poll-Nachbildung. ~100 Tests grün.
@@ -140,3 +139,6 @@ HACS-Validierung scheitert, solange das Repo privat ist.
   Config Flow, grafisches Cockpit, Shelly per Klick konfigurieren, Reiter
   Einstellungen, eigenes Fahrzeugfoto statt Zeichnung (Frank: Zeichnung war „kein 453“),
   Ladeziel-Regler, Icon. 133 Tests grün.
+- **2026-10-15 – v0.8.0 Umbenennung in „EV Charging Pilot“.** Domain/Repo/Entitäten neu
+  (`ev_charging_pilot`, `ev_pilot_*`), frei wählbarer Fahrzeugname → „<Name> Charging Pilot“
+  überall, Texte herstellerneutral (Wallbox statt Halo, Fahrzeug statt OVMS).

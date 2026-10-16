@@ -183,7 +183,8 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_MANUAL_TARGET_SOC: 100,
     # Ready-made OVMS v3 shell commands. Nothing is sent until the user switches the
     # vehicle access to "read & write" (ovms_enabled) – §1.2.
-    OPT_OVMS_WAKEUP_COMMAND: "wakeup",
+    # "auto": "xsq wakeup" on a smart 453 (OVMS docs), the generic "wakeup" otherwise.
+    OPT_OVMS_WAKEUP_COMMAND: "auto",
     OPT_OVMS_CLIMATE_COMMAND: "homelink {level}",
     OPT_OVMS_CLIMATE_STOP_COMMAND: "climatecontrol off",
 }
@@ -287,7 +288,7 @@ class Settings:
     external_price_eur_kwh: float = 0.59
     report_auto_monthly: bool = True
     manual_target_soc: int = 100
-    ovms_wakeup_command: str = "wakeup"
+    ovms_wakeup_command: str = "auto"
     ovms_climate_command: str = "homelink {level}"
     ovms_climate_stop_command: str = "climatecontrol off"
 

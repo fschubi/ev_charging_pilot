@@ -95,3 +95,14 @@ def test_health_degraded_and_charger_window():
 
 def test_health_without_cp_and_ovms_is_healthy():
     assert evaluate(HealthInputs(halo_available=True)).status is HealthStatus.HEALTHY
+
+
+def test_hv_contactor_vector_uses_consumed_cycles():
+    from custom_components.ev_charging_pilot.core.inputs import Inp, RawState, to_value
+
+    def parse(state):
+        return to_value(Inp.OVMS_HV_CYCLES, RawState(state=state, last_updated=NOW)).normalized
+
+    assert parse("[300000, 299000, 1000, 2, 0]") == 1000
+    assert parse("300000,299000,1000,2,0") == 1000
+    assert parse("1234") == 1234

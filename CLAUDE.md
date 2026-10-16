@@ -134,9 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-13 – v0.5.0 komplette Integration.** Entitäten/Services/WS nach §12,
-  Config-/Options-Flow nach §13, Push mit Rückfrage, Panel mit 5 Ansichten,
-  YAML-Dashboard, Replay mit Poll-Nachbildung. ~100 Tests grün.
 - **2026-10-13 – v0.6.0 Tibber, PDF, Fremdladeerkennung.** Repo öffentlich, evcc
   aus der Doku entfernt, Release für HACS-Testinstallation. 121 Tests grün.
 - **2026-10-13 – v0.6.1–v0.7.0 nach erstem Test bei Frank.** Auto-Erkennung im
@@ -146,3 +143,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-15 – v0.8.0 Umbenennung in „EV Charging Pilot“.** Domain/Repo/Entitäten neu
   (`ev_charging_pilot`, `ev_pilot_*`), frei wählbarer Fahrzeugname → „<Name> Charging Pilot“
   überall, Texte herstellerneutral (Wallbox statt Halo, Fahrzeug statt OVMS).
+- **2026-10-16 – v0.9.0/v0.9.1 Fahrzeugzugriff & Einstellungen.** Ein Schalter
+  „Lesen & Schreiben“, OVMS-Befehlsweg automatisch (`ovms.send_command`), Ladeziel je Plan
+  und für „Jetzt laden“ (nur im Ladeplan). Einstellungen als Akkordeon mit Einfach/Experte,
+  `show_if`, Speichern-Leiste. OVMS-Doku-Abgleich: `xsq wakeup` auto beim 453,
+  HV-Zyklen-Vektor. 141 Tests grün.

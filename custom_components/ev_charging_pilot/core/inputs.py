@@ -129,6 +129,18 @@ def _float(text: Any) -> float | None:
         return None
 
 
+def _hv_cycles(state: Any) -> float | None:
+    """smart 453: ``xsq.bms.contactor.cycles`` is a vector [max, now, consumed, diff, 1h].
+
+    The consumed cycles (index 2) only ever rise – that is the counter to watch.
+    """
+    parts = [_float(p) for p in str(state).strip("[]() ").replace(";", ",").split(",")
+             if p.strip()]
+    if len(parts) >= 3 and parts[2] is not None:
+        return parts[2]
+    return parts[-1] if parts and parts[-1] is not None else None
+
+
 def to_value(key: Inp, raw: RawState | None) -> Value:
     """Parse ``raw`` according to the kind of ``key``. Quality is GOOD or worse;
     age-based classification happens later in :mod:`.quality`."""
@@ -157,6 +169,8 @@ def to_value(key: Inp, raw: RawState | None) -> Value:
         return Value(raw.state, raw.state, source, stamp)
 
     number = _float(raw.state)
+    if number is None and key is Inp.OVMS_HV_CYCLES:
+        number = _hv_cycles(raw.state)
     if number is None:
         return Value(raw.state, None, source, stamp, Quality.INVALID, unit)
     if kind is Kind.POWER_W and unit == "kW":

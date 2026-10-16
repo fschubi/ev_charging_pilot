@@ -87,3 +87,16 @@ async def test_charge_now_without_vehicle_data_charges_until_unplugged(hass, hal
     await hass.async_block_till_done()
     await hass.services.async_call(DOMAIN, "start_charging", {}, blocking=True)
     assert entry.runtime_data.engine.override.mode is OverrideMode.UNTIL_UNPLUGGED
+
+
+async def test_smart_453_gets_xsq_wakeup(hass, halo):
+    calls: list = []
+    _ovms(hass, calls)
+    er.async_get(hass).async_get_or_create("sensor", "ovms", "smarty_xsq_bms_soh",
+                                           suggested_object_id="ovms_xsq_bms_soh")
+    entry = await _setup(hass, ovms_enabled=True)
+    center = entry.runtime_data
+    assert center.ports.wakeup_command("auto") == "xsq wakeup"
+    assert center.ports.wakeup_command("wakeup") == "wakeup"
+    await center.ports.execute(Command(CommandKind.OVMS_WAKEUP), center.settings)
+    assert calls[-1]["command"] == "xsq wakeup"

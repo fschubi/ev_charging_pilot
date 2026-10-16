@@ -94,6 +94,18 @@ class HaPorts:
         return None
 
     @property
+    def smart_453(self) -> bool:
+        """The smart ED/EQ 453 module publishes its own ``xsq.*`` metrics."""
+        registry = er.async_get(self.hass)
+        return any("xsq" in entry.entity_id or "xsq" in (entry.unique_id or "")
+                   for entry in registry.entities.values() if entry.platform == OVMS_DOMAIN)
+
+    def wakeup_command(self, configured: str) -> str:
+        if configured and configured != "auto":
+            return configured
+        return "xsq wakeup" if self.smart_453 else "wakeup"
+
+    @property
     def ovms_command_available(self) -> bool:
         return self.ovms_path is not None
 
@@ -110,7 +122,7 @@ class HaPorts:
                     raise PortError("kein CP-Relais konfiguriert")
                 await self._switch(self.cp_relay, True)
             case CommandKind.OVMS_WAKEUP:
-                await self._ovms(settings.ovms_wakeup_command)
+                await self._ovms(self.wakeup_command(settings.ovms_wakeup_command))
             case CommandKind.CLIMATE_START:
                 minutes = int(command.params.get("duration_min", 10))
                 text = settings.ovms_climate_command.format(

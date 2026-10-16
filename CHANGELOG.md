@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.1 – 2026-10-16
+
+- **Einstellungen neu aufgebaut:** aufklappbare Gruppen mit Symbol und Kurzbeschreibung,
+  je Option eine Zeile mit Erklärung, Schalter statt Häkchen, Einheiten im Eingabefeld.
+  Umschalter **Einfach | Experte** – Feinabstimmung (Ladeerkennung, Datenqualität,
+  OVMS-Befehle) nur im Expertenmodus. Abhängige Felder erscheinen nur, wenn sie
+  gebraucht werden (z. B. Preis-Entität nur bei Preisquelle „Entität“). Speichern-Leiste
+  erscheint nur bei Änderungen, „geändert“-Markierung je Gruppe. Auf dem Smartphone
+  stehen Bezeichnung und Eingabe untereinander.
+- „Ziel bei ‚Jetzt laden‘“ aus den Einstellungen entfernt – es wird im Ladeplan eingestellt.
+- **OVMS-Abgleich mit der smart-453-Doku:** Wecken nutzt beim smart 453 automatisch
+  `xsq wakeup` (erkannt an den `xsq.*`-Metriken), sonst `wakeup`; Vorgabe „auto“.
+  Der HV-Kontaktorzähler `xsq.bms.contactor.cycles` wird als Vektor gelesen
+  (verbrauchte Zyklen). Klima `homelink 1/2/3` = 5/10/15 min, nur ab SOC > 30 %.
+
 ## 0.9.0 – 2026-10-16
 
 - **Fahrzeug: ein Schalter „Lesen & Schreiben“** (Einstellungen → Allgemein). Aus =

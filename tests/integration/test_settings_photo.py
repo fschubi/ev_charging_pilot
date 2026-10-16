@@ -59,7 +59,7 @@ async def test_settings_ws_roundtrip(hass, entry, halo, hass_ws_client):
                             "values": {"cp_pulse_s": 99}})
     msg = await client.receive_json()
     assert not msg["success"]
-    assert "CP-Pulsdauer" in msg["error"]["message"]
+    assert "CP-Pulses" in msg["error"]["message"]
 
 
 async def test_vehicle_photo_upload_serve_delete(hass, entry, halo, hass_client, tmp_path):

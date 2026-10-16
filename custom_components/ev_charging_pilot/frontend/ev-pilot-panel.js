@@ -277,7 +277,51 @@ const STYLE = `
   input[type=range] { width: 100%; padding: 0; accent-color: var(--primary-color); }
   .slider { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; margin: 8px 0; }
   .slider b { min-width: 48px; text-align: right; }
-  .setgroup { margin-bottom: 4px; }
+  .settings { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px; }
+  .stop { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--divider-color); border-radius: 20px; overflow: hidden; }
+  .seg button { background: none; border: none; padding: 8px 16px; font: inherit; color: var(--secondary-text-color); cursor: pointer; }
+  .seg button.on { background: var(--primary-color); color: var(--text-primary-color, #fff); }
+  .sgroup { background: var(--card-background-color); border-radius: var(--ha-card-border-radius, 12px);
+            box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,.15)); overflow: hidden; }
+  .shead { width: 100%; display: flex; align-items: center; gap: 14px; padding: 16px; background: none; border: none;
+           color: var(--primary-text-color); font: inherit; text-align: left; cursor: pointer; }
+  .shead ha-icon { color: var(--primary-color); --mdc-icon-size: 26px; flex: none; }
+  .stitle { flex: 1; font-size: 16px; font-weight: 500; }
+  .stitle small { display: block; font-size: 13px; font-weight: 400; color: var(--secondary-text-color); margin-top: 2px; }
+  .chev { color: var(--secondary-text-color); font-size: 14px; }
+  .sbody { border-top: 1px solid var(--divider-color); }
+  .srow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px;
+          border-bottom: 1px solid var(--divider-color); }
+  .srow:last-child { border-bottom: none; }
+  .srow.changed { box-shadow: inset 3px 0 0 var(--warning-color, #ffa600); }
+  .stext { flex: 1; min-width: 0; }
+  .slabel { font-size: 15px; }
+  .shelp { font-size: 12.5px; color: var(--secondary-text-color); margin-top: 3px; line-height: 1.35; }
+  .sctl { flex: none; display: flex; align-items: center; gap: 8px; }
+  .sctl.wrap { flex: 1; flex-wrap: wrap; justify-content: flex-end; }
+  .sctl select, .sctl input[type=text], .sctl input[type=date], .sctl input[type=time] { min-width: 180px; padding: 8px 10px; }
+  .photoctl img { height: 48px; border-radius: 8px; }
+  .unitbox { display: flex; align-items: center; border: 1px solid var(--divider-color); border-radius: 6px; overflow: hidden; }
+  .unitbox input { border: none; width: 90px; text-align: right; padding: 8px 6px; }
+  .unitbox span { padding: 0 10px; color: var(--secondary-text-color); font-size: 13px; background: rgba(127,127,127,.12); align-self: stretch; display: flex; align-items: center; }
+  .switch { position: relative; display: inline-block; width: 46px; height: 26px; cursor: pointer; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track { position: absolute; inset: 0; background: var(--divider-color); border-radius: 13px; transition: background .2s; }
+  .switch .track::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .switch input:checked + .track { background: var(--primary-color); }
+  .switch input:checked + .track::after { transform: translateX(20px); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+  .savebar { position: sticky; bottom: 12px; display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+             padding: 12px 16px; border-radius: 12px; background: var(--card-background-color);
+             box-shadow: 0 4px 16px rgba(0,0,0,.35); border: 1px solid var(--warning-color, #ffa600); }
+  .savebar span { flex: 1; font-size: 14px; }
+  @media (max-width: 600px) {
+    .srow { flex-direction: column; align-items: stretch; gap: 8px; }
+    .sctl { justify-content: flex-start; }
+    .sctl select, .sctl input[type=text], .sctl input[type=date], .sctl input[type=time] { width: 100%; min-width: 0; }
+    .srow:has(.switch) { flex-direction: row; align-items: center; }
+  }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field .help { font-size: 11px; color: var(--secondary-text-color); }
   .check { flex-direction: row; align-items: center; gap: 8px; color: var(--primary-text-color); }
@@ -545,6 +589,22 @@ class EvPilotPanel extends HTMLElement {
       case "setting":
         this._settingsDraft = { ...(this._settingsDraft || {}), [el.dataset.key]:
           el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value };
+        if (this._cache.settings && this._settingsDraft[el.dataset.key] === this._cache.settings.values[el.dataset.key]) {
+          delete this._settingsDraft[el.dataset.key];  // changed back → no longer dirty
+          if (!Object.keys(this._settingsDraft).length) this._settingsDraft = null;
+        }
+        this._render(true);
+        break;
+      case "group-toggle": {
+        const open = this._openGroups || new Set(["general"]);
+        open.has(el.dataset.group) ? open.delete(el.dataset.group) : open.add(el.dataset.group);
+        this._openGroups = open;
+        this._render(true);
+        break;
+      }
+      case "expert-toggle":
+        try { localStorage.setItem("ev-pilot-expert", el.dataset.value); } catch (err) { /* private mode */ }
+        this._render(true);
         break;
       case "settings-save":
         this._saveSettings(); break;
@@ -598,62 +658,85 @@ class EvPilotPanel extends HTMLElement {
     const cfg = this._cache.settings;
     if (!cfg) return `<div class="card">Lade Einstellungen …</div>`;
     const draft = this._settingsDraft || {};
-    const value = (key) => (key in draft ? draft[key] : cfg.values[key]);
     const admin = cfg.is_admin;
-    const field = (f) => {
+    const expert = this._expert();
+    const value = (key) => (key in draft ? draft[key] : cfg.values[key]);
+    const shown = (f) => {
+      if (f.hidden || (f.advanced && !expert)) return false;
+      return Object.entries(f.show_if || {}).every(([k, want]) =>
+        Array.isArray(want) ? want.includes(value(k)) : value(k) === want);
+    };
+    const open = this._openGroups || new Set(["general"]);
+    const dirtyKeys = Object.keys(draft);
+
+    const control = (f) => {
       const v = value(f.key);
-      const help = f.help ? `<span class="help">${esc(f.help)}</span>` : "";
       const attrs = `data-action="setting" data-key="${f.key}" ${admin ? "" : "disabled"}`;
       if (f.type === "bool") {
-        return `<label class="field check"><input type="checkbox" ${v ? "checked" : ""} ${attrs}>${esc(f.label)}</label>`;
+        return `<label class="switch"><input type="checkbox" ${v ? "checked" : ""} ${attrs}><span class="track"></span></label>`;
       }
-      let input;
       if (f.type === "select") {
-        input = `<select ${attrs}>${f.options.map((o) => `<option value="${esc(o.value)}" ${o.value === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
-      } else if (f.type === "number") {
-        input = `<input type="number" min="${f.min}" max="${f.max}" step="${f.step}" value="${esc(v)}" ${attrs}>`;
-      } else if (f.type === "date") {
-        input = `<input type="date" value="${esc(v)}" ${attrs}>`;
-      } else if (f.type === "time") {
-        input = `<input type="time" value="${esc(String(v || "").slice(0, 5))}" ${attrs}>`;
-      } else {
-        input = `<input type="text" value="${esc(v ?? "")}" ${attrs} ${f.type === "entity" ? 'placeholder="sensor.…"' : ""}>`;
+        return `<select ${attrs}>${f.options.map((o) => `<option value="${esc(o.value)}" ${o.value === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
       }
-      return `<label class="field">${esc(f.label)}${f.unit ? ` <span class="help">(${esc(f.unit)})</span>` : ""}${input}${help}</label>`;
+      if (f.type === "number") {
+        return `<div class="unitbox"><input type="number" inputmode="decimal" min="${f.min}" max="${f.max}" step="${f.step}" value="${esc(v)}" ${attrs}>${f.unit ? `<span>${esc(f.unit)}</span>` : ""}</div>`;
+      }
+      if (f.type === "date") return `<input type="date" value="${esc(v)}" ${attrs}>`;
+      if (f.type === "time") return `<input type="time" value="${esc(String(v || "").slice(0, 5))}" ${attrs}>`;
+      return `<input type="text" value="${esc(v ?? "")}" ${attrs} ${f.type === "entity" ? 'placeholder="sensor.…"' : ""}>`;
     };
-    const dirty = Object.keys(draft).length > 0;
+    const row = (f) => `<div class="srow ${f.key in draft ? "changed" : ""}">
+        <div class="stext"><div class="slabel">${esc(f.label)}</div>${f.help ? `<div class="shelp">${esc(f.help)}</div>` : ""}</div>
+        <div class="sctl">${control(f)}</div></div>`;
+
+    const photoRows = `<div class="srow">
+        <div class="stext"><div class="slabel">Fahrzeugfoto</div>
+          <div class="shelp">Seitenansicht, am schönsten als PNG mit transparentem Hintergrund, mind. 1200 px breit.</div></div>
+        <div class="sctl photoctl">
+          ${this._photoUrl ? `<img src="${this._photoUrl}" alt="Fahrzeug">` : ""}
+          <label class="act" style="cursor:pointer">${this._photoUrl ? "Ändern" : "Foto wählen"}<input type="file" accept="image/png,image/jpeg,image/webp" data-action="photo-upload" style="display:none" ${admin ? "" : "disabled"}></label>
+          ${this._photoUrl ? `<button class="act danger" data-action="photo-delete" ${admin ? "" : "disabled"}>Entfernen</button>` : ""}
+        </div></div>`;
     const history = (cfg.price_history || []).slice().reverse().map((p) =>
-      `<tr><td>${dateOnly(p.valid_from)}</td><td class="n">${num(p.eur_per_kwh, 3, "€/kWh")}</td></tr>`).join("");
-    return `<div class="grid">
-      ${admin ? "" : `<div class="notice warn wide">Nur Administratoren können Einstellungen ändern.</div>`}
-      <div class="card wide">
-        <h2>Fahrzeugfoto</h2>
-        <div class="hero" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
-          <div>${this._photoUrl ? `<div class="photo"><img src="${this._photoUrl}" alt="Fahrzeug"></div>` : `<p class="sub">Noch kein Foto – im Cockpit erscheint dann die Akku-Grafik.</p>`}</div>
-          <div>
-            <p class="hint">Am schönsten: <b>Seitenansicht</b>, <b>PNG mit transparentem Hintergrund</b> (freigestellt), Querformat etwa 2:1, mindestens 1200 px breit. JPG und WebP gehen auch. Große Bilder werden beim Hochladen auf 1600 px verkleinert.</p>
-            <div class="actions">
-              <label class="act primary" style="cursor:pointer">Foto wählen …<input type="file" accept="image/png,image/jpeg,image/webp" data-action="photo-upload" style="display:none" ${admin ? "" : "disabled"}></label>
-              ${this._photoUrl ? `<button class="act danger" data-action="photo-delete" ${admin ? "" : "disabled"}>Foto entfernen</button>` : ""}
-            </div>
-          </div>
+      `<span class="pill muted">${dateOnly(p.valid_from)}: ${num(p.eur_per_kwh, 3, "€/kWh")}</span>`).join(" ");
+
+    const groups = cfg.groups.filter((g) => (expert || !g.advanced) && g.fields.some(shown)).map((g) => {
+      const isOpen = open.has(g.id);
+      const changed = g.fields.some((f) => f.key in draft) || (g.id === "prices" && ("price_eur_kwh" in draft || "price_valid_from" in draft));
+      return `<section class="sgroup ${isOpen ? "open" : ""}">
+        <button class="shead" data-action="group-toggle" data-group="${g.id}" aria-expanded="${isOpen}">
+          <ha-icon icon="${esc(g.icon || "mdi:cog")}"></ha-icon>
+          <span class="stitle">${esc(g.title)}${changed ? ` <span class="pill warn">geändert</span>` : ""}<small>${esc(g.description || "")}</small></span>
+          <span class="chev">${isOpen ? "▴" : "▾"}</span>
+        </button>
+        ${isOpen ? `<div class="sbody">
+          ${g.id === "general" ? photoRows : ""}
+          ${g.fields.filter(shown).map(row).join("")}
+          ${g.id === "prices" && history ? `<div class="srow"><div class="stext"><div class="slabel">Bisherige Preise</div></div><div class="sctl wrap">${history}</div></div>` : ""}
+        </div>` : ""}
+      </section>`;
+    }).join("");
+
+    return `<div class="settings">
+      <div class="card stop">
+        <div><b>Einstellungen</b><div class="hint">${expert ? "Alle Einstellungen inkl. Feinabstimmung." : "Die wichtigsten Einstellungen. Feinabstimmung unter „Experte“."}</div></div>
+        <div class="seg" role="group" aria-label="Ansicht">
+          <button class="${expert ? "" : "on"}" data-action="expert-toggle" data-value="0">Einfach</button>
+          <button class="${expert ? "on" : ""}" data-action="expert-toggle" data-value="1">Experte</button>
         </div>
       </div>
-      <div class="card">
-        <h2>Strompreis-Historie</h2>
-        <div class="scroll"><table><tr><th>gültig ab</th><th class="n">Preis</th></tr>${history}</table></div>
-        <p class="hint">Neuen Preis unten unter „Strompreis“ eintragen – alte Monate bleiben unverändert.</p>
-      </div>
-      ${cfg.groups.map((g) => `<div class="card wide setgroup">
-        <h2>${esc(g.title)}</h2>
-        <div class="form">${g.fields.map(field).join("")}</div>
-      </div>`).join("")}
-      <div class="card wide actions" style="position:sticky;bottom:8px">
-        <button class="act primary" data-action="settings-save" ${dirty && admin ? "" : "disabled"}>Speichern</button>
-        <button class="act" data-action="settings-discard" ${dirty ? "" : "disabled"}>Verwerfen</button>
-        <span class="hint">${dirty ? `${Object.keys(draft).length} Änderung(en) nicht gespeichert` : "Alle Einstellungen gespeichert"}</span>
-      </div>
+      ${admin ? "" : `<div class="notice warn">Nur Administratoren können Einstellungen ändern.</div>`}
+      ${groups}
+      ${dirtyKeys.length ? `<div class="savebar">
+        <span>${dirtyKeys.length} Änderung${dirtyKeys.length === 1 ? "" : "en"} – noch nicht gespeichert</span>
+        <button class="act" data-action="settings-discard">Verwerfen</button>
+        <button class="act primary" data-action="settings-save" ${admin ? "" : "disabled"}>Speichern</button>
+      </div>` : ""}
     </div>`;
+  }
+
+  _expert() {
+    try { return localStorage.getItem("ev-pilot-expert") === "1"; } catch (err) { return false; }
   }
 
   async _saveSettings() {

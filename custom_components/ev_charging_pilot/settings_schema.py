@@ -125,7 +125,9 @@ GROUPS: list[dict[str, Any]] = [
      "description": "Für die Ladeprognose: Akkugröße und Ladegeschwindigkeit.",
      "fields": [
         _n("usable_capacity_kwh", "Nutzbare Akkukapazität", 5, 150, 0.1, "kWh"),
-        _n("vehicle_charger_kw", "Ladeleistung des Fahrzeugs (AC)", 1, 22, 0.1, "kW"),
+        _n("vehicle_charger_kw", "Ladeleistung des Fahrzeugs (AC)", 1, 22, 0.1, "kW",
+           help="Bordlader des Autos – smart 453: 4,6 kW Serie, 22 kW mit Schnelllader. "
+                "Zuhause begrenzt die Wallbox (z. B. 11 kW dreiphasig)."),
         _n("max_power_kw", "Leistung der Wallbox", 1, 22, 0.1, "kW"),
         _n("grid_limit_kw", "Netzbetreiber-Limit §14a (0 = keins)", 0, 22, 0.1, "kW",
            help="Nur falls der Netzbetreiber die Wallbox dimmen darf (z. B. 4,2 kW)."),

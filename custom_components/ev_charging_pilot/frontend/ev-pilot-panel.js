@@ -983,7 +983,11 @@ class EvPilotPanel extends HTMLElement {
     const has = (key) => key in s.entities;
     const plugged = !["DISCONNECTED", null, undefined].includes(ex.state);
     const charging = ex.state === "CHARGING" || ex.state === "CHARGE_STABILIZING";
-    const maxKw = Math.min(s.settings.vehicle_charger_kw || 4.6, s.settings.max_power_kw || 11);
+    // Scale of gauge and chart: what can flow at home – the measured power wins over a
+    // too small configured on-board charger (smart 453 with the 22 kW option).
+    const peakKw = Math.max(0, ...(s.history || []).map((h) => (h[1] || 0) / 1000));
+    const maxKw = Math.min(s.settings.max_power_kw || 11, Math.max(s.settings.vehicle_charger_kw || 4.6,
+      (s.learned && s.learned.power_kw) || 0, kw, peakKw));
     const reasons = s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("");
     // The status sentence already says "Probebetrieb"; the header badge shows the mode.
     const notice = "";

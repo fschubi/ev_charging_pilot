@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.2 – 2026-10-16
+
+- **Leistungsanzeige und 24-h-Kurve skalieren auf die echte Ladeleistung:** bei einem
+  größeren Bordlader als eingestellt (smart 453 mit 22-kW-Lader an einer 11-kW-Wallbox)
+  stand die Anzeige bisher am Anschlag und die Kurve war oben abgeschnitten. Maßstab ist
+  jetzt die Wallbox bzw. die gemessene Leistung.
+- Hinweis bei „Ladeleistung des Fahrzeugs“: smart 453 hat 4,6 kW Serie oder 22 kW mit
+  Schnelllader; zuhause begrenzt die Wallbox.
+
 ## 0.13.1 – 2026-10-16
 
 - **Neuer Akku im Cockpit:** moderne Kapsel mit Farbverlauf (rot → gelb → grün je nach

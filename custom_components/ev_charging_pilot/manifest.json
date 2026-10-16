@@ -12,5 +12,5 @@
   "loggers": ["custom_components.ev_charging_pilot"],
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.13.1"
+  "version": "0.13.2"
 }

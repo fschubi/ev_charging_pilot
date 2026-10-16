@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-16 – v0.10.0 Robustheit (Review Stufe 2a).** Fremdladen nur bei Kabel=aus bzw.
+  bekanntem Zähler, `safety_margin_min` entfernt (Migration minor 2, Reserve 10 %/≥5 min),
+  `set_plans`/`set_manual_target` ohne Admin, Push-Aktionen an Einstecken gebunden
+  (`plug_offer_valid`), `ACTION_RETRY`, Chart-Backfill aus Recorder.
+
 - **2026-10-16 – v0.9.3 Übergänge sicher (Review Stufe 1).** Ziel-SOC je Fenster gehalten
   (`_target_hold`, Nachladen nur frisch −3 %, `wake_allowed=False`), Ladeende per
   Leistungsabfall/OVMS/99 %, Dry-Run = Schattenbetrieb (`set_shadow`, virtuelle Wallbox),

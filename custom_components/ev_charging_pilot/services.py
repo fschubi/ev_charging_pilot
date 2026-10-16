@@ -51,7 +51,11 @@ SCHEMAS: dict[str, vol.Schema] = {
     "set_override": vol.Schema({
         vol.Required("mode"): vol.In([m.value for m in OverrideMode]), **OVERRIDE_SCHEMA}),
     "clear_override": vol.Schema({}),
-    "start_one_shot": vol.Schema({vol.Optional("departure_time"): cv.time}),
+    "start_one_shot": vol.Schema({
+        vol.Optional("departure_time"): cv.time,
+        vol.Optional("departure_at"): cv.datetime,
+        vol.Optional("target_soc"): vol.All(vol.Coerce(int), vol.Range(min=20, max=100)),
+    }),
     "cancel_one_shot": vol.Schema({}),
     "vehicle_wakeup": vol.Schema({}),
     "cp_wakeup": vol.Schema({}),
@@ -150,7 +154,9 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 await center.async_run(engine.clear_override)
             case "start_one_shot":
                 departure: time | None = data.get("departure_time")
-                await center.async_run(lambda now: engine.start_one_shot(now, departure))
+                await center.async_run(lambda now: engine.start_one_shot(
+                    now, departure, departure_at=data.get("departure_at"),
+                    target_soc=data.get("target_soc")))
             case "cancel_one_shot":
                 await center.async_run(engine.cancel_one_shot)
             case "vehicle_wakeup":

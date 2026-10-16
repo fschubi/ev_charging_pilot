@@ -95,6 +95,24 @@ class Monitor:
     def year(self, year: int, settings: Settings, today: date | None = None) -> dict[str, Any]:
         return year_summary(self.data, year, self.tz, **self._kwargs(settings, today))
 
+    def week(self, now: datetime) -> dict[str, Any]:
+        """The last seven days for the Sunday push."""
+        since = now - timedelta(days=7)
+        sessions = [s for s in self.data.sessions if s.started_at >= since]
+        home = [s for s in sessions if s.success]
+        trips = [t for t in self.data.trips if t.started_at >= since and t.distance_km]
+        external = [e for e in self.data.external
+                    if e.date >= since.astimezone(self.tz).date()]
+        return {
+            "home_kwh": round(sum(s.grid_energy_kwh for s in home), 1),
+            "cost_eur": round(sum(s.cost_eur for s in home), 2),
+            "charges": len(home),
+            "failed": len(sessions) - len(home),
+            "wakeups": sum(int(s.ovms_wakeup_used) + int(s.cp_wakeup_used) for s in sessions),
+            "external_kwh": round(sum(e.energy_kwh for e in external), 1),
+            "km": round(sum(t.distance_km for t in trips)) if trips else None,
+        }
+
     def temperatures(self, settings: Settings, year: int | None = None) -> dict[str, Any]:
         trips = [t for t in self.data.trips
                  if year is None or t.started_at.astimezone(self.tz).year == year]

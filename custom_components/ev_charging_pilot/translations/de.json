@@ -230,7 +230,8 @@
           "notify_plug_in_action": "Push mit Auswahl beim Einstecken",
           "notify_external": "Push: Fremdladung erkannt",
           "report_auto_monthly": "Monatsbericht (PDF) automatisch am 1. erstellen",
-          "notify_report": "Push: Monatsbericht erstellt"
+          "notify_report": "Push: Monatsbericht erstellt",
+          "notify_weekly": "Push: Wochenrückblick am Sonntagabend"
         }
       },
       "monitor": {
@@ -619,12 +620,20 @@
       "description": "Override aufheben"
     },
     "start_one_shot": {
-      "name": "Heute Nacht laden",
-      "description": "One-Shot für die nächste Nacht.",
+      "name": "Einmalige Abfahrt",
+      "description": "Heute Nacht laden – oder eine einmalige Abfahrt mit Datum und Ziel.",
       "fields": {
         "departure_time": {
           "name": "Abfahrtszeit",
           "description": "Abfahrtszeit"
+        },
+        "departure_at": {
+          "name": "Abfahrt (Datum und Uhrzeit)",
+          "description": "Abfahrt (Datum und Uhrzeit)"
+        },
+        "target_soc": {
+          "name": "Ziel-SOC",
+          "description": "Ziel-SOC"
         }
       }
     },

@@ -174,20 +174,32 @@ class OneShot:
 
     @classmethod
     def for_next(cls, plan: WeeklySchedule, now: datetime, tz: ZoneInfo,
-                 departure_time: time | None = None) -> OneShot:
-        """"Charge tonight": the next occurrence of the plan's departure time, any weekday."""
-        local = now.astimezone(tz)
-        at = departure_time or plan.departure_time
-        departure = _local(local.date(), at, tz)
-        if departure <= now:
-            departure = _local(local.date() + timedelta(days=1), at, tz)
+                 departure_time: time | None = None, *, departure_at: datetime | None = None,
+                 target_soc: int | None = None) -> OneShot:
+        """"Charge tonight": the next occurrence of the plan's departure time, any weekday.
+
+        ``departure_at`` sets a concrete date instead (e.g. Friday 07:00, holiday);
+        ``target_soc`` replaces the plan's target for this one departure.
+        """
+        if departure_at is not None:
+            departure = (departure_at if departure_at.tzinfo else
+                         departure_at.replace(tzinfo=tz)).astimezone(UTC)
+            if departure <= now or departure - now > timedelta(days=14):
+                raise ValueError("Die Abfahrt muss in den nächsten 14 Tagen liegen")
+        else:
+            local = now.astimezone(tz)
+            at = departure_time or plan.departure_time
+            departure = _local(local.date(), at, tz)
+            if departure <= now:
+                departure = _local(local.date() + timedelta(days=1), at, tz)
+        preferred = target_soc or plan.preferred_departure_soc_pct
         return cls(
             departure_at=departure,
             mode=plan.mode,
             charge_start_time=plan.charge_start_time,
             ready_buffer_min=plan.ready_buffer_min,
-            minimum_departure_soc_pct=plan.minimum_departure_soc_pct,
-            preferred_departure_soc_pct=plan.preferred_departure_soc_pct,
+            minimum_departure_soc_pct=min(plan.minimum_departure_soc_pct, preferred),
+            preferred_departure_soc_pct=preferred,
             climate=plan.climate,
         )
 

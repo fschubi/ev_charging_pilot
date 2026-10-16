@@ -105,6 +105,7 @@ OPT_EXTERNAL_PRICE = "external_price_eur_kwh"
 OPT_NOTIFY_EXTERNAL = "notify_external"
 OPT_REPORT_AUTO = "report_auto_monthly"
 OPT_NOTIFY_REPORT = "notify_report"
+OPT_NOTIFY_WEEKLY = "notify_weekly"
 OPT_MANUAL_TARGET_SOC = "manual_target_soc"
 OPT_LEARN_CHARGING = "learn_charging"
 OPT_OVMS_WAKEUP_COMMAND = "ovms_wakeup_command"
@@ -178,6 +179,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_NOTIFY_EXTERNAL: True,
     OPT_REPORT_AUTO: True,
     OPT_NOTIFY_REPORT: True,
+    OPT_NOTIFY_WEEKLY: True,
     # "Jetzt laden" stops here (100 = until the car is full / unplugged).
     OPT_MANUAL_TARGET_SOC: 100,
     # Learn kWh per % and the real charging power from the own sessions.
@@ -237,6 +239,7 @@ class NotifyCategories:
     plug_in_action: bool = True
     external: bool = True
     report: bool = True
+    weekly: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -360,6 +363,7 @@ class Settings:
                 plug_in_action=bool(o[OPT_NOTIFY_PLUG_IN]),
                 external=bool(o[OPT_NOTIFY_EXTERNAL]),
                 report=bool(o[OPT_NOTIFY_REPORT]),
+                weekly=bool(o[OPT_NOTIFY_WEEKLY]),
             ),
             odometer_source=OdometerSource(o[OPT_ODOMETER_SOURCE]),
             trip_merge_gap_min=int(o[OPT_TRIP_MERGE_GAP_MIN]),

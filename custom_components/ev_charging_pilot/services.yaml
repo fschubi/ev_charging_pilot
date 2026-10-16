@@ -39,6 +39,16 @@ start_one_shot:
     departure_time:
       selector:
         time:
+    departure_at:
+      selector:
+        datetime:
+    target_soc:
+      selector:
+        number:
+          min: 20
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
 cancel_one_shot:
 vehicle_wakeup:
 cp_wakeup:

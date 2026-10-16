@@ -90,6 +90,8 @@ GROUPS: list[dict[str, Any]] = [
         _b("report_auto_monthly", "Monatsbericht (PDF) am 1. erstellen"),
         _b("notify_report", "Benachrichtigen, wenn der Monatsbericht fertig ist",
            show_if={"report_auto_monthly": True}),
+        _b("notify_weekly", "Wochenrückblick am Sonntagabend",
+           help="kWh, Kosten, Ladungen, Weckvorgänge und Kilometer der letzten 7 Tage."),
     ]},
     {"id": "climate", "title": "Vorklimatisierung", "icon": "mdi:fan",
      "description": "Das Auto vor der Abfahrt heizen oder kühlen (braucht „Lesen & Schreiben“).",

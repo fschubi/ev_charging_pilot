@@ -122,3 +122,21 @@ def _upcoming(engine: Engine, window, at, span) -> tuple[str, str, str]:
         return (f"Lädt {span(window.start, e.finish_at)} auf {window.preferred_soc_pct} %",
                 detail, tone)
     return f"Lädt ab {at(window.start)} auf {window.preferred_soc_pct} %", detail, tone
+
+
+def _de(value: float, digits: int) -> str:
+    return f"{value:.{digits}f}".replace(".", ",")
+
+
+def weekly_text(week: dict[str, Any]) -> str:
+    """One line for the Sunday push."""
+    parts = [f"{_de(week['home_kwh'], 1)} kWh zuhause für {_de(week['cost_eur'], 2)} €",
+             f"{week['charges']} {'Ladung' if week['charges'] == 1 else 'Ladungen'}"]
+    if week["failed"]:
+        parts.append(f"{week['failed']} fehlgeschlagen")
+    parts.append(f"{week['wakeups']}× geweckt")
+    if week["external_kwh"]:
+        parts.append(f"{_de(week['external_kwh'], 1)} kWh unterwegs")
+    if week["km"] is not None:
+        parts.append(f"{week['km']} km")
+    return " · ".join(parts)

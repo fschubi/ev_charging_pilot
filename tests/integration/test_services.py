@@ -76,3 +76,45 @@ async def test_set_plans_service_and_validation(hass, entry, halo):
     assert entry.runtime_data.engine.override.expires_at is not None
     await hass.services.async_call(DOMAIN, "start_climate", {"minutes": "5"}, blocking=True)
     assert entry.runtime_data.engine.manual_climate.duration_min == 5
+
+
+async def test_system_check_switches_nothing_and_can_send_a_test_push(hass, entry, halo,
+                                                                      hass_ws_client):
+    entry = MockConfigEntry(domain=DOMAIN, version=2, minor_version=2,
+                            options={"mode": "live"},
+                            data={**entry.data, CONF_NOTIFY_SERVICE: "notify.mobile_app_phone"})
+    pushes = async_mock_service(hass, "notify", "mobile_app_phone")
+    switched = async_mock_service(hass, "homeassistant", "turn_on")
+    await _setup(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/run_system_check",
+                            "send_test_push": True})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    steps = {r["step"]: r for r in msg["result"]["results"]}
+    assert steps["charger"]["status"] == "ok"
+    assert steps["push"]["status"] == "ok"
+    assert steps["mode"]["status"] == "ok"
+    assert switched == []
+    assert any(p.data["title"].endswith("Testnachricht") for p in pushes)
+    assert any(e["code"] == "SYSTEM_CHECK" for e in entry.runtime_data.events)
+
+
+async def test_weekly_summary_is_pushed(hass, entry, halo):
+    entry = MockConfigEntry(domain=DOMAIN, version=2, minor_version=2,
+                            options={"mode": "dry_run"},
+                            data={**entry.data, CONF_NOTIFY_SERVICE: "notify.mobile_app_phone"})
+    pushes = async_mock_service(hass, "notify", "mobile_app_phone")
+    await _setup(hass, entry)
+    text = await entry.runtime_data.async_weekly_summary(dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert "kWh zuhause" in text
+    assert any("Wochenrückblick" in p.data["title"] for p in pushes)
+
+
+async def test_one_off_departure_service(hass, entry, halo):
+    await _setup(hass, entry)
+    await hass.services.async_call(DOMAIN, "start_one_shot", {
+        "departure_at": "2026-10-16 07:00:00", "target_soc": 100}, blocking=True)
+    shot = entry.runtime_data.engine.one_shot
+    assert shot is not None and shot.preferred_departure_soc_pct == 100

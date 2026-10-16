@@ -230,7 +230,8 @@
           "notify_plug_in_action": "Actionable push when plugging in",
           "notify_external": "Push: external charge detected",
           "report_auto_monthly": "Create the monthly PDF report on the 1st",
-          "notify_report": "Push: monthly report created"
+          "notify_report": "Push: monthly report created",
+          "notify_weekly": "Push: weekly summary on Sunday"
         }
       },
       "monitor": {
@@ -619,12 +620,20 @@
       "description": "Clear override"
     },
     "start_one_shot": {
-      "name": "Charge tonight",
-      "description": "One-shot for the next night.",
+      "name": "One-off departure",
+      "description": "Charge tonight – or a one-off departure with date and target.",
       "fields": {
         "departure_time": {
           "name": "Departure time",
           "description": "Departure time"
+        },
+        "departure_at": {
+          "name": "Departure (date and time)",
+          "description": "Departure (date and time)"
+        },
+        "target_soc": {
+          "name": "Target SOC",
+          "description": "Target SOC"
         }
       }
     },

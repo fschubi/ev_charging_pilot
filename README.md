@@ -84,6 +84,21 @@ für angemeldete Benutzer.
 **Fremdladen:** Ladungen außer Haus werden aus den Fahrzeugdaten erkannt (ohne das Auto
 zu wecken) und als *geschätzt* eingetragen; Kosten und Anbieter im Panel ergänzen.
 
+**Systemtest:** Panel → Diagnose → *Systemtest starten*. Prüft Wallbox, CP-Relais,
+Fahrzeugdaten, Befehlsweg, Push und Strompreis Schritt für Schritt – ohne etwas zu
+schalten und ohne das Auto zu wecken. Ideal vor dem Wechsel auf Live.
+
+**Einmalige Abfahrt:** Panel → Ladeplan → *Einmalige Abfahrt* (Datum, Uhrzeit, Ziel),
+z. B. für einen Urlaubstag; löscht sich nach der Abfahrt selbst.
+
+**Wochenrückblick:** Sonntag 18:00 per Push – kWh, Kosten, Ladungen, Weckvorgänge, km.
+
+**Energie-Dashboard:** `sensor.ev_pilot_home_energy_total` unter *Einstellungen →
+Dashboards → Energie → Einzelne Geräte* eintragen.
+
+**Lernende Prognose:** Nach drei Heimladungen rechnet der Plan mit der gemessenen
+Ladeleistung und der Netzenergie je Prozent; oberhalb von 90 % langsamer.
+
 **Standard-Dashboard** ohne Panel: [dashboards/ev_pilot_dashboard.yaml](dashboards/ev_pilot_dashboard.yaml).
 
 ## Entitäten (Auszug, §12)

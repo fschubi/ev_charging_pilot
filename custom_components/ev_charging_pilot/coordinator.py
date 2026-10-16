@@ -61,6 +61,7 @@ from .core.ports import CommandRecorder
 from .core.prices import PriceSlot
 from .core.replay import ReplayDataset, run_replay
 from .core.settings import OPT_MODE, RunMode, Settings
+from .core.summary import weekly_text
 from .ha_ports import HaPorts, PortError, shelly_deviations
 from .notifications import Notifier
 from .price_source import PriceFetcher
@@ -159,6 +160,8 @@ class ChargingCenter:
         self._unsubs.append(self.notifier.async_listen_actions(self._on_notification_action))
         self._unsubs.append(async_track_time_change(
             self.hass, self._on_report_time, hour=6, minute=0, second=0))
+        self._unsubs.append(async_track_time_change(
+            self.hass, self._on_weekly_time, hour=18, minute=0, second=0))
         self.entry.async_create_background_task(
             self.hass, self._drift_check(), f"{DOMAIN} drift check")
         self.entry.async_create_background_task(
@@ -250,6 +253,21 @@ class ChargingCenter:
     def _on_report_time(self, now: datetime) -> None:
         if now.astimezone(self.tz).day == 1 and self.settings.report_auto_monthly:
             self.hass.async_create_task(self.async_monthly_report(now))
+
+    @callback
+    def _on_weekly_time(self, now: datetime) -> None:
+        if now.astimezone(self.tz).weekday() == 6:
+            self.hass.async_create_task(self.async_weekly_summary(now))
+
+    async def async_weekly_summary(self, now: datetime) -> str:
+        """Sunday 18:00: the last seven days in one push."""
+        text = weekly_text(self.monitor.week(now))
+        self._log(Event(dt_util.utcnow(), Category.USER, Severity.INFO, "WEEKLY_SUMMARY",
+                        f"Wochenrückblick: {text}"))
+        if self.settings.notify.weekly:
+            await self.notifier.async_send(Notification("weekly", "normal",
+                                                        "Wochenrückblick", text))
+        return text
 
     async def async_monthly_report(self, now: datetime) -> dict[str, Any]:
         year, month = previous_month(now.astimezone(self.tz))
@@ -400,6 +418,12 @@ class ChargingCenter:
             self._schedule_save(monitor=monitor)
         if monitor:
             self.refresh_statistics(now)
+        self._notify_listeners()
+
+    def log_event(self, event: Event) -> None:
+        """Log from outside the tick (system check, …) and persist it."""
+        self._log(event)
+        self._schedule_save()
         self._notify_listeners()
 
     def _log(self, event: Event) -> None:

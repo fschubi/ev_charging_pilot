@@ -739,13 +739,18 @@ class Engine:
         self.override = None
         return self._user_event(now, "OVERRIDE_CLEARED", "Override aufgehoben")
 
-    def start_one_shot(self, now: datetime, departure_time: time | None = None) -> TickResult:
+    def start_one_shot(self, now: datetime, departure_time: time | None = None, *,
+                       departure_at: datetime | None = None,
+                       target_soc: int | None = None) -> TickResult:
         plan = self.plans[0] if self.plans else DEFAULT_PLAN
-        self.one_shot = OneShot.for_next(plan, now, self.tz, departure_time)
+        self.one_shot = OneShot.for_next(plan, now, self.tz, departure_time,
+                                         departure_at=departure_at, target_soc=target_soc)
         local = self.one_shot.departure_at.astimezone(self.tz)
         day = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")[local.weekday()]
-        return self._user_event(now, "ONE_SHOT_SET",
-                                f"Heute Nacht laden, Abfahrt {day} {local:%H:%M}")
+        what = "Einmalige Abfahrt" if departure_at else "Heute Nacht laden"
+        return self._user_event(
+            now, "ONE_SHOT_SET", f"{what}: Abfahrt {day} {local:%d.%m. %H:%M}, Ziel "
+            f"{self.one_shot.preferred_departure_soc_pct} %")
 
     def cancel_one_shot(self, now: datetime) -> TickResult:
         self.one_shot = None

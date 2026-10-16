@@ -81,6 +81,7 @@ from .core.settings import (
     OPT_NOTIFY_PLUG_REMINDER,
     OPT_NOTIFY_REPORT,
     OPT_NOTIFY_START_FAILED,
+    OPT_NOTIFY_WEEKLY,
     OPT_ODOMETER_SOURCE,
     OPT_OVMS_CLIMATE_COMMAND,
     OPT_OVMS_CLIMATE_STOP_COMMAND,
@@ -403,6 +404,7 @@ class EvChargingPilotOptionsFlow(OptionsFlow):
             d(OPT_NOTIFY_EXTERNAL): BOOL,
             d(OPT_REPORT_AUTO): BOOL,
             d(OPT_NOTIFY_REPORT): BOOL,
+            d(OPT_NOTIFY_WEEKLY): BOOL,
         })
 
     async def async_step_prices(self, user_input=None) -> ConfigFlowResult:

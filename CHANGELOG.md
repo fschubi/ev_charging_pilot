@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.0 – 2026-10-16
+
+- **Systemtest** (Panel → Diagnose): prüft Schritt für Schritt Wallbox-Freigabe,
+  Kabel/Leistung/Zähler, internen Zeitplan der Wallbox, CP-Relais und Shelly-Failsafe,
+  Fahrzeugdaten, Befehlsweg zum Auto (inkl. Weckbefehl – nicht ausgeführt), Push-Ziel und
+  Strompreis. Es wird nichts geschaltet und das Auto nie geweckt. Optional mit Test-Push.
+- **Einmalige Abfahrt mit Datum** (Panel → Ladeplan): z. B. Freitag 07:00 mit Ziel 100 %
+  für den Urlaub. Gilt zusätzlich zu den Wochenplänen und löscht sich nach der Abfahrt.
+  Auch per Service `start_one_shot` mit `departure_at` und `target_soc`.
+- **Wochenrückblick** am Sonntag um 18:00 per Push: kWh zuhause, Kosten, Ladungen,
+  Weckvorgänge, Fremdladungen und Kilometer der letzten 7 Tage (abschaltbar unter
+  Benachrichtigungen).
+- README: Energie-Dashboard mit `sensor.ev_pilot_home_energy_total`.
+
 ## 0.12.0 – 2026-10-16
 
 - **Die Prognose lernt aus den eigenen Ladungen:** nach drei Heimladungen ersetzen

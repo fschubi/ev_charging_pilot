@@ -50,3 +50,19 @@ def test_failure_and_dry_run_wording():
     world.run(900)
     assert text(world).startswith("Ladestart fehlgeschlagen | Bitte prüfen: Stecker")
     assert "Probebetrieb" in text(world, live=False)
+
+
+def test_weekly_summary_line():
+    from custom_components.ev_charging_pilot.core.summary import weekly_text
+
+    from .test_learning import session
+
+    world = World(datetime(2026, 10, 7, 12, 0, tzinfo=TZ))
+    for n in range(3):
+        s = session(n)
+        s.cost_eur = 2.5
+        world.engine.monitor.add_session(s)
+    week = world.engine.monitor.week(world.now)
+    assert week["charges"] == 3 and week["km"] is None
+    line = weekly_text(week)
+    assert line.startswith("25,2 kWh zuhause für 7,50 € · 3 Ladungen · 0× geweckt")

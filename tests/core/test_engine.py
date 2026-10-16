@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 
+import pytest
+
 from custom_components.ev_charging_pilot.core.executor import ExecState
 from custom_components.ev_charging_pilot.core.inputs import Inp
 from custom_components.ev_charging_pilot.core.model import Reason
@@ -267,3 +269,15 @@ def test_failed_start_push_offers_retry():
     world.engine.retry(world.now)
     world.run(300)
     assert world.engine.executor.state is ExecState.CHARGING
+
+
+def test_one_off_departure_with_date_and_target():
+    world = World(local(2026, 10, 13, 12, 0), configured=WITH_OVMS)
+    friday = datetime(2026, 10, 16, 7, 0)  # naive = local time, as the panel sends it
+    world.engine.start_one_shot(world.now, departure_at=friday, target_soc=100)
+    shot = world.engine.one_shot
+    assert shot.departure_at.astimezone(TZ).hour == 7
+    assert shot.preferred_departure_soc_pct == 100
+    assert shot.minimum_departure_soc_pct == 80
+    with pytest.raises(ValueError):
+        world.engine.start_one_shot(world.now, departure_at=datetime(2026, 11, 30, 7, 0))

@@ -317,9 +317,12 @@ const STYLE = `
   .socbar .fill { height: 100%; border-radius: 7px; background: var(--primary-color); opacity: .75; }
   .socbar i { position: absolute; top: -4px; bottom: -4px; width: 3px; background: var(--warning-color, #ffa600); border-radius: 2px; transform: translateX(-1px); }
   .pfoot { margin-top: 14px; display: flex; justify-content: flex-end; }
-  .pgrid .unitbox { width: max-content; }
+  label .unitbox { width: max-content; }
   @media (max-width: 420px) { .daychips { gap: 4px; } .day { min-width: 0; flex: 1; } }
   td.nowrap { white-space: nowrap; }
+  .checks { display: grid; gap: 8px; margin-top: 12px; }
+  .crow { display: flex; gap: 10px; align-items: flex-start; }
+  .crow .pill { min-width: 54px; text-align: center; margin-top: 2px; }
   .seg { display: inline-flex; border: 1px solid var(--divider-color); border-radius: 20px; overflow: hidden; }
   .seg button { background: none; border: none; padding: 8px 16px; font: inherit; color: var(--secondary-text-color); cursor: pointer; }
   .seg button.on { background: var(--primary-color); color: var(--text-primary-color, #fff); }
@@ -649,6 +652,18 @@ class EvPilotPanel extends HTMLElement {
         this._addOdometer(); break;
       case "event-filter":
         this._eventFilter = el.value; this._cache.events = null; this._refresh(); break;
+      case "system-check":
+        this._toast("Systemtest läuft …");
+        this._ws("run_system_check", { send_test_push: el.dataset.push === "1" })
+          .then((result) => { this._cache.check = result; this._render(true); })
+          .catch((err) => this._toast(`Fehler: ${err.message || err}`));
+        break;
+      case "oneshot-add": {
+        const data = this._form("oneshot");
+        if (!data.departure_at) { this._toast("Bitte Datum und Uhrzeit wählen"); break; }
+        this._call("start_one_shot", data, "Einmalige Abfahrt geplant");
+        break;
+      }
       case "events-reload":
         this._cache.events = null; this._refresh(); break;
       case "replay-run":
@@ -1126,6 +1141,7 @@ class EvPilotPanel extends HTMLElement {
           <input type="range" min="20" max="100" step="5" value="${manual}" data-action="manual-target"></label></div>
         <p class="hint">Gilt für „Jetzt laden“ (Cockpit, Push beim Einstecken, Service). Ohne Fahrzeugdaten wird bis zum Abstecken geladen.</p>
       </div>
+      ${this._oneShotCard(s, plans)}
       <div class="card wide"><h2>Kommende Ladefenster</h2>
         ${s.next_window ? timelineSvg(s) : ""}
         ${windows ? `<div class="scroll"><table><tr><th>Plan</th><th>Start</th><th>Abfahrt</th><th class="n">SOC erwartet</th><th>Art</th><th class="n">Kosten*</th></tr>${windows}</table></div>` : `<p class="sub">Kein Plan aktiv.</p>`}
@@ -1137,6 +1153,23 @@ class EvPilotPanel extends HTMLElement {
         <span class="sub">Änderungen werden automatisch gespeichert.</span>
       </div>
     </div>`;
+  }
+
+  _oneShotCard(s, plans) {
+    const shot = s.one_shot;
+    const tomorrow = new Date(Date.now() + 864e5);
+    const pad = (n) => String(n).padStart(2, "0");
+    const proposal = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T07:00`;
+    const target = (plans[0] && plans[0].preferred_departure_soc_pct) || 90;
+    return `<div class="card wide"><h2>Einmalige Abfahrt <span class="sub">· z. B. Urlaub, Termin</span></h2>
+      ${shot ? `<div class="row"><span>Geplant: <b>${dateTime(shot.departure_at)}</b> · Ziel ${shot.preferred_departure_soc_pct} %</span>
+        <button class="act" data-service="cancel_one_shot" data-label="Einmalige Abfahrt gelöscht">Löschen</button></div>` : ""}
+      <div class="form" data-form="oneshot">
+        <label>Abfahrt<input type="datetime-local" name="departure_at" value="${proposal}"></label>
+        <label>Laden bis<span class="unitbox"><input type="number" name="target_soc" min="20" max="100" step="5" value="${target}"><span>%</span></span></label>
+        <button class="act primary" data-action="oneshot-add">${shot ? "Ersetzen" : "Einplanen"}</button>
+      </div>
+      <p class="hint">Gilt zusätzlich zu den Wochenplänen und löscht sich nach der Abfahrt selbst.</p></div>`;
   }
 
   _home() {
@@ -1249,7 +1282,15 @@ class EvPilotPanel extends HTMLElement {
       <td class="n">${esc(v.value ?? "–")} ${esc(v.unit || "")}</td><td class="n">${v.age_s ?? "–"} s</td>
       <td><span class="pill ${QUALITY_CLASS[v.quality]}">${esc(v.quality)}</span></td></tr>`).join("");
     const sevClass = { critical: "bad", error: "bad", warning: "warn", info: "info", debug: "muted" };
+    const check = c.check;
+    const checkRows = check ? (check.results || []).map((r) => `<div class="crow"><span class="pill ${{ ok: "ok", info: "info", warn: "warn", bad: "bad" }[r.status]}">${{ ok: "ok", info: "Info", warn: "Hinweis", bad: "Fehler" }[r.status]}</span>
+        <div><b>${esc(r.title)}</b><div class="sub">${esc(r.detail)}</div></div></div>`).join("") : "";
     return `<div class="grid">
+      <div class="card wide"><h2>Systemtest</h2>
+        <p class="sub">Prüft Wallbox, CP-Relais, Fahrzeugdaten, Befehlsweg, Push und Strompreis – ohne etwas zu schalten und ohne das Auto zu wecken.</p>
+        <div class="actions"><button class="act primary" data-action="system-check">Systemtest starten</button>
+          <button class="act" data-action="system-check" data-push="1">… mit Test-Push</button></div>
+        ${check ? `<div class="checks">${checkRows}</div><div class="hint">Stand ${dateTime(check.at)}</div>` : ""}</div>
       <div class="card"><h2>Health</h2>
         <div class="big"><span class="pill ${{ HEALTHY: "ok", DEGRADED: "warn", ERROR: "bad" }[s.health.status]}">${esc(HEALTH_LABELS[s.health.status])}</span></div>
         ${s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("") || `<div class="sub">keine Auffälligkeiten</div>`}</div>

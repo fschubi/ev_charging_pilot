@@ -992,6 +992,9 @@ class EvPilotPanel extends HTMLElement {
         <div class="row"><span>Start</span><span>${w ? dateTime(w.start) : "–"}${w && w.fallback_without_soc ? " (fest, kein SOC)" : ""}</span></div>
         <div class="row"><span>Voraussichtlich fertig</span><span>${time(e.finish_at)}</span></div>
         <div class="row"><span>Kosten</span><span>${num(e.cost_eur, 2, "€")}</span></div>
+        <p class="hint">${s.learned && s.learned.active
+          ? `Gelernt aus ${s.learned.sessions} Ladungen: ${s.learned.power_kw ? num(s.learned.power_kw, 1, "kW") : "Nennleistung"}${s.learned.grid_kwh_per_pct ? ` · ${num(s.learned.grid_kwh_per_pct, 2, "kWh")} je %` : ""}`
+          : "Die Prognose lernt aus den eigenen Ladungen (ab 3 Ladungen genauer)."}</p>
       </div>
       <div class="card">
         <h2>System</h2>

@@ -21,6 +21,7 @@ from .executor import ExecState, Executor, ExecutorConfig, Snapshot, StepResult
 from .external import ExternalChargeDetector
 from .health import Health, HealthInputs, HealthStatus, evaluate
 from .inputs import Inp, RawState, to_value
+from .learning import LearnedCharging, learn
 from .model import Category, ClimateRequest, Desired, Event, Quality, Reason, Severity, Value
 from .monitor import Monitor
 from .planner import (
@@ -167,6 +168,8 @@ class Engine:
         self._was_conflict = False
         self._conflict_since: datetime | None = None
         self._target_hold: str | None = None
+        self.learned = LearnedCharging()
+        self._learned_key: tuple[int, str | None] | None = None
         self.plug_offer_at: datetime | None = None
         self.last_unplug_at: datetime | None = None
         self.shadow = False
@@ -330,13 +333,28 @@ class Engine:
 
     def _params(self) -> VehicleParams:
         s = self.settings
-        return VehicleParams(
+        nominal = VehicleParams(
             usable_capacity_kwh=s.usable_capacity_kwh,
             charge_efficiency=s.charge_efficiency,
             halo_limit_kw=s.max_power_kw,
             vehicle_charger_kw=s.vehicle_charger_kw,
             grid_limit_kw=s.grid_limit_kw,
         )
+        learned = self._learn(nominal)
+        if not s.learn_charging or not learned.active:
+            return nominal
+        return replace(nominal, learned_kwh_per_pct=learned.grid_kwh_per_pct,
+                       learned_power_kw=learned.power_kw)
+
+    def _learn(self, nominal: VehicleParams) -> LearnedCharging:
+        """Re-learn only when a session was added (cheap enough, but not every tick)."""
+        sessions = self.monitor.data.sessions
+        key = (len(sessions), sessions[-1].session_id if sessions else None)
+        if key != self._learned_key:
+            self._learned_key = key
+            self.learned = learn(sessions, nominal_kwh_per_pct=nominal.kwh_per_pct,
+                                 nominal_power_kw=nominal.expected_power_kw)
+        return self.learned
 
     def _expire(self, now: datetime, cable: bool | None) -> None:
         if self.override and self.override.expired(now, cable is not False, self.soc):

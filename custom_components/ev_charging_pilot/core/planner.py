@@ -54,13 +54,29 @@ class VehicleParams:
     # the plan's "ready before departure".
     reserve_share: float = 0.1
     reserve_min_minutes: int = 5
+    # Measured on the car's own sessions (core.learning); None = nominal values.
+    learned_kwh_per_pct: float | None = None
+    learned_power_kw: float | None = None
+    # Near full the battery accepts less power. Above this SOC the planner
+    # assumes ``taper_factor`` of the normal power (conservative: starts earlier).
+    taper_from_pct: float = 90.0
+    taper_factor: float = 0.6
 
     @property
     def expected_power_kw(self) -> float:
         limits = [self.halo_limit_kw, self.vehicle_charger_kw]
         if self.grid_limit_kw is not None:
             limits.append(self.grid_limit_kw)
+        if self.learned_power_kw is not None:
+            limits.append(self.learned_power_kw)
         return max(0.1, min(limits))
+
+    @property
+    def kwh_per_pct(self) -> float:
+        """Grid energy for one SOC percent, losses included."""
+        if self.learned_kwh_per_pct is not None:
+            return self.learned_kwh_per_pct
+        return self.usable_capacity_kwh / self.charge_efficiency / 100
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,10 +304,26 @@ def charge_duration(
     soc_pct: float, target_pct: float, params: VehicleParams
 ) -> tuple[float, timedelta]:
     """Grid energy and time needed to get from ``soc_pct`` to ``target_pct``."""
-    missing = max(0.0, target_pct - soc_pct) / 100.0
-    needed_kwh = missing * params.usable_capacity_kwh / params.charge_efficiency
-    hours = needed_kwh / params.expected_power_kw
+    taper = params.taper_from_pct
+    below = max(0.0, min(target_pct, taper) - soc_pct)
+    above = max(0.0, target_pct - max(soc_pct, taper))
+    needed_kwh = (below + above) * params.kwh_per_pct
+    power = params.expected_power_kw
+    hours = (below + above / params.taper_factor) * params.kwh_per_pct / power
     return needed_kwh, timedelta(hours=hours)
+
+
+def soc_after(soc_pct: float, hours: float, params: VehicleParams) -> float:
+    """SOC after charging ``hours`` from ``soc_pct`` (inverse of :func:`charge_duration`)."""
+    pct_per_hour = params.expected_power_kw / params.kwh_per_pct
+    taper = params.taper_from_pct
+    if soc_pct < taper:
+        to_taper = (taper - soc_pct) / pct_per_hour
+        if hours <= to_taper:
+            return soc_pct + hours * pct_per_hour
+        hours -= to_taper
+        soc_pct = taper
+    return min(100.0, soc_pct + hours * pct_per_hour * params.taper_factor)
 
 
 def _estimate(
@@ -307,10 +339,8 @@ def _estimate(
     soc_pct = float(soc.normalized)
     needed_kwh, duration = charge_duration(soc_pct, preferred_pct, params)
     hours = max(0.0, (ready_at - charge_from).total_seconds() / 3600)
-    gained_pct = hours * params.expected_power_kw * params.charge_efficiency \
-        / params.usable_capacity_kwh * 100
     # The target-SOC shutdown stops charging at the preferred SOC.
-    expected = min(100.0, soc_pct + gained_pct, max(soc_pct, float(preferred_pct)))
+    expected = min(soc_after(soc_pct, hours, params), max(soc_pct, float(preferred_pct)))
     return Estimate(
         soc_pct=soc_pct,
         needed_kwh=round(needed_kwh, 2),

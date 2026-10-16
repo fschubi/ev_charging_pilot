@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0 – 2026-10-16
+
+- **Die Prognose lernt aus den eigenen Ladungen:** nach drei Heimladungen ersetzen
+  gemessene Werte die Nennwerte – Netzenergie je Prozent Ladestand (inkl. Verluste) und die
+  tatsächliche Ladeleistung (aus den 15-Minuten-Werten). Ausreißer (falsche SOC-Sprünge,
+  Fehlstarts) zählen nicht. Abschaltbar unter Einstellungen → Fahrzeug und Wallbox.
+  Das Cockpit zeigt unter „Prognose“, woraus gelernt wurde.
+- **Langsameres Laden kurz vor voll berücksichtigt:** oberhalb von 90 % rechnet der Plan
+  mit 60 % der Ladeleistung. Ein Ziel von 100 % startet dadurch früher und ist zur Abfahrt
+  wirklich fertig.
+
 ## 0.11.0 – 2026-10-16
 
 - **Cockpit sagt in einem Satz, was passiert:** z. B. „Lädt in der günstigsten Zeit

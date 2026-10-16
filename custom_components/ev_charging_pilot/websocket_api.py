@@ -103,6 +103,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
         "automation_enabled": engine.automation_enabled,
         "summary": summary(engine, now, center.mode is RunMode.LIVE),
         "target_held": engine.target_held,
+        "learned": engine.learned.as_dict(),
         "executor": {
             "state": str(engine.executor.state) if engine.executor.state else None,
             "since": _iso(engine.executor.state_since),

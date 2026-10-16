@@ -106,6 +106,7 @@ OPT_NOTIFY_EXTERNAL = "notify_external"
 OPT_REPORT_AUTO = "report_auto_monthly"
 OPT_NOTIFY_REPORT = "notify_report"
 OPT_MANUAL_TARGET_SOC = "manual_target_soc"
+OPT_LEARN_CHARGING = "learn_charging"
 OPT_OVMS_WAKEUP_COMMAND = "ovms_wakeup_command"
 OPT_OVMS_CLIMATE_COMMAND = "ovms_climate_command"
 OPT_OVMS_CLIMATE_STOP_COMMAND = "ovms_climate_stop_command"
@@ -179,6 +180,8 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_NOTIFY_REPORT: True,
     # "Jetzt laden" stops here (100 = until the car is full / unplugged).
     OPT_MANUAL_TARGET_SOC: 100,
+    # Learn kWh per % and the real charging power from the own sessions.
+    OPT_LEARN_CHARGING: True,
     # Ready-made OVMS v3 shell commands. Nothing is sent until the user switches the
     # vehicle access to "read & write" (ovms_enabled) – §1.2.
     # "auto": "xsq wakeup" on a smart 453 (OVMS docs), the generic "wakeup" otherwise.
@@ -285,6 +288,7 @@ class Settings:
     external_price_eur_kwh: float = 0.59
     report_auto_monthly: bool = True
     manual_target_soc: int = 100
+    learn_charging: bool = True
     ovms_wakeup_command: str = "auto"
     ovms_climate_command: str = "homelink {level}"
     ovms_climate_stop_command: str = "climatecontrol off"
@@ -373,6 +377,7 @@ class Settings:
             external_price_eur_kwh=float(o[OPT_EXTERNAL_PRICE]),
             report_auto_monthly=bool(o[OPT_REPORT_AUTO]),
             manual_target_soc=int(o[OPT_MANUAL_TARGET_SOC]),
+            learn_charging=bool(o[OPT_LEARN_CHARGING]),
             ovms_wakeup_command=str(o[OPT_OVMS_WAKEUP_COMMAND] or ""),
             ovms_climate_command=str(o[OPT_OVMS_CLIMATE_COMMAND] or ""),
             ovms_climate_stop_command=str(o[OPT_OVMS_CLIMATE_STOP_COMMAND] or ""),

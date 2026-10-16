@@ -695,7 +695,7 @@ class Engine:
         }
 
     def restore(self, data: dict[str, Any]) -> None:
-        if data.get("plans"):
+        if data.get("plans") is not None:  # an empty list means "all plans deleted"
             self.plans = [WeeklySchedule.from_dict(p) for p in data["plans"]]
         self.override = ManualOverride.from_dict(data["override"]) if data.get("override") \
             else None

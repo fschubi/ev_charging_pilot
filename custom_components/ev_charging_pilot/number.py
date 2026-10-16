@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ChargingConfigEntry
+from .core.planner import DEFAULT_PLAN
 from .core.settings import OPT_MANUAL_TARGET_SOC
 from .entity import ChargingEntity
 
@@ -41,7 +42,7 @@ class DepartureSocNumber(ChargingEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         field = FIELDS[self._attr_translation_key]
         changes = {field: int(value)}
-        plan = self.engine.plans[0]
+        plan = self.engine.plans[0] if self.engine.plans else DEFAULT_PLAN
         # Keep minimum ≤ preferred whichever side is moved.
         if field == "minimum_departure_soc_pct" and value > plan.preferred_departure_soc_pct:
             changes["preferred_departure_soc_pct"] = int(value)

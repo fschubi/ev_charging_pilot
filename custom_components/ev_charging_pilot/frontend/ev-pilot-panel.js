@@ -477,6 +477,10 @@ class EvPilotPanel extends HTMLElement {
   }
 
   _setView(view) {
+    if (this._settingsDraft && view !== this._view
+        && !confirm("Geänderte Einstellungen sind noch nicht gespeichert. Verwerfen?")) return;
+    this._settingsDraft = null;
+    if (this._planSaveTimer) this._savePlans();  // flush a pending plan change
     this._view = view;
     localStorage.setItem("ev-pilot-view", view);
     this._cache = {};
@@ -555,6 +559,7 @@ class EvPilotPanel extends HTMLElement {
         } else {
           plan[field] = el.value;
         }
+        this._queuePlanSave();
         break;
       }
       case "plan-add":
@@ -562,13 +567,13 @@ class EvPilotPanel extends HTMLElement {
           weekdays: ["sat", "sun"], mode: "departure_based", charge_start_time: "03:00",
           departure_time: "09:00", ready_buffer_min: 30, minimum_departure_soc_pct: 80,
           preferred_departure_soc_pct: 90, climate: "auto" });
-        this._render(); break;
-      case "plan-delete":
-        plans.splice(Number(el.dataset.index), 1); this._render(); break;
-      case "plan-reset":
-        this._plans = null; this._refresh(); break;
-      case "plan-save":
-        this._savePlans(); break;
+        this._savePlans("Plan hinzugefügt"); break;
+      case "plan-delete": {
+        const plan = plans[Number(el.dataset.index)];
+        if (!confirm(`Plan „${plan.name}“ löschen?`)) break;
+        plans.splice(Number(el.dataset.index), 1);
+        this._savePlans(`Plan „${plan.name}“ gelöscht`); break;
+      }
       case "external-add":
         this._addExternal(); break;
       case "odometer-add":
@@ -622,11 +627,20 @@ class EvPilotPanel extends HTMLElement {
     }
   }
 
-  async _savePlans() {
+  /** Plan edits save themselves shortly after the last change – no save button to forget. */
+  _queuePlanSave() {
+    clearTimeout(this._planSaveTimer);
+    this._planSaveTimer = setTimeout(() => this._savePlans(), 800);
+  }
+
+  async _savePlans(message = "Ladeplan gespeichert") {
+    clearTimeout(this._planSaveTimer);
+    this._planSaveTimer = null;
+    if (!this._plans) return;
     try {
       const result = await this._ws("set_plans", { plans: this._plans });
-      this._plans = result.plans;
-      this._toast("Ladepläne gespeichert");
+      if (this._view === "plan") this._plans = result.plans;
+      this._toast(message);
       await this._refresh();
     } catch (err) {
       this._toast(`Fehler: ${err.message || err}`);
@@ -1022,8 +1036,7 @@ class EvPilotPanel extends HTMLElement {
       ${cards}
       <div class="card wide actions">
         <button class="act" data-action="plan-add">Plan hinzufügen</button>
-        <button class="act primary" data-action="plan-save">Speichern</button>
-        <button class="act" data-action="plan-reset">Verwerfen</button>
+        <span class="sub">Änderungen werden automatisch gespeichert.</span>
       </div>
     </div>`;
   }

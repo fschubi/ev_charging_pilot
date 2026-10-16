@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.2 – 2026-10-16
+
+- **Behoben: gelöschte Ladepläne kamen nach einem Neustart zurück.** Eine leere Planliste
+  wurde beim Start als „nichts gespeichert“ gelesen und durch den Standardplan ersetzt.
+- **Ladepläne speichern sich jetzt automatisch** kurz nach jeder Änderung; „Plan löschen“
+  fragt nach und löscht sofort. Es gibt keinen Speichern-Knopf mehr, den man vergessen
+  kann (vorher gingen Änderungen beim Reiterwechsel stillschweigend verloren).
+- Einstellungen: Wechsel des Reiters mit ungespeicherten Änderungen fragt nach.
+- „Fahrzeug: Lesen & Schreiben“ ließ sich in 0.9.0 nicht ausschalten (Speichern blieb
+  gesperrt) – seit 0.9.1 behoben, jetzt mit Neustart-Test abgesichert.
+- Regler „Mindest-/Ziel-SOC“ (Entitäten) stürzen ohne Plan nicht mehr ab, sondern legen
+  den Standardplan an.
+
 ## 0.9.1 – 2026-10-16
 
 - **Einstellungen neu aufgebaut:** aufklappbare Gruppen mit Symbol und Kurzbeschreibung,

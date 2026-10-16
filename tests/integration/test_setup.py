@@ -160,3 +160,32 @@ async def test_unload_and_reload(hass, entry, halo):
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
+
+
+async def test_settings_and_deleted_plans_survive_restart(hass, entry, halo, hass_ws_client):
+    """Regression: deleting every plan and switching vehicle access off must stick."""
+    await _setup(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/set_settings",
+                            "values": {"ovms_enabled": True}})
+    assert (await client.receive_json())["success"]
+    await hass.async_block_till_done()
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/set_settings",
+                            "values": {"ovms_enabled": False}})
+    assert (await client.receive_json())["success"]
+    await hass.async_block_till_done()
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/set_plans", "plans": []})
+    assert (await client.receive_json())["result"]["plans"] == []
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    center = entry.runtime_data
+    assert center.engine.plans == []
+    assert center.settings.ovms_enabled is False
+    assert hass.states.get("number.ev_pilot_minimum_departure_soc").state == "unknown"
+    # moving the slider without any plan creates the default plan instead of crashing
+    await hass.services.async_call(
+        "number", "set_value",
+        {"entity_id": "number.ev_pilot_minimum_departure_soc", "value": 60}, blocking=True)
+    assert center.engine.plans[0].minimum_departure_soc_pct == 60

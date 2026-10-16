@@ -43,7 +43,7 @@ PLAN_SCHEMA = vol.Schema({
 
 SCHEMAS: dict[str, vol.Schema] = {
     "start_charging": vol.Schema({
-        vol.Optional("mode", default="until_unplugged"): vol.In(
+        vol.Optional("mode"): vol.In(
             [m.value for m in OverrideMode if m is not OverrideMode.STOP]),
         **OVERRIDE_SCHEMA,
     }),
@@ -138,6 +138,8 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
     name = call.service
     try:
         match name:
+            case "start_charging" if "mode" not in data:
+                await center.async_run(engine.charge_now)
             case "start_charging" | "set_override":
                 mode = OverrideMode(data["mode"])
                 await center.async_run(lambda now: engine.set_override(

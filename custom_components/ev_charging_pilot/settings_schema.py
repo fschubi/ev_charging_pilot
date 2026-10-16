@@ -46,8 +46,13 @@ GROUPS: list[dict[str, Any]] = [
         _f("vehicle_name", "Name deines Fahrzeugs", "text",
            help="Erscheint als „<Name> Charging Pilot“ in Seitenleiste, Panel, Gerät, "
                 "Push und PDF."),
+        _b("ovms_enabled", "Fahrzeug: Lesen & Schreiben (aus = nur lesen)",
+           help="Aus: Fahrzeugdaten werden nur gelesen. An: Wakeup und Vorklimatisierung "
+                "werden ans Auto gesendet – der Befehlsweg (OVMS-Integration) wird "
+                "automatisch erkannt. Erst einschalten, wenn du es testen willst."),
     ]},
     {"id": "charging", "title": "Laden", "fields": [
+        _n("manual_target_soc", "Ziel bei „Jetzt laden“ (100 = voll)", 20, 100, 5, "%"),
         _s("mode", "Betriebsmodus", {RunMode.DRY_RUN: "Dry-Run (nur protokollieren)",
                                      RunMode.LIVE: "Live (schaltet Hardware)",
                                      RunMode.REPLAY: "Replay (keine Hardware)"},
@@ -63,9 +68,6 @@ GROUPS: list[dict[str, Any]] = [
     ]},
     {"id": "wakeup", "title": "Wakeup und CP", "fields": [
         _n("start_detection_wait_s", "Wartezeit bis Wakeup", 15, 900, 5, "s"),
-        _b("ovms_enabled", "Befehle ans Fahrzeug erlauben (OVMS-Wakeup, Klima)",
-           help="Nur einschalten, wenn die Befehle am Auto getestet sind. Das Lesen der "
-                "Fahrzeugdaten (SOC, SOH …) funktioniert auch ohne."),
         _n("ovms_wait_s", "Wartezeit nach OVMS-Wakeup", 10, 600, 5, "s"),
         _b("cp_fallback_enabled", "CP-Puls als Rückfall"),
         _n("post_cp_wait_s", "Wartezeit nach CP-Puls", 15, 900, 5, "s"),
@@ -150,8 +152,9 @@ GROUPS: list[dict[str, Any]] = [
         _n("external_price_eur_kwh", "Angenommener Preis für erkannte Ladungen", 0, 2, 0.01,
            "€/kWh", help="Wird bei automatisch erkannten Ladungen vorgeschlagen."),
     ]},
-    {"id": "ovms", "title": "OVMS-Befehle", "fields": [
-        _f("ovms_wakeup_command", "Wakeup-Befehl (leer = gesperrt)", "text"),
+    {"id": "ovms", "title": "OVMS-Befehle (nur für Experten)", "fields": [
+        _f("ovms_wakeup_command", "Wakeup-Befehl", "text",
+           help="Vorbelegt mit den OVMS-v3-Standardbefehlen – normalerweise nichts ändern."),
         _f("ovms_climate_command", "Klimabefehl ({level} = 1/2/3)", "text"),
         _f("ovms_climate_stop_command", "Klima-Stopp-Befehl", "text"),
     ]},

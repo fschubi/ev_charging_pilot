@@ -56,7 +56,6 @@ from .core.engine import Engine, EngineConfig, Notification, TickResult
 from .core.inputs import Inp, RawState
 from .core.model import Category, Event, Severity
 from .core.monitor import Monitor
-from .core.planner import OverrideMode
 from .core.ports import CommandRecorder
 from .core.prices import PriceSlot
 from .core.replay import ReplayDataset, run_replay
@@ -95,6 +94,7 @@ class ChargingCenter:
             shelly_host=self.conf.get(CONF_SHELLY_HOST),
             ovms_topic=self.conf.get(CONF_OVMS_COMMAND_TOPIC),
             ovms_script=self.conf.get(CONF_OVMS_COMMAND_SCRIPT),
+            ovms_entity=self.conf.get(Inp.OVMS_SOC.value),
         )
         self.monitor = Monitor(self.tz)
         self.engine = Engine(
@@ -288,6 +288,7 @@ class ChargingCenter:
             return
         async with self._lock:
             now = dt_util.utcnow()
+            self.engine.set_vehicle_commands(self.ports.ovms_command_available)
             result = self.engine.tick(now, self._raw_states())
             self._sample_history(now)
             await self._handle(result)
@@ -369,8 +370,7 @@ class ChargingCenter:
 
     async def _on_notification_action(self, action: str) -> None:
         if action == ACTION_NOW:
-            await self.async_run(lambda now: self.engine.set_override(
-                now, OverrideMode.UNTIL_UNPLUGGED))
+            await self.async_run(self.engine.charge_now)
         elif action == ACTION_TONIGHT:
             await self.async_run(self.engine.start_one_shot)
         elif action == ACTION_PLAN:

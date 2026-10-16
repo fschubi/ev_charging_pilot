@@ -106,6 +106,7 @@ OPT_EXTERNAL_PRICE = "external_price_eur_kwh"
 OPT_NOTIFY_EXTERNAL = "notify_external"
 OPT_REPORT_AUTO = "report_auto_monthly"
 OPT_NOTIFY_REPORT = "notify_report"
+OPT_MANUAL_TARGET_SOC = "manual_target_soc"
 OPT_OVMS_WAKEUP_COMMAND = "ovms_wakeup_command"
 OPT_OVMS_CLIMATE_COMMAND = "ovms_climate_command"
 OPT_OVMS_CLIMATE_STOP_COMMAND = "ovms_climate_stop_command"
@@ -178,10 +179,13 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_NOTIFY_EXTERNAL: True,
     OPT_REPORT_AUTO: True,
     OPT_NOTIFY_REPORT: True,
-    # OVMS commands stay unused until ovms_enabled – never send untested ones (§1.2).
-    OPT_OVMS_WAKEUP_COMMAND: "",
+    # "Jetzt laden" stops here (100 = until the car is full / unplugged).
+    OPT_MANUAL_TARGET_SOC: 100,
+    # Ready-made OVMS v3 shell commands. Nothing is sent until the user switches the
+    # vehicle access to "read & write" (ovms_enabled) – §1.2.
+    OPT_OVMS_WAKEUP_COMMAND: "wakeup",
     OPT_OVMS_CLIMATE_COMMAND: "homelink {level}",
-    OPT_OVMS_CLIMATE_STOP_COMMAND: "",
+    OPT_OVMS_CLIMATE_STOP_COMMAND: "climatecontrol off",
 }
 
 
@@ -282,9 +286,10 @@ class Settings:
     external_soc_jump_pct: float = 5
     external_price_eur_kwh: float = 0.59
     report_auto_monthly: bool = True
-    ovms_wakeup_command: str = ""
+    manual_target_soc: int = 100
+    ovms_wakeup_command: str = "wakeup"
     ovms_climate_command: str = "homelink {level}"
-    ovms_climate_stop_command: str = ""
+    ovms_climate_stop_command: str = "climatecontrol off"
 
     @classmethod
     def from_options(cls, options: dict[str, Any]) -> Settings:
@@ -370,6 +375,7 @@ class Settings:
             external_soc_jump_pct=float(o[OPT_EXTERNAL_SOC_JUMP]),
             external_price_eur_kwh=float(o[OPT_EXTERNAL_PRICE]),
             report_auto_monthly=bool(o[OPT_REPORT_AUTO]),
+            manual_target_soc=int(o[OPT_MANUAL_TARGET_SOC]),
             ovms_wakeup_command=str(o[OPT_OVMS_WAKEUP_COMMAND] or ""),
             ovms_climate_command=str(o[OPT_OVMS_CLIMATE_COMMAND] or ""),
             ovms_climate_stop_command=str(o[OPT_OVMS_CLIMATE_STOP_COMMAND] or ""),

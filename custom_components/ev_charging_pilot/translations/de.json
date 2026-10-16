@@ -157,7 +157,7 @@
         "title": "Wakeup und CP",
         "data": {
           "start_detection_wait_s": "Wartezeit bis Wakeup",
-          "ovms_enabled": "Befehle ans Fahrzeug erlauben (OVMS-Wakeup, Klima) – erst nach Test",
+          "ovms_enabled": "Fahrzeug: Lesen & Schreiben (aus = nur lesen)",
           "ovms_wait_s": "Wartezeit nach OVMS-Wakeup",
           "cp_fallback_enabled": "CP-Puls als Rückfall",
           "post_cp_wait_s": "Wartezeit nach CP-Puls",
@@ -260,7 +260,7 @@
       "ovms_commands": {
         "title": "OVMS-Befehle",
         "data": {
-          "ovms_wakeup_command": "OVMS-Wakeup-Befehl (leer = gesperrt)",
+          "ovms_wakeup_command": "OVMS-Wakeup-Befehl (Standard: wakeup)",
           "ovms_climate_command": "OVMS-Klimabefehl ({level} = 1/2/3, {minutes})",
           "ovms_climate_stop_command": "OVMS-Klima-Stopp-Befehl"
         },
@@ -550,6 +550,9 @@
       }
     },
     "number": {
+      "manual_target_soc": {
+        "name": "Ziel bei „Jetzt laden“"
+      },
       "minimum_departure_soc": {
         "name": "Mindest-SOC bei Abfahrt"
       },

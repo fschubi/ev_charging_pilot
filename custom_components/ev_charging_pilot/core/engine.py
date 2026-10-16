@@ -319,6 +319,15 @@ class Engine:
         self._latched = {k: v for k, v in self._latched.items() if k in keep}
         self.executor.prune_expired(now)
 
+    def set_vehicle_commands(self, available: bool) -> None:
+        """The command path may appear later (OVMS integration starts after us)."""
+        if available == self.config.ovms_command_available:
+            return
+        self.config = replace(self.config, ovms_command_available=available)
+        self.executor.config = ExecutorConfig.from_settings(
+            self.settings, cp_available=self.config.cp_configured
+            and self.config.cp_pulse_available, ovms_port=available)
+
     # -------------------------------------------------------------- prices
 
     def set_prices(self, slots: list[PriceSlot]) -> None:
@@ -600,6 +609,13 @@ class Engine:
         self.override = ManualOverride(mode, now, expires_at, target_soc, source)
         return self._user_event(now, "OVERRIDE_SET", f"Override {mode}", mode=str(mode),
                                 source=str(source))
+
+    def charge_now(self, now: datetime) -> TickResult:
+        """"Jetzt laden": up to the manual target SOC, or until unplugged without one."""
+        target = self.settings.manual_target_soc
+        if target < 100 and self.config.ovms_configured:
+            return self.set_override(now, OverrideMode.UNTIL_SOC, target_soc=target)
+        return self.set_override(now, OverrideMode.UNTIL_UNPLUGGED)
 
     def clear_override(self, now: datetime) -> TickResult:
         self.override = None

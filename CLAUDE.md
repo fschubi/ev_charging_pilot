@@ -122,7 +122,10 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 - Gates §15 sind real zu erfüllen (Messungen, Dry-Run-Nächte, Feldtests) – Code ist fertig.
 - `docs/messungen.md` ausfüllen → Defaults in `core/settings.py` anpassen.
-- OVMS: Datenweg (§16 #7) und echte Entity-Namen/Befehle erst nach Lieferung.
+- OVMS ist bei Frank eingebunden (HACS „OVMS“, Domain `ovms`). Befehlsweg wird automatisch
+  erkannt (`ovms.send_command` + `vehicle_id` aus dem OVMS-Config-Eintrag, `ha_ports.ovms_path`);
+  freigegeben nur mit Option `ovms_enabled` = „Lesen & Schreiben“ (Default aus).
+- Ladeziele: je Plan (Ladeplan-Reiter) + `manual_target_soc` für „Jetzt laden“ (live, ohne Reload).
 - RFID (§5.4): Variante C umgesetzt (Buttons/Push); Variante A nach Messung M6.
 - Tibber, PDF-Berichte und Fremdladeerkennung wurden auf Franks Wunsch aus „Später“
   vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.

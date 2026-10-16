@@ -75,30 +75,16 @@ def _window(window: ChargeWindow | None) -> dict[str, Any] | None:
 
 
 def vehicle_link(center: ChargingCenter) -> dict[str, Any]:
-    """Reading vehicle data and sending commands are separate – show both (§1.2)."""
+    """Vehicle access: data is always read; commands only with "read & write" (§1.2)."""
     soc = center.engine.soc
-    settings = center.settings
-    path = ("mqtt" if center.ports.ovms_topic else "script" if center.ports.ovms_script
-            else None)
-
-    def blocked(command: str) -> list[str]:
-        reasons = []
-        if not settings.ovms_enabled:
-            reasons.append("switch_off")
-        if path is None:
-            reasons.append("no_path")
-        if not command:
-            reasons.append("no_command")
-        return reasons
-
+    path = center.ports.ovms_path
     return {
         "data_configured": Inp.OVMS_SOC in center.entity_ids,
         "data_quality": str(soc.quality),
         "data_updated_at": _iso(soc.updated_at),
-        "commands_enabled": settings.ovms_enabled,
+        "read_write": center.settings.ovms_enabled,
         "command_path": path,
-        "wakeup_blocked": blocked(settings.ovms_wakeup_command),
-        "climate_blocked": blocked(settings.ovms_climate_command),
+        "commands_ready": center.settings.ovms_enabled and path is not None,
     }
 
 
@@ -177,6 +163,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             "odometer_source": str(center.settings.odometer_source),
             "price_eur_kwh": center.settings.price_history[-1].eur_per_kwh,
             "vehicle_charger_kw": center.settings.vehicle_charger_kw,
+            "manual_target_soc": center.settings.manual_target_soc,
             "max_power_kw": center.settings.max_power_kw,
         },
         "history": [list(item) for item in center.history],

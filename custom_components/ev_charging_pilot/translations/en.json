@@ -157,7 +157,7 @@
         "title": "Wakeup and CP",
         "data": {
           "start_detection_wait_s": "Wait before wakeup",
-          "ovms_enabled": "Allow commands to the vehicle (OVMS wakeup, climate) – only after testing",
+          "ovms_enabled": "Vehicle: read & write (off = read only)",
           "ovms_wait_s": "Wait after OVMS wakeup",
           "cp_fallback_enabled": "CP pulse as fallback",
           "post_cp_wait_s": "Wait after CP pulse",
@@ -550,6 +550,9 @@
       }
     },
     "number": {
+      "manual_target_soc": {
+        "name": "Target for charge now"
+      },
       "minimum_departure_soc": {
         "name": "Minimum departure SOC"
       },

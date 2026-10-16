@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ChargingConfigEntry
+from .core.settings import OPT_MANUAL_TARGET_SOC
 from .entity import ChargingEntity
 
 FIELDS = {
@@ -20,7 +21,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ChargingConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     center = entry.runtime_data
-    async_add_entities(DepartureSocNumber(center, key) for key in FIELDS)
+    async_add_entities([*(DepartureSocNumber(center, key) for key in FIELDS),
+                        ManualTargetNumber(center, "manual_target_soc")])
 
 
 class DepartureSocNumber(ChargingEntity, NumberEntity):
@@ -46,3 +48,23 @@ class DepartureSocNumber(ChargingEntity, NumberEntity):
         if field == "preferred_departure_soc_pct" and value < plan.minimum_departure_soc_pct:
             changes["minimum_departure_soc_pct"] = int(value)
         await self.center.async_run(lambda now: self.engine.update_primary_plan(now, **changes))
+
+
+class ManualTargetNumber(ChargingEntity, NumberEntity):
+    """Target SOC of "Jetzt laden" (100 % = full / until unplugged)."""
+
+    platform_domain = "number"
+    _attr_native_min_value = 20
+    _attr_native_max_value = 100
+    _attr_native_step = 5
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_mode = NumberMode.SLIDER
+
+    @property
+    def native_value(self) -> float:
+        return self.center.settings.manual_target_soc
+
+    async def async_set_native_value(self, value: float) -> None:
+        entry = self.center.entry
+        self.hass.config_entries.async_update_entry(
+            entry, options={**entry.options, OPT_MANUAL_TARGET_SOC: int(value)})

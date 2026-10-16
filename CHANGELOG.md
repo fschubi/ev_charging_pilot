@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0 – 2026-10-16
+
+- **Fahrzeug: ein Schalter „Lesen & Schreiben“** (Einstellungen → Allgemein). Aus =
+  nur lesen. An = Wakeup und Vorklimatisierung werden gesendet. Der Befehlsweg wird
+  automatisch erkannt (HACS-Integration „OVMS“ mit `ovms.send_command`, Fahrzeug-ID aus
+  deren Eintrag); MQTT-Topic/Script bleiben nur als Experten-Rückfall. Die OVMS-Befehle
+  sind mit den v3-Standards vorbelegt (`wakeup`, `homelink 1/2/3`, `climatecontrol off`).
+- **Cockpit ohne Doppelungen:** ein Akku-Balken mit Markern für Mindest- und Ziel-SOC,
+  darunter Akkugesundheit (SOH) und Reichweite; der zweite SOC-Ring entfällt.
+- **Ladeziele dort, wo sie hingehören:** je Zeitplan als Schieberegler im Reiter
+  Ladeplan, dazu „Manuelles Laden“ – Ziel für „Jetzt laden“ (Standard 100 % = voll),
+  auch als `number.ev_pilot_manual_target_soc`. Die doppelte Ladeziel-Karte in Cockpit
+  und Einstellungen entfällt.
+- „Jetzt laden“ (Button, Push, Service ohne Modus) lädt bis zum manuellen Ziel, ohne
+  Fahrzeugdaten bis zum Abstecken. Das manuelle Ziel wirkt sofort, ohne Neuladen.
+
 ## 0.8.3 – 2026-10-15
 
 - **SOH im Cockpit:** Akkugesundheit (und Reichweite, falls vorhanden) unter dem

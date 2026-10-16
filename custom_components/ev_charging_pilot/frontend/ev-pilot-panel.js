@@ -80,7 +80,7 @@ const socColor = (soc) =>
     : "var(--success-color, #43a047)";
 
 /** Battery with SOC fill, plug and wallbox – shown below the photo (or alone without one). */
-function batterySvg({ plugged, charging, error, soc, kw }) {
+function batterySvg({ plugged, charging, error, soc, kw, min = null, pref = null }) {
   const led = error ? "var(--error-color, #db4437)" : charging ? "var(--success-color, #43a047)"
     : plugged ? "var(--info-color, #039be5)" : "var(--disabled-text-color, #777)";
   const fill = soc === null ? 0 : Math.max(0, Math.min(100, soc));
@@ -90,6 +90,8 @@ function batterySvg({ plugged, charging, error, soc, kw }) {
     <rect x="8" y="20" width="230" height="70" rx="14" fill="none" stroke="var(--primary-text-color)" stroke-width="5" opacity=".85"/>
     <rect x="240" y="42" width="12" height="26" rx="4" fill="var(--primary-text-color)" opacity=".85"/>
     ${w > 0 ? `<rect x="17" y="29" width="${w.toFixed(1)}" height="52" rx="8" fill="${socColor(soc)}" class="${charging ? "pulse-soft" : ""}"/>` : ""}
+    ${[[min, "var(--warning-color, #ffa600)"], [pref, "var(--primary-color, #03a9f4)"]].filter(([p]) => p).map(([p, c]) =>
+      `<line x1="${(17 + 212 * p / 100).toFixed(1)}" y1="22" x2="${(17 + 212 * p / 100).toFixed(1)}" y2="88" stroke="${c}" stroke-width="3" stroke-dasharray="5 3"/>`).join("")}
     <text x="123" y="64" text-anchor="middle" class="batt">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
     ${charging ? `<path d="M46 34 L32 58 L44 58 L38 78 L56 50 L44 50 L50 34 Z" fill="#ffd600" stroke="rgba(0,0,0,.4)" opacity=".9"/>` : ""}
     <!-- cable to the wallbox -->
@@ -99,27 +101,6 @@ function batterySvg({ plugged, charging, error, soc, kw }) {
     <rect x="326" y="18" width="40" height="74" rx="9" fill="#2a2f36" stroke="#4a5260"/>
     <circle cx="346" cy="45" r="11" fill="none" stroke="${led}" stroke-width="3.5" class="${charging ? "pulse" : ""}"/>
     ${charging ? `<text x="346" y="80" text-anchor="middle" class="kwsmall">${num(kw, 1)} kW</text>` : ""}
-  </svg>`;
-}
-
-/** Circular SOC gauge with markers for minimum and preferred SOC. */
-function socRing(soc, min, pref) {
-  const r = 52, c = 2 * Math.PI * r;
-  const val = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-  const marker = (pct, color) => {
-    const a = (pct / 100) * 2 * Math.PI - Math.PI / 2;
-    const x1 = 70 + Math.cos(a) * (r - 11), y1 = 70 + Math.sin(a) * (r - 11);
-    const x2 = 70 + Math.cos(a) * (r + 11), y2 = 70 + Math.sin(a) * (r + 11);
-    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
-  };
-  return `<svg viewBox="0 0 140 140" class="gauge" role="img" aria-label="Ladestand">
-    <circle cx="70" cy="70" r="${r}" fill="none" stroke="var(--divider-color, #444)" stroke-width="12"/>
-    ${val > 0 ? `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${socColor(soc)}" stroke-width="12" stroke-linecap="round"
-      stroke-dasharray="${(c * val / 100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 70 70)"/>` : ""}
-    ${min ? marker(min, "var(--warning-color, #ffa600)") : ""}
-    ${pref ? marker(pref, "var(--primary-color, #03a9f4)") : ""}
-    <text x="70" y="72" text-anchor="middle" class="gbig">${soc === null ? "–" : Math.round(soc)}<tspan class="gunit">${soc === null ? "" : "%"}</tspan></text>
-    <text x="70" y="94" text-anchor="middle" class="gsub">${soc === null ? "kein SOC" : "Ladestand"}</text>
   </svg>`;
 }
 
@@ -279,7 +260,7 @@ const STYLE = `
   svg text { fill: var(--secondary-text-color); font-size: 10px; }
   .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 16px;
            border-radius: 8px; background: var(--primary-text-color); color: var(--card-background-color); z-index: 5; }
-  .hero { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; }
+  .hero { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; align-items: center; }
   .hero .col { text-align: center; }
   .hero .label { font-size: 13px; color: var(--secondary-text-color); margin-top: 2px; }
   svg.battery { width: 100%; max-width: 460px; }
@@ -316,7 +297,7 @@ const STYLE = `
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
   .reason { font-size: 13px; margin: 6px 0 0; }
   @media (prefers-reduced-motion: reduce) { .flow, .pulse { animation: none; } }
-  @media (max-width: 760px) { .hero { grid-template-columns: 1fr 1fr; } .hero .carcol { grid-column: 1 / -1; } }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { main { padding: 8px; } .grid { gap: 8px; } }
 `;
 
@@ -498,8 +479,11 @@ class EvPilotPanel extends HTMLElement {
       }));
     root.querySelectorAll("[data-action]").forEach((el) =>
       el.addEventListener(el.tagName === "BUTTON" ? "click" : "change", (ev) => this._action(el.dataset.action, el, ev)));
-    root.querySelectorAll('input[type=range][data-action="target"]').forEach((el) =>
-      el.addEventListener("input", () => { el.closest(".slider").querySelector("b").textContent = `${el.value} %`; }));
+    root.querySelectorAll('input[type=range]').forEach((el) =>
+      el.addEventListener("input", () => {
+        const label = el.closest("label") && el.closest("label").querySelector("b.val");
+        if (label) label.textContent = el.dataset.action === "manual-target" && Number(el.value) >= 100 ? "voll (100 %)" : `${el.value} %`;
+      }));
   }
 
   _action(action, el) {
@@ -553,12 +537,11 @@ class EvPilotPanel extends HTMLElement {
         this._createReport(el.dataset.month ? Number(el.dataset.month) : null); break;
       case "open-report":
         this._openReport(el.dataset.url); break;
-      case "target":
-        this._targetDraft = { ...(this._targetDraft || {}),
-          [el.dataset.field]: el.type === "range" ? Number(el.value) : el.value };
-        this._render(true); break;
-      case "target-save":
-        this._saveTarget(); break;
+      case "manual-target":
+        this._ws("set_settings", { values: { manual_target_soc: Number(el.value) } })
+          .then(() => { this._toast(`Manuelles Ladeziel ${el.value} %`); this._refresh(); })
+          .catch((err) => this._toast(`Fehler: ${err.message || err}`));
+        break;
       case "setting":
         this._settingsDraft = { ...(this._settingsDraft || {}), [el.dataset.key]:
           el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value };
@@ -656,7 +639,6 @@ class EvPilotPanel extends HTMLElement {
           </div>
         </div>
       </div>
-      ${this._targetCard(s)}
       <div class="card">
         <h2>Strompreis-Historie</h2>
         <div class="scroll"><table><tr><th>gültig ab</th><th class="n">Preis</th></tr>${history}</table></div>
@@ -798,7 +780,10 @@ class EvPilotPanel extends HTMLElement {
         <div class="hero">
           <div class="col carcol">
             ${this._photoUrl ? `<div class="photo ${charging ? "charging" : ""}"><img src="${this._photoUrl}" alt="Fahrzeug"></div>` : ""}
-            ${batterySvg({ plugged, charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null, kw })}
+            ${batterySvg({ plugged, charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null, kw,
+              min: w ? w.minimum_soc_pct : null, pref: w ? w.preferred_soc_pct : null })}
+            ${this._sohChip(s)}
+            ${w ? `<div class="hint"><span style="color:var(--warning-color)">┆</span> min. ${w.minimum_soc_pct} % · <span style="color:var(--primary-color)">┆</span> Ziel ${w.preferred_soc_pct} %${soc ? ` · <span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : ""}</div>` : ""}
             ${!this._photoUrl ? `<div class="hint">Eigenes Fahrzeugfoto: Reiter „Einstellungen“</div>` : ""}
             <div class="big">${esc(STATE_LABELS[ex.state] || ex.state || "–")}</div>
             <div class="chips">
@@ -813,13 +798,8 @@ class EvPilotPanel extends HTMLElement {
               (${desired.charger_enabled === true ? "Wallbox an" : desired.charger_enabled === false ? "Wallbox aus" : "nicht eingreifen"}) · seit ${time(ex.since)}</div>
           </div>
           <div class="col">
-            ${socRing(soc ? soc.value : null, w ? w.minimum_soc_pct : null, w ? w.preferred_soc_pct : null)}
-            <div class="label">${soc ? `<span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : "kein Fahrzeug-SOC"}</div>
-            ${w ? `<div class="label">Ziel ${w.preferred_soc_pct} % · min. ${w.minimum_soc_pct} %</div>` : ""}
-            ${this._sohChip(s)}
-          </div>
-          <div class="col">
             ${powerGauge(kw, maxKw)}
+            ${w ? `<div class="label"><b>Abfahrt ${dateTime(w.departure)}</b></div>` : ""}
             <div class="label">${s.session ? `Session ${num(s.session.energy_kwh, 2, "kWh")}` : "keine laufende Session"}</div>
             <div class="label">${num(s.prices.current_eur_kwh * 100, 1, "ct/kWh")} ${s.prices.dynamic ? "(dynamisch)" : "(Festpreis)"}</div>
           </div>
@@ -834,7 +814,6 @@ class EvPilotPanel extends HTMLElement {
             return `<span class="dot" style="background:var(--warning-color)"></span>Strompreis ${num(Math.min(...p), 0)}–${num(Math.max(...p), 0)} ct/kWh`;
           })() : ""}</div>
       </div>
-      ${this._targetCard(s)}
       <div class="card">
         <h2>Prognose <span class="sub">(Schätzung)</span></h2>
         <div class="row"><span>Erwarteter SOC bei Abfahrt</span><b>${num(e.expected_soc_at_departure, 0, "%")}</b></div>
@@ -881,50 +860,13 @@ class EvPilotPanel extends HTMLElement {
     </div>`;
   }
 
-  _targetCard(s) {
-    const p = (s.plans || [])[0];
-    if (!p) return "";
-    const d = this._targetDraft || {};
-    const min = d.minimum_departure_soc_pct ?? p.minimum_departure_soc_pct;
-    const pref = d.preferred_departure_soc_pct ?? p.preferred_departure_soc_pct;
-    const dep = d.departure_time ?? p.departure_time;
-    return `<div class="card">
-      <h2>Ladeziel <span class="sub">· ${esc(p.name)}</span></h2>
-      <div class="slider"><label>Mindest-SOC bei Abfahrt<input type="range" min="10" max="100" step="5" value="${min}" data-action="target" data-field="minimum_departure_soc_pct"></label><b>${min} %</b></div>
-      <div class="slider"><label>Wunsch-SOC (Ladeziel)<input type="range" min="10" max="100" step="5" value="${pref}" data-action="target" data-field="preferred_departure_soc_pct"></label><b>${pref} %</b></div>
-      <div class="slider"><label>Abfahrt<input type="time" value="${esc(dep)}" data-action="target" data-field="departure_time"></label><b></b></div>
-      <div class="actions"><button class="act primary" data-action="target-save" ${this._targetDraft ? "" : "disabled"}>Übernehmen</button></div>
-      <p class="hint">Gilt für den Plan „${esc(p.name)}“; weitere Pläne im Reiter Ladeplan.</p>
-    </div>`;
-  }
-
-  async _saveTarget() {
-    const plans = JSON.parse(JSON.stringify(this._state.plans));
-    const d = this._targetDraft || {};
-    if (d.minimum_departure_soc_pct > (d.preferred_departure_soc_pct ?? plans[0].preferred_departure_soc_pct)) {
-      d.preferred_departure_soc_pct = d.minimum_departure_soc_pct;
-    }
-    Object.assign(plans[0], d);
-    if (plans[0].preferred_departure_soc_pct < plans[0].minimum_departure_soc_pct) {
-      plans[0].minimum_departure_soc_pct = plans[0].preferred_departure_soc_pct;
-    }
-    try {
-      await this._ws("set_plans", { plans });
-      this._targetDraft = null;
-      this._toast("Ladeziel gespeichert");
-      await this._refresh();
-    } catch (err) {
-      this._toast(`Fehler: ${err.message || err}`);
-    }
-  }
-
   _sohChip(s) {
     const soh = s.values.ovms_soh;
     const range = s.values.ovms_range;
     const parts = [];
     if (soh && soh.value !== null) {
       const cls = soh.value >= 90 ? "ok" : soh.value >= 80 ? "info" : "warn";
-      parts.push(`<span class="pill ${cls}" title="Akkugesundheit (State of Health)">SOH ${num(soh.value, 0, "%")}</span>`);
+      parts.push(`<span class="pill ${cls}" title="Akkugesundheit (State of Health)">Akkugesundheit (SOH) ${num(soh.value, 0, "%")}</span>`);
     } else if ("ovms_soh" in s.entities) {
       parts.push(`<span class="pill muted" title="Akkugesundheit">SOH –</span>`);
     }
@@ -934,19 +876,18 @@ class EvPilotPanel extends HTMLElement {
 
   _vehicleLinkRows(s) {
     const v = s.vehicle_link || {};
-    const why = { switch_off: "Schalter „Befehle ans Fahrzeug erlauben“ ist aus (Einstellungen → Wakeup und CP)",
-      no_path: "kein Befehlsweg (MQTT-Topic oder Script unter „Neu konfigurieren“ → Fahrzeug)",
-      no_command: "Befehl nicht eingetragen (Einstellungen → OVMS-Befehle)" };
-    const cmd = (label, reasons) => `<div class="row"><span>${label}</span>${reasons && reasons.length
-      ? `<span class="pill warn">gesperrt</span>` : `<span class="pill ok">bereit</span>`}</div>
-      ${(reasons || []).map((r) => `<div class="hint">· ${esc(why[r] || r)}</div>`).join("")}`;
     const dataOk = v.data_quality === "GOOD" || v.data_quality === "LAST_KNOWN_VALID";
-    return `<div class="row"><span>Fahrzeugdaten (lesen)</span>${!v.data_configured
+    const path = { ovms_service: "OVMS-Integration", mqtt: "MQTT-Topic", script: "Script" }[v.command_path];
+    return `<div class="row"><span>Fahrzeugdaten</span>${!v.data_configured
         ? `<span class="pill muted">nicht eingerichtet</span>`
         : `<span class="pill ${dataOk ? "ok" : "warn"}">${dataOk ? "verbunden" : esc(v.data_quality || "–")}</span>`}</div>
       ${v.data_configured && v.data_updated_at ? `<div class="hint">zuletzt ${dateTime(v.data_updated_at)}</div>` : ""}
-      ${cmd("Wakeup-Befehl (senden)", v.wakeup_blocked)}
-      ${cmd("Klima-Befehl (senden)", v.climate_blocked)}`;
+      <div class="row"><span>Zugriff</span>${v.read_write
+        ? `<span class="pill ${v.commands_ready ? "ok" : "warn"}">Lesen & Schreiben</span>`
+        : `<span class="pill info">nur Lesen</span>`}</div>
+      <div class="hint">${v.read_write
+        ? (path ? `Befehle (Wakeup, Klima) gehen über ${path}.` : "Kein Befehlsweg gefunden – die OVMS-Integration (HACS) einrichten.")
+        : `Umschalten unter Einstellungen → Allgemein.${path ? ` Befehlsweg ist bereit (${path}).` : ""}`}</div>`;
   }
 
   _yesNo(value) {
@@ -972,8 +913,8 @@ class EvPilotPanel extends HTMLElement {
           <label>Abfahrt<input type="time" data-action="plan-field" data-index="${i}" data-field="departure_time" value="${esc(p.departure_time)}"></label>
           <label>Fester Start / Rückfall<input type="time" data-action="plan-field" data-index="${i}" data-field="charge_start_time" value="${esc(p.charge_start_time)}"></label>
           <label>Fertig vor Abfahrt (min)<input type="number" min="0" max="240" data-action="plan-field" data-index="${i}" data-field="ready_buffer_min" value="${p.ready_buffer_min}"></label>
-          <label>Mindest-SOC %<input type="number" min="10" max="100" step="5" data-action="plan-field" data-index="${i}" data-field="minimum_departure_soc_pct" value="${p.minimum_departure_soc_pct}"></label>
-          <label>Wunsch-SOC %<input type="number" min="10" max="100" step="5" data-action="plan-field" data-index="${i}" data-field="preferred_departure_soc_pct" value="${p.preferred_departure_soc_pct}"></label>
+          <label>Mindestens bei Abfahrt: <b class="val">${p.minimum_departure_soc_pct} %</b><input type="range" min="10" max="100" step="5" data-action="plan-field" data-index="${i}" data-field="minimum_departure_soc_pct" value="${p.minimum_departure_soc_pct}"></label>
+          <label>Laden bis (Ziel): <b class="val">${p.preferred_departure_soc_pct} %</b><input type="range" min="10" max="100" step="5" data-action="plan-field" data-index="${i}" data-field="preferred_departure_soc_pct" value="${p.preferred_departure_soc_pct}"></label>
           <label>Klima<select data-action="plan-field" data-index="${i}" data-field="climate">
             ${[["off", "aus"], ["auto", "automatisch (Profil)"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"]]
               .map(([v, l]) => `<option value="${v}" ${p.climate === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -982,7 +923,14 @@ class EvPilotPanel extends HTMLElement {
           <label><input type="checkbox" data-action="plan-field" data-index="${i}" data-field="enabled" ${p.enabled ? "checked" : ""}>aktiv</label></p>
         <button class="act danger" data-action="plan-delete" data-index="${i}">Plan löschen</button>
       </div>`).join("");
+    const manual = s.settings.manual_target_soc ?? 100;
     return `<div class="grid">
+      <div class="card wide">
+        <h2>Manuelles Laden <span class="sub">· „Jetzt laden“ ohne Zeitplan</span></h2>
+        <div class="slider"><label>Laden bis: <b class="val">${manual >= 100 ? "voll (100 %)" : manual + " %"}</b>
+          <input type="range" min="20" max="100" step="5" value="${manual}" data-action="manual-target"></label></div>
+        <p class="hint">Gilt für „Jetzt laden“ (Cockpit, Push beim Einstecken, Service). Ohne Fahrzeugdaten wird bis zum Abstecken geladen.</p>
+      </div>
       <div class="card wide"><h2>Kommende Ladefenster</h2>
         ${windows ? `<div class="scroll"><table><tr><th>Plan</th><th>Start</th><th>Abfahrt</th><th class="n">SOC erwartet</th><th>Art</th><th class="n">Kosten*</th></tr>${windows}</table></div>` : `<p class="sub">Kein Plan aktiv.</p>`}
         <p class="sub">Abfahrtstage = Tage der Abfahrt. Ohne SOC fällt ein abfahrtsbasierter Plan auf den festen Start zurück.

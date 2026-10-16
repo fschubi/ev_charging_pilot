@@ -21,13 +21,15 @@ from .const import (
     VERSION,
 )
 from .coordinator import ChargingCenter
-from .core.settings import OPT_MODE
+from .core.settings import OPT_MANUAL_TARGET_SOC, OPT_MODE
 from .reports import ReportView
 from .services import async_register_services, async_unregister_services
 from .vehicle_image import VehicleImageView
 from .websocket_api import async_register as async_register_ws
 
 _LOGGER = logging.getLogger(__name__)
+# Options that apply without reloading the entry.
+LIVE_OPTIONS = (OPT_MODE, OPT_MANUAL_TARGET_SOC)
 PANEL_FILE = Path(__file__).parent / "frontend" / "ev-pilot-panel.js"
 
 type ChargingConfigEntry = ConfigEntry[ChargingCenter]
@@ -77,15 +79,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ChargingConfigEntry) ->
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: ChargingConfigEntry) -> None:
-    """A mode switch only swaps the settings; every other change reloads (§13.2)."""
+    """Mode and manual target apply live; every other change reloads (§13.2)."""
     previous = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     current = dict(entry.options)
     hass.data[DOMAIN][entry.entry_id] = current
 
-    def without_mode(options: dict) -> dict:
-        return {k: v for k, v in options.items() if k != OPT_MODE}
+    def without_live(options: dict) -> dict:
+        return {k: v for k, v in options.items() if k not in LIVE_OPTIONS}
 
-    if without_mode(previous) == without_mode(current):
+    if without_live(previous) == without_live(current):
         entry.runtime_data.apply_options(current)
         return
     await hass.config_entries.async_reload(entry.entry_id)

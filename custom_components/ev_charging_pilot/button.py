@@ -27,7 +27,7 @@ class ChargingButtonDescription(ButtonEntityDescription):
 BUTTONS: tuple[ChargingButtonDescription, ...] = (
     ChargingButtonDescription(
         key="start_charge",
-        press=lambda e, now: e.set_override(now, OverrideMode.UNTIL_UNPLUGGED)),
+        press=lambda e, now: e.charge_now(now)),
     ChargingButtonDescription(
         key="stop_charge", press=lambda e, now: e.set_override(now, OverrideMode.STOP)),
     ChargingButtonDescription(

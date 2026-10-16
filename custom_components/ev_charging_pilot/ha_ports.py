@@ -11,7 +11,8 @@ from typing import Any
 
 import aiohttp
 from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, SupportsResponse
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .core.climate import homelink_level
@@ -21,6 +22,29 @@ from .core.settings import Settings
 _LOGGER = logging.getLogger(__name__)
 
 SHELLY_TIMEOUT_S = 5
+
+
+OVMS_DOMAIN = "ovms"
+OVMS_PATH_SERVICE = "ovms_service"
+OVMS_PATH_MQTT = "mqtt"
+OVMS_PATH_SCRIPT = "script"
+
+
+def ovms_vehicle_id(hass: HomeAssistant, entity_id: str | None) -> str | None:
+    """Vehicle ID of the OVMS integration – preferably the entry that owns ``entity_id``."""
+    entries = hass.config_entries.async_entries(OVMS_DOMAIN)
+    if not entries:
+        return None
+    entry = None
+    if entity_id:
+        registered = er.async_get(hass).async_get(entity_id)
+        if registered and registered.config_entry_id:
+            owner = hass.config_entries.async_get_entry(registered.config_entry_id)
+            if owner and owner.domain == OVMS_DOMAIN:
+                entry = owner
+    entry = entry or entries[0]
+    value = entry.data.get("vehicle_id") or entry.options.get("vehicle_id")
+    return str(value) if value else None
 
 
 class PortError(Exception):
@@ -39,6 +63,7 @@ class HaPorts:
         shelly_host: str | None,
         ovms_topic: str | None,
         ovms_script: str | None,
+        ovms_entity: str | None = None,
     ) -> None:
         self.hass = hass
         self.charger_switch = charger_switch
@@ -46,14 +71,31 @@ class HaPorts:
         self.shelly_host = shelly_host
         self.ovms_topic = ovms_topic
         self.ovms_script = ovms_script
+        self.ovms_entity = ovms_entity
 
     @property
     def cp_pulse_available(self) -> bool:
         return bool(self.cp_relay and self.shelly_host)
 
     @property
+    def ovms_path(self) -> str | None:
+        """How commands reach the car – found automatically, no setup needed.
+
+        1. the OVMS integration (HACS "OVMS") with its ``ovms.send_command`` service,
+        2. an MQTT command topic or 3. a script – both only for special setups.
+        """
+        if self.hass.services.has_service(OVMS_DOMAIN, "send_command") and \
+                ovms_vehicle_id(self.hass, self.ovms_entity):
+            return OVMS_PATH_SERVICE
+        if self.ovms_topic:
+            return OVMS_PATH_MQTT
+        if self.ovms_script:
+            return OVMS_PATH_SCRIPT
+        return None
+
+    @property
     def ovms_command_available(self) -> bool:
-        return bool(self.ovms_topic or self.ovms_script)
+        return self.ovms_path is not None
 
     async def execute(self, command: Command, settings: Settings) -> None:
         match command.kind:
@@ -101,18 +143,25 @@ class HaPorts:
                 raise PortError(f"Shelly antwortet HTTP {response.status}")
 
     async def _ovms(self, text: str) -> None:
-        """Send an OVMS shell command via MQTT or a user script (§2.3, §16 #8)."""
+        """Send an OVMS shell command along the detected path (§2.3, §16 #8)."""
         if not text:
-            raise PortError("OVMS-Befehl ist nicht konfiguriert")
-        if self.ovms_topic:
+            raise PortError("OVMS-Befehl ist nicht eingetragen")
+        path = self.ovms_path
+        if path == OVMS_PATH_SERVICE:
+            data = {"vehicle_id": ovms_vehicle_id(self.hass, self.ovms_entity), "command": text}
+            response = self.hass.services.supports_response(OVMS_DOMAIN, "send_command")
+            await self.hass.services.async_call(
+                OVMS_DOMAIN, "send_command", data, blocking=True,
+                return_response=response is SupportsResponse.ONLY)
+        elif path == OVMS_PATH_MQTT:
             await self.hass.services.async_call(
                 "mqtt", "publish", {"topic": self.ovms_topic, "payload": text}, blocking=True)
-        elif self.ovms_script:
+        elif path == OVMS_PATH_SCRIPT:
             await self.hass.services.async_call(
                 "script", "turn_on",
                 {"entity_id": self.ovms_script, "variables": {"command": text}}, blocking=True)
         else:
-            raise PortError("kein OVMS-Befehlsweg konfiguriert")
+            raise PortError("kein Befehlsweg zum Fahrzeug gefunden – OVMS-Integration einrichten")
 
     async def configure_shelly(self, pulse_s: int) -> dict[str, Any]:
         """Write the §3.1 failsafe settings via ``Switch.SetConfig`` (user action only)."""

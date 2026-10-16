@@ -59,7 +59,9 @@ async def test_cockpit_chart_is_filled_from_the_recorder(hass, entry, halo):
     await hass.async_block_till_done()
     await get_instance(hass).async_block_till_done()
     await _setup(hass, entry)
-    await hass.async_block_till_done()
-    history = list(entry.runtime_data.history)
+    center = entry.runtime_data
+    center.history.clear()
+    await center._async_backfill_history()  # also runs in the background on setup
+    history = list(center.history)
     assert len(history) >= 1000  # a full day of minutes
     assert any(power == 2300 for _, power, _ in history)

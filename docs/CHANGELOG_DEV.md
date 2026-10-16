@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-13 – v0.6.0 Tibber, PDF, Fremdladeerkennung.** Repo öffentlich, evcc
+  aus der Doku entfernt, Release für HACS-Testinstallation. 121 Tests grün.
+
 - **2026-10-13 – v0.5.0 komplette Integration.** Entitäten/Services/WS nach §12,
   Config-/Options-Flow nach §13, Push mit Rückfrage, Panel mit 5 Ansichten,
   YAML-Dashboard, Replay mit Poll-Nachbildung. ~100 Tests grün.

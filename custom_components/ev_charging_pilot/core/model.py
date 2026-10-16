@@ -118,6 +118,8 @@ class Desired:
     source_id: str | None = None
     valid_until: datetime | None = None
     climate: ClimateRequest | None = None
+    # False: topping up after the target was reached – never wake the car for that.
+    wake_allowed: bool = True
 
     @property
     def window_key(self) -> str:

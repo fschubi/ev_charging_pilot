@@ -134,8 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-13 – v0.6.0 Tibber, PDF, Fremdladeerkennung.** Repo öffentlich, evcc
-  aus der Doku entfernt, Release für HACS-Testinstallation. 121 Tests grün.
 - **2026-10-13 – v0.6.1–v0.7.0 nach erstem Test bei Frank.** Auto-Erkennung im
   Config Flow, grafisches Cockpit, Shelly per Klick konfigurieren, Reiter
   Einstellungen, eigenes Fahrzeugfoto statt Zeichnung (Frank: Zeichnung war „kein 453“),
@@ -150,3 +148,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   HV-Zyklen-Vektor. 141 Tests grün.
 - **2026-10-16 – v0.9.2 Neustartfestigkeit.** Leere Planliste wird wiederhergestellt (vorher
   Standardplan), Pläne speichern automatisch, Regressionstest Neustart (Pläne + ovms_enabled).
+- **2026-10-16 – v0.9.3 Übergänge sicher (Review Stufe 1).** Ziel-SOC je Fenster gehalten
+  (`_target_hold`, Nachladen nur frisch −3 %, `wake_allowed=False`), Ladeende per
+  Leistungsabfall/OVMS/99 %, Dry-Run = Schattenbetrieb (`set_shadow`, virtuelle Wallbox),
+  Konflikt-Karenz 180 s, `tests/core/test_scenarios.py`.

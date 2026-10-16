@@ -194,6 +194,9 @@ def test_data_conflict_is_flagged():
     world.set(Inp.OVMS_SOC, "50")
     world.engine.set_override(world.now, OverrideMode.UNTIL_UNPLUGGED)
     world.run(30)
+    # different polling delays: a short contradiction is no conflict yet
+    assert not world.engine.data_conflict
+    world.run(180)
     assert world.engine.data_conflict
     assert "DATA_CONFLICT" in world.events
 

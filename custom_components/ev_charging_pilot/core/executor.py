@@ -41,6 +41,9 @@ _STARTING = (ExecState.WAITING_FOR_CHARGE, ExecState.WAKEUP_OVMS, ExecState.WAKE
 
 # How often a "close the CP" command is repeated while the relay stays open.
 CP_CLOSE_RETRY_S = 30.0
+# A charge whose last power sample fell below this share of its peak tapered off:
+# the car ended it (battery full), it was not interrupted.
+TAPER_RATIO = 0.6
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +160,11 @@ class Executor:
         self._violation_reported_for: str | None = None
         self._last_cp_close_at: datetime | None = None
         self._climate_sent: str | None = None
+        self._peak_w: float = 0.0
+        self._last_flow_w: float | None = None
+        # Dry-run/replay: decisions are only logged, so a missing reaction of the
+        # hardware is no failure (no push, no failed session, no health penalty).
+        self.shadow = False
         self._last_snap: Snapshot | None = None
         self._result = StepResult()
 
@@ -349,6 +357,8 @@ class Executor:
             if self._run_count == 0:
                 self._run_start = power.updated_at
             self._run_count += 1
+            self._last_flow_w = watts
+            self._peak_w = max(self._peak_w, watts)
         else:
             self._run_count = 0
             self._run_start = None
@@ -415,10 +425,24 @@ class Executor:
 
     def _fail(self, snap: Snapshot, code: str, message: str) -> None:
         self.failure_code = code
-        self.consecutive_start_failures += 1
         self._failed_window = snap.desired.window_key
+        if self.shadow:
+            self._go(ExecState.START_FAILED, snap.now, code,
+                     f"{message} (Probebetrieb: Wallbox wurde nicht geschaltet)",
+                     Category.CHARGING, Severity.WARNING)
+            return
+        self.consecutive_start_failures += 1
         self._go(ExecState.START_FAILED, snap.now, code, message, Category.CHARGING,
                  Severity.ERROR)
+
+    def _topup_not_started(self, snap: Snapshot) -> None:
+        """Topping up after the target needs no wakeup: give up quietly for this window."""
+        self._failed_window = snap.desired.window_key
+        self._event(snap.now, Category.CHARGING, Severity.INFO, "TOPUP_SKIPPED",
+                    "Nachladen nicht gestartet – das Auto wird dafür nicht geweckt")
+        if _flag(snap.charger_on) is True:
+            self._switch(snap, False, retry=True)
+        self._go(ExecState.IDLE, snap.now)
 
     def _check_cp_restored(self, snap: Snapshot) -> None:
         """After every pulse the relay must be back on (§3.2)."""
@@ -471,6 +495,9 @@ class Executor:
         """OVMS first, then CP, each at most once per window – then give up (§6)."""
         now = snap.now
         cfg = self.config
+        if not snap.desired.wake_allowed:
+            self._topup_not_started(snap)
+            return
         attempts = self.attempts_for(snap.desired)
         ovms_left = cfg.ovms_available and attempts.ovms < cfg.max_ovms_attempts_per_window
         cp_left = self._cp_wakeup_allowed(snap) and attempts.cp < cfg.max_cp_attempts_per_window
@@ -549,6 +576,7 @@ class Executor:
         self.failure_code = None
         self._below_since = None
         self._resume = None
+        self._peak_w = self._last_flow_w or 0.0
         self._go(ExecState.CHARGING, now, "CHARGE_STABLE", "Ladung stabil bestätigt")
 
     # --------------------------------------------------------------- states
@@ -625,10 +653,15 @@ class Executor:
         if self._below_since is None:
             self._below_since = now
         status = snap.charger_status.normalized if snap.charger_status else None
-        if snap.vehicle_charge_finished or (status is not None
-                                            and status in self.config.finished_statuses):
+        tapered = self._peak_w > 0 and self._last_flow_w is not None \
+            and self._last_flow_w < TAPER_RATIO * self._peak_w
+        if snap.vehicle_charge_finished or tapered or (
+                status is not None and status in self.config.finished_statuses):
             self._below_since = None
-            self._go(ExecState.CHARGE_ENDED, now, "CHARGE_ENDED", "Fahrzeug hat Ladung beendet")
+            why = "Leistung ist zum Schluss abgesunken" if tapered and not \
+                snap.vehicle_charge_finished else "Fahrzeug meldet Ladeende"
+            self._go(ExecState.CHARGE_ENDED, now, "CHARGE_ENDED",
+                     f"Fahrzeug hat Ladung beendet ({why})")
             return
         if (now - self._below_since).total_seconds() >= self.config.charging_loss_timeout_s:
             self._below_since = None

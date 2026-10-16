@@ -30,6 +30,16 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.fixture(autouse=True)
+def fixed_time(freezer):
+    """Tuesday noon in the test time zone – outside every default charging window.
+
+    Without this the outcome depends on the wall clock (the default plan charges
+    on weekday mornings).
+    """
+    freezer.move_to("2026-10-13 19:00:00+00:00")
+
+
+@pytest.fixture(autouse=True)
 def no_shelly_network():
     """The drift check would call the Shelly over HTTP – tests have no network."""
     with patch("custom_components.ev_charging_pilot.ha_ports.HaPorts.shelly_switch_config",

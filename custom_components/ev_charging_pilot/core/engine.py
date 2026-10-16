@@ -48,6 +48,15 @@ from .trips import Trip, TripTracker
 
 HEALTH_PUSH_DEBOUNCE_S = 300
 ENFORCE_TARGET_MARGIN_PCT = 1
+# After the target was reached a window only tops up again when a fresh SOC is
+# clearly below it – otherwise an aging SOC would restart the charge (and wake the car).
+TOPUP_HYSTERESIS_PCT = 3
+# Wallbox and car are polled with different delays; a contradiction only counts
+# once it lasts this long.
+CONFLICT_GRACE_S = 180
+# An OVMS "not charging" is only an end-of-charge signal while it is this recent.
+FINISHED_SIGNAL_MAX_AGE = timedelta(minutes=15)
+FULL_SOC_PCT = 99
 REMINDER_HORIZON = timedelta(hours=12)
 CP_REASONS = ("CP_NOT_RESTORED", "CP_STATE_UNKNOWN", "CP_OPEN")
 
@@ -142,7 +151,21 @@ class Engine:
         self._health_notified = HealthStatus.HEALTHY
         self._cp_alarm = False
         self._was_conflict = False
+        self._conflict_since: datetime | None = None
+        self._target_hold: str | None = None
+        self.shadow = False
+        self._virtual_charger: bool | None = None
         self.shelly_config_ok: bool | None = None
+
+    def set_shadow(self, shadow: bool) -> None:
+        """Dry-run/replay: switching is only logged, the executor works on a virtual
+        wallbox state. Changing the mode re-derives the executor state from reality."""
+        if shadow == self.shadow:
+            return
+        self.shadow = shadow
+        self.executor.shadow = shadow
+        self.executor.state = None
+        self._virtual_charger = None
 
     # ================================================================ tick
 
@@ -169,19 +192,31 @@ class Engine:
         self._climate(now)
         self.desired = self._arbitrate(now, cable_flag is True)
 
+        charger_on = values[Inp.CHARGER_ENABLE]
+        if self.shadow:
+            if self._virtual_charger is None and charger_on.available:
+                self._virtual_charger = bool(charger_on.normalized)
+            if self._virtual_charger is not None:
+                charger_on = Value(charger_on.raw, self._virtual_charger, "virtual", now)
         result.extend(self.executor.step(Snapshot(
             now=now,
             desired=self.desired,
             health=self.health,
             cable_connected=cable,
-            charger_on=values[Inp.CHARGER_ENABLE],
+            charger_on=charger_on,
             power_w=values[Inp.CHARGE_POWER],
             charger_status=values[Inp.CHARGER_STATUS]
             if values[Inp.CHARGER_STATUS].available else None,
             cp_relay_on=values[Inp.CP_RELAY] if self.config.cp_configured else None,
             vehicle_charging=self._vehicle_charging,
-            vehicle_charge_finished=self._vehicle_finished(),
+            vehicle_charge_finished=self._vehicle_finished(now),
         )))
+        if self.shadow:
+            for command in result.commands:
+                if command.kind is CommandKind.ENABLE_CHARGER:
+                    self._virtual_charger = True
+                elif command.kind is CommandKind.DISABLE_CHARGER:
+                    self._virtual_charger = False
         self._monitor(now, result)
         self._notifications(now, result, plugged_in_event, cable_flag)
         if self.data_conflict and not self._was_conflict:
@@ -237,8 +272,13 @@ class Engine:
         values[Inp.CHARGE_POWER] = classify(power, now, rule(ages.halo_power_s, non_negative))
 
         self._was_conflict = self.data_conflict
-        self.data_conflict = charging_conflict(
-            values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING], s.power_threshold_w)
+        if charging_conflict(values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING],
+                             s.power_threshold_w):
+            self._conflict_since = self._conflict_since or now
+        else:
+            self._conflict_since = None
+        self.data_conflict = self._conflict_since is not None and \
+            (now - self._conflict_since).total_seconds() >= CONFLICT_GRACE_S
         if self.data_conflict:
             values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING] = mark_conflict(
                 values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING])
@@ -252,11 +292,21 @@ class Engine:
         self._vehicle_charging = vehicle_charging(
             values[Inp.OVMS_CHARGING], values[Inp.CHARGE_POWER], s.power_threshold_w)
 
-    def _vehicle_finished(self) -> bool:
-        """OVMS reports the charge has ended (§6.3 step 1)."""
+    def _vehicle_finished(self, now: datetime) -> bool:
+        """The car ended the charge itself (§6.3 step 1).
+
+        A car that falls asleep right after a full charge stops reporting, so a
+        recent "not charging" also counts once it is no longer GOOD, and so does
+        a full battery.
+        """
         charging = self.values[Inp.OVMS_CHARGING]
-        return charging.quality is Quality.GOOD and charging.normalized is False \
-            and self.soc.quality is Quality.GOOD
+        if charging.normalized is False and charging.quality in (
+                Quality.GOOD, Quality.LAST_KNOWN_VALID) and charging.updated_at is not None \
+                and now - charging.updated_at <= FINISHED_SIGNAL_MAX_AGE:
+            return True
+        soc = self.soc
+        return soc.quality.usable_for_planning and soc.normalized is not None \
+            and float(soc.normalized) >= FULL_SOC_PCT
 
     # ------------------------------------------------------------ planning
 
@@ -317,6 +367,8 @@ class Engine:
         self.next_window = self.active_window or (upcoming[0] if upcoming else None)
         keep = {w.key for w in self.windows}
         self._latched = {k: v for k, v in self._latched.items() if k in keep}
+        if self._target_hold not in keep:
+            self._target_hold = None
         self.executor.prune_expired(now)
 
     def set_vehicle_commands(self, available: bool) -> None:
@@ -377,21 +429,38 @@ class Engine:
         if self.automation_enabled:
             one_shot = next((w for w in self.windows if w.reason is Reason.ONE_SHOT), None)
             wishes.append(window_wish(one_shot, now))
-            target = self.active_window.preferred_soc_pct if self.active_window else None
+            window = self.active_window
+            target = window.preferred_soc_pct if window else None
             soc = None if self.health.blocks_soc_functions else self.soc
             topup = climate_running and s.climate_after_target is ClimateAfterTarget.ALLOW_TOPUP
             if climate_running and s.climate_after_target is ClimateAfterTarget.ENFORCE_TARGET \
                     and target is not None:
                 target += ENFORCE_TARGET_MARGIN_PCT
-            wishes.append(target_soc_wish(soc, target, climate_topup_active=topup))
+            reached = target_soc_wish(soc, target, climate_topup_active=topup)
+            if reached is not None and window is not None:
+                self._target_hold = window.key
+            hold = window is not None and self._target_hold == window.key
+            if hold and reached is None and not topup:
+                fresh_below = soc is not None and soc.quality is Quality.GOOD and \
+                    float(soc.normalized) < target - TOPUP_HYSTERESIS_PCT
+                if not fresh_below:
+                    reached = Desired(False, Reason.TARGET_SOC_REACHED,
+                                      source_id=f"held>={target}")
+            wishes.append(reached)
             if self.manual_climate is None:
                 wishes.append(climate_wish(climate_req, now, plugged_in, "plan"))
             wishes += [window_wish(w, now) for w in self.windows if w.reason is Reason.SCHEDULE]
-        return arbitrate(
+        desired = arbitrate(
             wishes,
             safety_lock=self.health.blocks_automation,
             default=DEFAULT_OFF if self.automation_enabled else HANDS_OFF,
         )
+        if self.active_window is not None and self._target_hold == self.active_window.key \
+                and desired.charger_enabled and desired.reason in (
+                    Reason.SCHEDULE, Reason.ONE_SHOT, Reason.CLIMATE):
+            # Topping up after the target: the car is awake anyway or it is not worth a wakeup.
+            desired = replace(desired, wake_allowed=False)
+        return desired
 
     # -------------------------------------------------------------- health
 
@@ -427,7 +496,9 @@ class Engine:
         local_day = now.astimezone(self.tz).date()
         self.monitor.record_day(local_day)
 
-        if self.executor.state is ExecState.CHARGING and self.sessions.open is None:
+        started_now = any(e.code in ("CHARGE_STABLE", "CHARGE_RESUMED") for e in result.events)
+        if self.executor.state is ExecState.CHARGING and self.sessions.open is None \
+                and not started_now:
             # Restart during a session: reopen it from the Halo counter (§6.5).
             result.events.append(Event(now, Category.CHARGING, Severity.INFO, "SESSION_RESUMED",
                                        "Laufende Ladung nach Neustart übernommen",
@@ -449,6 +520,9 @@ class Engine:
             reason=self.desired.reason if self.desired else None, prices=self.prices,
             dynamic_price=self._dynamic_price,
         )
+        if self.shadow:
+            # A start that "failed" only because nothing was switched is no session.
+            closed = [c for c in closed if c.success]
         for session in closed:
             self.monitor.add_session(session)
             self.last_result = {
@@ -526,7 +600,8 @@ class Engine:
                     and event.severity is Severity.ERROR and n.start_failed:
                 out.append(Notification("start_failed", "high", "Ladestart fehlgeschlagen",
                                         event.message))
-            elif event.code == "CHARGE_INTERRUPTED" and n.start_failed:
+            elif event.code == "CHARGE_INTERRUPTED" and event.severity is Severity.ERROR \
+                    and n.start_failed:
                 out.append(Notification("start_failed", "high", "Ladung abgebrochen",
                                         event.message))
             elif event.code == "CP_NOT_RESTORED" and n.cp:
@@ -692,6 +767,7 @@ class Engine:
             if self.last_activity_at else None,
             "last_result": self.last_result,
             "reminder_day": self._reminder_day.isoformat() if self._reminder_day else None,
+            "target_hold": self._target_hold,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -716,3 +792,4 @@ class Engine:
         self.last_result = data.get("last_result")
         day = data.get("reminder_day")
         self._reminder_day = date.fromisoformat(day) if day else None
+        self._target_hold = data.get("target_hold")

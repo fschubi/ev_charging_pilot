@@ -289,6 +289,7 @@ class ChargingCenter:
         async with self._lock:
             now = dt_util.utcnow()
             self.engine.set_vehicle_commands(self.ports.ovms_command_available)
+            self.engine.set_shadow(self.mode is not RunMode.LIVE)
             result = self.engine.tick(now, self._raw_states())
             self._sample_history(now)
             await self._handle(result)

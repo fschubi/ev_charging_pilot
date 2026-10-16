@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.3 – 2026-10-16
+
+- **Behoben: Nach Erreichen des Ziel-SOC wurde das Auto geweckt.** Sobald der SOC-Wert des
+  schlafenden Autos älter als 10 min war, schaltete der Plan die Wallbox wieder ein und
+  startete Wecken per Fahrzeug und CP-Puls, danach kam „Ladestart fehlgeschlagen“. Ein
+  erreichtes Ziel gilt jetzt für das ganze Ladefenster. Nachgeladen wird nur, wenn ein
+  frischer SOC mindestens 3 % unter dem Ziel liegt – und dafür wird nie geweckt.
+- **Ladeende ohne Signal wird erkannt:** sinkt die Leistung zum Schluss ab (Akku voll),
+  meldet OVMS kürzlich „lädt nicht“ (auch wenn das Auto gleich danach einschläft) oder ist
+  der Akku bei 99 %, ist das ein normales Ladeende – kein Abbruch, kein CP-Puls.
+- **Probebetrieb als echter Schattenbetrieb:** die Steuerung rechnet mit einer gedachten
+  Wallbox, die jeden Befehl ausführt. Keine Fehlalarme, keine fehlgeschlagenen Sessions,
+  kein Health-Abzug mehr in Nächten, in denen nichts geschaltet wird. Beim Wechsel auf Live
+  wird der Zustand neu aus der Wirklichkeit abgeleitet.
+- „Ladung abgebrochen“ wird nur noch einmal gepusht (nach dem erfolglosen Neustart).
+- „Datenkonflikt“ erst, wenn Wallbox und Fahrzeug sich länger als 3 min widersprechen
+  (unterschiedliche Abfrageverzögerung beim Start/Stopp).
+- Normale Ladestarts erscheinen nicht mehr als „Laufende Ladung nach Neustart übernommen“.
+- Neue Nacht-Szenariotests (schlafendes Auto, volles Auto, Probebetrieb); Integrationstests
+  laufen mit fester Uhrzeit statt der echten.
+
 ## 0.9.2 – 2026-10-16
 
 - **Behoben: gelöschte Ladepläne kamen nach einem Neustart zurück.** Eine leere Planliste

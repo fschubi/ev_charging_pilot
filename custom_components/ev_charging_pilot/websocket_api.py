@@ -418,8 +418,8 @@ async def ws_run_system_check(hass, connection, msg) -> None:
     _send(connection, msg, {"results": results, "at": _iso(dt_util.utcnow())})
 
 
-COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_get_settings, ws_set_settings, ws_create_report,
-            ws_list_reports, ws_state,
+COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_get_settings, ws_set_settings,
+            ws_create_report, ws_list_reports, ws_state,
             ws_health, ws_plan_preview, ws_sessions, ws_trips, ws_external, ws_month, ws_year,
             ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)
 

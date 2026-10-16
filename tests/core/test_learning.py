@@ -31,7 +31,7 @@ def session(n, *, kw=4.1, start=40.0, end=80.0, kwh_per_pct=0.21, success=True):
 
 def test_needs_three_sessions():
     learned = learn([session(1), session(2)], nominal_kwh_per_pct=NOMINAL.kwh_per_pct,
-                    nominal_power_kw=NOMINAL.expected_power_kw)
+                    max_power_kw=NOMINAL.wallbox_limit_kw)
     assert not learned.active
 
 
@@ -41,10 +41,21 @@ def test_learns_power_and_energy_per_percent_and_ignores_outliers():
         session(10, success=False),         # failed start
     ]
     learned = learn(sessions, nominal_kwh_per_pct=NOMINAL.kwh_per_pct,
-                    nominal_power_kw=NOMINAL.expected_power_kw)
+                    max_power_kw=NOMINAL.wallbox_limit_kw)
     assert learned.active
     assert learned.grid_kwh_per_pct == pytest.approx(0.21)
     assert learned.power_kw == pytest.approx(4.1)
+
+
+def test_bigger_on_board_charger_is_learned_up_to_the_wallbox():
+    """smart 453 with the 22 kW charger at an 11 kW wallbox: ~11 kW is real, not an outlier."""
+    sessions = [session(n, kw=10.8) for n in range(4)]
+    learned = learn(sessions, nominal_kwh_per_pct=NOMINAL.kwh_per_pct,
+                    max_power_kw=NOMINAL.wallbox_limit_kw)
+    assert learned.power_kw == pytest.approx(10.8)
+    params = VehicleParams(learned_power_kw=learned.power_kw)
+    assert params.expected_power_kw == pytest.approx(10.8)
+    assert VehicleParams(learned_power_kw=30).expected_power_kw == 11.0
 
 
 def test_learned_values_change_the_duration():
@@ -53,8 +64,8 @@ def test_learned_values_change_the_duration():
 
 
 def test_charging_above_90_percent_is_slower_and_consistent():
-    _, to_90 = charge_duration(80, 90, NOMINAL)
+    _, to_80 = charge_duration(70, 80, NOMINAL)
     _, to_100 = charge_duration(90, 100, NOMINAL)
-    assert to_100 > to_90 * 1.5
+    assert to_100 > to_80 * 1.5
     hours = charge_duration(70, 100, NOMINAL)[1].total_seconds() / 3600
     assert soc_after(70, hours, NOMINAL) == pytest.approx(100, abs=0.1)

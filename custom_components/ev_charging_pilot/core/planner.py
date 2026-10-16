@@ -59,17 +59,24 @@ class VehicleParams:
     learned_power_kw: float | None = None
     # Near full the battery accepts less power. Above this SOC the planner
     # assumes ``taper_factor`` of the normal power (conservative: starts earlier).
-    taper_from_pct: float = 90.0
+    taper_from_pct: float = 80.0
     taper_factor: float = 0.6
 
     @property
-    def expected_power_kw(self) -> float:
-        limits = [self.halo_limit_kw, self.vehicle_charger_kw]
+    def wallbox_limit_kw(self) -> float:
+        """What the wallbox (and a §14a dimming) can deliver at most."""
+        limits = [self.halo_limit_kw]
         if self.grid_limit_kw is not None:
             limits.append(self.grid_limit_kw)
-        if self.learned_power_kw is not None:
-            limits.append(self.learned_power_kw)
-        return max(0.1, min(limits))
+        return min(limits)
+
+    @property
+    def expected_power_kw(self) -> float:
+        # A measured power replaces the nominal on-board charger value – the car
+        # may have the bigger charger (smart 453: 22 kW option).
+        car = self.learned_power_kw if self.learned_power_kw is not None \
+            else self.vehicle_charger_kw
+        return max(0.1, min(self.wallbox_limit_kw, car))
 
     @property
     def kwh_per_pct(self) -> float:

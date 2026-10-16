@@ -339,6 +339,7 @@ class Engine:
             halo_limit_kw=s.max_power_kw,
             vehicle_charger_kw=s.vehicle_charger_kw,
             grid_limit_kw=s.grid_limit_kw,
+            taper_from_pct=s.taper_from_pct,
         )
         learned = self._learn(nominal)
         if not s.learn_charging or not learned.active:
@@ -353,7 +354,7 @@ class Engine:
         if key != self._learned_key:
             self._learned_key = key
             self.learned = learn(sessions, nominal_kwh_per_pct=nominal.kwh_per_pct,
-                                 nominal_power_kw=nominal.expected_power_kw)
+                                 max_power_kw=nominal.wallbox_limit_kw)
         return self.learned
 
     def _expire(self, now: datetime, cable: bool | None) -> None:

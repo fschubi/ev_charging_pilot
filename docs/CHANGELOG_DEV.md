@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-16 – v0.9.3 Übergänge sicher (Review Stufe 1).** Ziel-SOC je Fenster gehalten
+  (`_target_hold`, Nachladen nur frisch −3 %, `wake_allowed=False`), Ladeende per
+  Leistungsabfall/OVMS/99 %, Dry-Run = Schattenbetrieb (`set_shadow`, virtuelle Wallbox),
+  Konflikt-Karenz 180 s, `tests/core/test_scenarios.py`.
+
 - **2026-10-16 – v0.9.2 Neustartfestigkeit.** Leere Planliste wird wiederhergestellt (vorher
   Standardplan), Pläne speichern automatisch, Regressionstest Neustart (Pläne + ovms_enabled).
 

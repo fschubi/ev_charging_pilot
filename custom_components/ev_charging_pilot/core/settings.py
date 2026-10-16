@@ -108,6 +108,7 @@ OPT_NOTIFY_REPORT = "notify_report"
 OPT_NOTIFY_WEEKLY = "notify_weekly"
 OPT_MANUAL_TARGET_SOC = "manual_target_soc"
 OPT_LEARN_CHARGING = "learn_charging"
+OPT_TAPER_FROM_PCT = "taper_from_pct"
 OPT_OVMS_WAKEUP_COMMAND = "ovms_wakeup_command"
 OPT_OVMS_CLIMATE_COMMAND = "ovms_climate_command"
 OPT_OVMS_CLIMATE_STOP_COMMAND = "ovms_climate_stop_command"
@@ -184,6 +185,8 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_MANUAL_TARGET_SOC: 100,
     # Learn kWh per % and the real charging power from the own sessions.
     OPT_LEARN_CHARGING: True,
+    # Above this SOC the car charges slower (smart 453: from about 80 %).
+    OPT_TAPER_FROM_PCT: 80,
     # Ready-made OVMS v3 shell commands. Nothing is sent until the user switches the
     # vehicle access to "read & write" (ovms_enabled) – §1.2.
     # "auto": "xsq wakeup" on a smart 453 (OVMS docs), the generic "wakeup" otherwise.
@@ -292,6 +295,7 @@ class Settings:
     report_auto_monthly: bool = True
     manual_target_soc: int = 100
     learn_charging: bool = True
+    taper_from_pct: float = 80
     ovms_wakeup_command: str = "auto"
     ovms_climate_command: str = "homelink {level}"
     ovms_climate_stop_command: str = "climatecontrol off"
@@ -382,6 +386,7 @@ class Settings:
             report_auto_monthly=bool(o[OPT_REPORT_AUTO]),
             manual_target_soc=int(o[OPT_MANUAL_TARGET_SOC]),
             learn_charging=bool(o[OPT_LEARN_CHARGING]),
+            taper_from_pct=float(o[OPT_TAPER_FROM_PCT]),
             ovms_wakeup_command=str(o[OPT_OVMS_WAKEUP_COMMAND] or ""),
             ovms_climate_command=str(o[OPT_OVMS_CLIMATE_COMMAND] or ""),
             ovms_climate_stop_command=str(o[OPT_OVMS_CLIMATE_STOP_COMMAND] or ""),

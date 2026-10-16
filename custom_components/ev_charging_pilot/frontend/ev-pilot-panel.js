@@ -86,28 +86,56 @@ const socColor = (soc) =>
     : soc < 50 ? "var(--warning-color, #ffa600)"
     : "var(--success-color, #43a047)";
 
-/** Battery with SOC fill, plug and wallbox – shown below the photo (or alone without one). */
-function batterySvg({ plugged, charging, error, soc, kw, min = null, pref = null }) {
-  const led = error ? "var(--error-color, #db4437)" : charging ? "var(--success-color, #43a047)"
-    : plugged ? "var(--info-color, #039be5)" : "var(--disabled-text-color, #777)";
-  const fill = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-  const w = 212 * fill / 100;
+/** Gradient colours of the battery fill by charge level. */
+const socGradient = (soc) =>
+  soc === null ? ["#7a7f87", "#9aa0a8"]
+    : soc < 20 ? ["#ff416c", "#ff8a5c"]
+    : soc < 50 ? ["#f7971e", "#ffd200"]
+    : ["#11998e", "#38ef7d"];
+
+/** Modern capsule battery: gradient fill, glass highlight, cell lines, shimmer while charging,
+ *  minimum and target as labelled markers. */
+function batterySvg({ charging, error, soc, min = null, pref = null }) {
+  const level = soc === null ? 0 : Math.max(0, Math.min(100, soc));
+  const X0 = 18, W = 300, Y0 = 24, H = 60;
+  const w = W * level / 100;
+  const [c1, c2] = socGradient(soc);
+  const xAt = (p) => X0 + W * p / 100;
+  const cells = Array.from({ length: 9 }, (_, i) => `<line x1="${xAt((i + 1) * 10)}" y1="${Y0}" x2="${xAt((i + 1) * 10)}" y2="${Y0 + H}" stroke="rgba(0,0,0,.16)" stroke-width="1.5"/>`).join("");
+  const markers = [];
+  const close = min !== null && pref !== null && Math.abs(pref - min) < 14;
+  if (min !== null) markers.push([min, `min ${min}`, "var(--warning-color, #ffa600)", close ? "end" : "middle"]);
+  if (pref !== null) markers.push([pref, `Ziel ${pref}`, "var(--primary-color, #03a9f4)", close ? "start" : "middle"]);
+  const marks = markers.map(([p, label, color, anchor]) => {
+    const x = xAt(p);
+    const tx = anchor === "end" ? x - 4 : anchor === "start" ? x + 4 : x;
+    return `<line x1="${x}" y1="${Y0 - 4}" x2="${x}" y2="${Y0 + H + 4}" stroke="${color}" stroke-width="2.5" stroke-linecap="round" opacity=".95"/>
+      <path d="M${x - 5} ${Y0 + H + 13} L${x + 5} ${Y0 + H + 13} L${x} ${Y0 + H + 6} Z" fill="${color}"/>
+      <text x="${tx}" y="${Y0 + H + 27}" text-anchor="${anchor}" class="bmark" style="fill:${color}">${label} %</text>`;
+  }).join("");
+  const frame = error ? "var(--error-color, #db4437)" : "rgba(255,255,255,.22)";
   return `
-  <svg class="battery" viewBox="0 0 380 110" role="img" aria-label="Akku ${soc === null ? "unbekannt" : Math.round(soc) + " Prozent"}">
-    <rect x="8" y="20" width="230" height="70" rx="14" fill="none" stroke="var(--primary-text-color)" stroke-width="5" opacity=".85"/>
-    <rect x="240" y="42" width="12" height="26" rx="4" fill="var(--primary-text-color)" opacity=".85"/>
-    ${w > 0 ? `<rect x="17" y="29" width="${w.toFixed(1)}" height="52" rx="8" fill="${socColor(soc)}" class="${charging ? "pulse-soft" : ""}"/>` : ""}
-    ${[[min, "var(--warning-color, #ffa600)"], [pref, "var(--primary-color, #03a9f4)"]].filter(([p]) => p).map(([p, c]) =>
-      `<line x1="${(17 + 212 * p / 100).toFixed(1)}" y1="22" x2="${(17 + 212 * p / 100).toFixed(1)}" y2="88" stroke="${c}" stroke-width="3" stroke-dasharray="5 3"/>`).join("")}
-    <text x="123" y="64" text-anchor="middle" class="batt">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
-    ${charging ? `<path d="M46 34 L32 58 L44 58 L38 78 L56 50 L44 50 L50 34 Z" fill="#ffd600" stroke="rgba(0,0,0,.4)" opacity=".9"/>` : ""}
-    <!-- cable to the wallbox -->
-    ${plugged ? `<path d="M252 55 C290 55 290 55 326 55" fill="none" stroke="var(--secondary-text-color)" stroke-width="5" stroke-linecap="round"/>
-      ${charging ? `<path d="M252 55 L326 55" fill="none" stroke="var(--success-color, #43a047)" stroke-width="3" stroke-dasharray="3 9" stroke-linecap="round" class="flow"/>` : ""}`
-      : `<path d="M300 55 L326 55" fill="none" stroke="var(--secondary-text-color)" stroke-width="5" stroke-linecap="round" opacity=".5"/>`}
-    <rect x="326" y="18" width="40" height="74" rx="9" fill="#2a2f36" stroke="#4a5260"/>
-    <circle cx="346" cy="45" r="11" fill="none" stroke="${led}" stroke-width="3.5" class="${charging ? "pulse" : ""}"/>
-    ${charging ? `<text x="346" y="80" text-anchor="middle" class="kwsmall">${num(kw, 1)} kW</text>` : ""}
+  <svg class="battery" viewBox="0 0 352 118" role="img" aria-label="Akku ${soc === null ? "unbekannt" : Math.round(soc) + " Prozent"}">
+    <defs>
+      <linearGradient id="evp-fill" x1="0" x2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
+      <linearGradient id="evp-gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <linearGradient id="evp-shine" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <clipPath id="evp-clip"><rect x="${X0}" y="${Y0}" width="${W}" height="${H}" rx="20"/></clipPath>
+    </defs>
+    <rect x="${X0 - 6}" y="${Y0 - 6}" width="${W + 12}" height="${H + 12}" rx="26" fill="rgba(127,127,127,.10)" stroke="${frame}" stroke-width="2"/>
+    <rect x="${X0 + W + 10}" y="${Y0 + 18}" width="10" height="${H - 36}" rx="5" fill="${level >= 100 ? c2 : "rgba(127,127,127,.45)"}"/>
+    <g clip-path="url(#evp-clip)">
+      <rect x="${X0}" y="${Y0}" width="${W}" height="${H}" fill="rgba(127,127,127,.14)"/>
+      ${w > 0 ? `<rect x="${X0}" y="${Y0}" width="${w.toFixed(1)}" height="${H}" fill="url(#evp-fill)" class="${charging ? "breathe" : ""}"/>` : ""}
+      ${charging && w > 0 ? `<rect y="${Y0}" width="70" height="${H}" fill="url(#evp-shine)"><animate attributeName="x" from="${X0 - 70}" to="${(X0 + w).toFixed(1)}" dur="2.4s" repeatCount="indefinite"/></rect>` : ""}
+      ${cells}
+      <rect x="${X0}" y="${Y0}" width="${W}" height="${H / 2}" fill="url(#evp-gloss)"/>
+    </g>
+    ${marks}
+    <g class="bsoc">
+      ${charging ? `<path transform="translate(${X0 + W / 2 - 62} ${Y0 + 13}) scale(1.4)" d="M9 0 L0 13 L7 13 L4 24 L14 9 L7 9 L10 0 Z" fill="#fff"/>` : ""}
+      <text x="${X0 + W / 2 + (charging ? 10 : 0)}" y="${Y0 + H / 2 + 11}" text-anchor="middle" class="batt">${soc === null ? "– %" : Math.round(soc) + " %"}</text>
+    </g>
   </svg>`;
 }
 
@@ -285,7 +313,11 @@ const STYLE = `
      background-size: 50% 100%; background-repeat: no-repeat; animation: sweep 1.6s linear infinite; }
   @keyframes sweep { from { background-position: -50% 0; } to { background-position: 150% 0; } }
   .pulse-soft { animation: pulse 2.4s ease-in-out infinite; }
-  .batt { font-size: 22px; font-weight: 600; fill: #fff; paint-order: stroke; stroke: rgba(0,0,0,.35); stroke-width: 3px; }
+  .batt { font-size: 30px; font-weight: 700; fill: #fff; paint-order: stroke; stroke: rgba(0,0,0,.35); stroke-width: 4px; letter-spacing: .5px; }
+  .bmark { font-size: 12px; font-weight: 600; }
+  .breathe { animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .82; } }
+  @media (prefers-reduced-motion: reduce) { .breathe { animation: none; } }
   .kwsmall { font-size: 11px; font-weight: 600; fill: var(--success-color, #43a047); }
   .hint { font-size: 12px; color: var(--secondary-text-color); }
   input[type=range] { width: 100%; padding: 0; accent-color: var(--primary-color); }
@@ -963,10 +995,10 @@ class EvPilotPanel extends HTMLElement {
         <div class="hero">
           <div class="col carcol">
             ${this._photoUrl ? `<div class="photo ${charging ? "charging" : ""}"><img src="${this._photoUrl}" alt="Fahrzeug"></div>` : ""}
-            ${batterySvg({ plugged, charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null, kw,
+            ${batterySvg({ charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null,
               min: w ? w.minimum_soc_pct : null, pref: w ? w.preferred_soc_pct : null })}
             ${this._sohChip(s)}
-            ${w ? `<div class="hint"><span style="color:var(--warning-color)">┆</span> min. ${w.minimum_soc_pct} % · <span style="color:var(--primary-color)">┆</span> Ziel ${w.preferred_soc_pct} %${soc ? ` · <span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : ""}</div>` : ""}
+            ${soc && soc.quality !== "GOOD" ? `<div class="hint"><span class="pill ${QUALITY_CLASS[soc.quality]}">${soc.quality === "LAST_KNOWN_VALID" ? "letzter bekannter Ladestand – Auto schläft" : esc(soc.quality)}</span></div>` : ""}
             ${!this._photoUrl ? `<div class="hint">Eigenes Fahrzeugfoto: Reiter „Einstellungen“</div>` : ""}
             ${s.summary ? `<div class="status tone-${esc(s.summary.tone)}"><div class="big">${esc(s.summary.headline)}</div>
               ${s.summary.detail ? `<div class="sdetail">${esc(s.summary.detail)}</div>` : ""}</div>`

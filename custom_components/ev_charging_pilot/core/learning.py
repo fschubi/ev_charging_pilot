@@ -23,6 +23,9 @@ MIN_SOC_DELTA_PCT = 10
 # A learned value outside this band around the nominal one is a measurement
 # error (e.g. a wrong SOC jump), not a property of the car.
 PLAUSIBLE_BAND = (0.6, 1.5)
+# The power is bounded physically instead: the on-board charger may be bigger than
+# configured (smart 453 with 22 kW), but nothing charges faster than the wallbox.
+MIN_POWER_KW = 1.0
 INTERVAL_H = 0.25
 
 
@@ -52,7 +55,7 @@ def _session_power_kw(session: ChargeSession) -> float | None:
 
 
 def learn(sessions: Iterable[ChargeSession], *, nominal_kwh_per_pct: float,
-          nominal_power_kw: float) -> LearnedCharging:
+          max_power_kw: float) -> LearnedCharging:
     per_pct: list[float] = []
     power: list[float] = []
     used = 0
@@ -68,7 +71,7 @@ def learn(sessions: Iterable[ChargeSession], *, nominal_kwh_per_pct: float,
                 per_pct.append(value)
                 counted = True
         kw = _session_power_kw(session)
-        if kw is not None and PLAUSIBLE_BAND[0] <= kw / nominal_power_kw <= PLAUSIBLE_BAND[1]:
+        if kw is not None and MIN_POWER_KW <= kw <= max_power_kw * 1.1:
             power.append(kw)
             counted = True
         used += counted

@@ -130,6 +130,9 @@ GROUPS: list[dict[str, Any]] = [
         _n("grid_limit_kw", "Netzbetreiber-Limit §14a (0 = keins)", 0, 22, 0.1, "kW",
            help="Nur falls der Netzbetreiber die Wallbox dimmen darf (z. B. 4,2 kW)."),
         _n("charge_efficiency", "Ladewirkungsgrad", 0.5, 1, 0.01, advanced=True),
+        _n("taper_from_pct", "Lädt langsamer ab Ladestand", 50, 100, 5, "%",
+           help="Kurz vor voll nimmt jedes Auto weniger Leistung auf (smart 453: ab ca. 80 %). "
+                "Der Plan startet dann entsprechend früher."),
         _b("learn_charging", "Aus eigenen Ladungen lernen",
            help="Nach drei Ladungen ersetzen gemessene Werte (kWh je % und echte Ladeleistung) "
                 "die Nennwerte – die Startzeit wird genauer."),

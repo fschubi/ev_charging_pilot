@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.1 – 2026-10-16
+
+- **Neuer Akku im Cockpit:** moderne Kapsel mit Farbverlauf (rot → gelb → grün je nach
+  Ladestand), Glanz, feinen Zellen-Linien und einem Lichtschimmer beim Laden; Mindest- und
+  Ziel-Ladestand als beschriftete Marker. Schläft das Auto, steht darunter „letzter bekannter
+  Ladestand“.
+- **Langsamer laden ab 80 %** (vorher 90 %): so verhält sich der smart 453. Einstellbar unter
+  Einstellungen → Fahrzeug und Wallbox → „Lädt langsamer ab Ladestand“.
+- **Behoben: 22-kW-Bordlader wurde beim Lernen verworfen.** Die gemessene Ladeleistung
+  (z. B. ~11 kW an der Halo) galt als unplausibel, weil sie über dem eingestellten
+  Bordlader lag. Grenze ist jetzt die Wallbox; der gemessene Wert ersetzt den Bordlader-Wert.
+
 ## 0.13.0 – 2026-10-16
 
 - **Systemtest** (Panel → Diagnose): prüft Schritt für Schritt Wallbox-Freigabe,

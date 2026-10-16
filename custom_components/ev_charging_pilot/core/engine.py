@@ -388,6 +388,11 @@ class Engine:
             self._target_hold = None
         self.executor.prune_expired(now)
 
+    @property
+    def target_held(self) -> bool:
+        """The running window already reached its target and keeps the wallbox off."""
+        return self.active_window is not None and self._target_hold == self.active_window.key
+
     def set_vehicle_commands(self, available: bool) -> None:
         """The command path may appear later (OVMS integration starts after us)."""
         if available == self.config.ovms_command_available:

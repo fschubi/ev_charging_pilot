@@ -12,10 +12,12 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, VERSION
 from .coordinator import ChargingCenter
+from .core.engine import FAILURE_HINTS
 from .core.inputs import Inp
 from .core.model import Value
 from .core.planner import ChargeWindow, WeeklySchedule
-from .core.settings import DEFAULT_OPTIONS, OPT_MANUAL_TARGET_SOC
+from .core.settings import DEFAULT_OPTIONS, OPT_MANUAL_TARGET_SOC, RunMode
+from .core.summary import summary
 from .reports import async_create_report, async_list_reports
 from .settings_schema import GROUPS, apply_changes, current_values
 from .vehicle_image import IMAGE_URL
@@ -99,10 +101,13 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
         "version": VERSION,
         "mode": str(center.mode),
         "automation_enabled": engine.automation_enabled,
+        "summary": summary(engine, now, center.mode is RunMode.LIVE),
+        "target_held": engine.target_held,
         "executor": {
             "state": str(engine.executor.state) if engine.executor.state else None,
             "since": _iso(engine.executor.state_since),
             "failure_code": engine.executor.failure_code,
+            "failure_hint": FAILURE_HINTS.get(engine.executor.failure_code or ""),
             "session_id": engine.executor.session_id,
             "cp_masked": engine.executor.cp_masked(now),
         },

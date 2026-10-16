@@ -71,6 +71,13 @@ const SHELLY_LABELS = { initial_state: "Einschaltzustand", auto_on: "Auto-On", a
 const fmtShelly = (v) => v === true ? "an" : v === false ? "aus" : v === null || v === undefined ? "–" : typeof v === "number" ? `${v} s` : String(v);
 const shellyRows = (devs) => (devs || []).map((d) =>
   `<div class="row"><span>${esc(SHELLY_LABELS[d.key] || d.key)}</span><span><span class="pill bad">${esc(fmtShelly(d.actual))}</span> → <span class="pill ok">${esc(fmtShelly(d.expected))}</span></span></div>`).join("");
+// Routine steps that clutter the log; "Wichtiges" hides them.
+const ROUTINE_EVENTS = new Set(["CHARGER_CONFIRMED", "CHARGER_OFF_CONFIRMED", "POWER_DETECTED",
+  "EXECUTOR_STARTED", "DRY_RUN", "SWITCH_CYCLE_VIOLATION", "CP_PULSE_DONE", "WAIT_FOR_CHARGE",
+  "POWER_LOST", "PLAN_CONFIRMED"]);
+const EVENT_FILTERS = [["important", "Wichtiges"], ["", "alle"], ["charging", "Laden"],
+  ["wakeup", "Wecken"], ["cp", "CP"], ["climate", "Klima"], ["health", "System"],
+  ["config", "Konfiguration"], ["user", "Bedienung"]];
 const SEASON_LABELS = { winter: "Winter", spring: "Frühling", summer: "Sommer", autumn: "Herbst" };
 
 const socColor = (soc) =>
@@ -139,7 +146,8 @@ function timelineSvg(s) {
       fill="var(--warning-color, #ffa600)" opacity=".16"/>
       <path d="M${pts.map((p) => p.map((v) => v.toFixed(1)).join(" ")).join(" L")}" fill="none" stroke="var(--warning-color, #ffa600)" stroke-width="1.5" opacity=".8"/>`;
   }
-  const blocks = w ? (w.blocks.length ? w.blocks : [[w.start, w.departure]]) : [];
+  const finish = w && w.estimate && w.estimate.finish_at && !w.blocks.length ? w.estimate.finish_at : null;
+  const blocks = w ? (w.blocks.length ? w.blocks : [[w.start, finish || w.departure]]) : [];
   const charge = blocks.map(([a, b]) => `<rect x="${X(new Date(a).getTime()).toFixed(1)}" y="${bottom - 14}" width="${Math.max(2, X(new Date(b).getTime()) - X(new Date(a).getTime())).toFixed(1)}" height="14" rx="3" fill="var(--primary-color, #03a9f4)"/>`).join("");
   const ticks = [];
   const hour = 3600e3;
@@ -155,9 +163,15 @@ function timelineSvg(s) {
     return `<line x1="${x.toFixed(1)}" y1="${top}" x2="${x.toFixed(1)}" y2="${bottom}" stroke="${color}" stroke-width="2" ${dash ? 'stroke-dasharray="4 3"' : ""}/>
     <text x="${tx.toFixed(1)}" y="${top + 10}" text-anchor="${anchor}" class="tl" style="fill:${color}">${label}</text>`;
   };
+  const blockText = blocks.map(([a, b]) => {
+    const x = (X(new Date(a).getTime()) + X(new Date(b).getTime())) / 2;
+    return `<text x="${x.toFixed(1)}" y="${bottom - 18}" text-anchor="middle" class="tl" style="fill:var(--primary-color)">${time(a)}–${time(b)}</text>`;
+  }).join("");
+  const climate = s.climate && !s.climate.blocked && w
+    ? marker(new Date(s.climate.start_at).getTime(), "Klima", "var(--info-color, #039be5)", true) : "";
   return `<svg viewBox="0 0 ${W} 112" class="timeline" role="img" aria-label="Ladeplan der Nacht">
     <line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" stroke="var(--divider-color)"/>
-    ${priceArea}${charge}${ticks.join("")}
+    ${priceArea}${charge}${blockText}${ticks.join("")}${climate}
     ${w ? marker(new Date(w.ready_at).getTime(), "fertig", "var(--success-color, #43a047)", true, "end") : ""}
     ${w ? marker(new Date(w.departure).getTime(), "Abfahrt", "var(--primary-text-color)", false) : ""}
     ${now >= startT && now <= endT ? marker(now, "jetzt", "var(--error-color, #db4437)", false) : ""}
@@ -279,6 +293,33 @@ const STYLE = `
   .slider b { min-width: 48px; text-align: right; }
   .settings { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px; }
   .stop { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .status { margin: 6px 0 2px; }
+  .status .big { font-size: 22px; line-height: 1.25; }
+  .status .sdetail { font-size: 14px; color: var(--secondary-text-color); margin-top: 4px; }
+  .status.tone-bad .big { color: var(--error-color, #db4437); }
+  .status.tone-warn .big { color: var(--warning-color, #ffa600); }
+  .plan.off { opacity: .7; }
+  .phead { display: flex; align-items: center; gap: 12px; }
+  .pname { flex: 1; font-size: 18px; font-weight: 500; border: 1px solid transparent; background: none; padding: 6px 8px; margin-left: -8px; }
+  .pname:hover, .pname:focus { border-color: var(--divider-color); }
+  .psum { font-size: 13px; color: var(--secondary-text-color); margin: 2px 0 10px; }
+  .psec { margin-top: 14px; }
+  .plabel { display: block; font-size: 13px; color: var(--secondary-text-color); margin-bottom: 6px; }
+  .pgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin-top: 12px; }
+  .pgrid.two { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-top: 6px; }
+  .pmode { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .pmode .inline { flex-direction: row; align-items: center; gap: 8px; color: var(--primary-text-color); }
+  .pmode .inline input { width: auto; }
+  .daychips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .day { min-width: 42px; padding: 8px 0; border-radius: 18px; border: 1px solid var(--divider-color); background: none; color: var(--secondary-text-color); font: inherit; cursor: pointer; }
+  .day.on { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-primary-color, #fff); }
+  .socbar { position: relative; height: 14px; border-radius: 7px; background: var(--divider-color); overflow: visible; }
+  .socbar .fill { height: 100%; border-radius: 7px; background: var(--primary-color); opacity: .75; }
+  .socbar i { position: absolute; top: -4px; bottom: -4px; width: 3px; background: var(--warning-color, #ffa600); border-radius: 2px; transform: translateX(-1px); }
+  .pfoot { margin-top: 14px; display: flex; justify-content: flex-end; }
+  .pgrid .unitbox { width: max-content; }
+  @media (max-width: 420px) { .daychips { gap: 4px; } .day { min-width: 0; flex: 1; } }
+  td.nowrap { white-space: nowrap; }
   .seg { display: inline-flex; border: 1px solid var(--divider-color); border-radius: 20px; overflow: hidden; }
   .seg button { background: none; border: none; padding: 8px 16px; font: inherit; color: var(--secondary-text-color); cursor: pointer; }
   .seg button.on { background: var(--primary-color); color: var(--text-primary-color, #fff); }
@@ -355,7 +396,7 @@ class EvPilotPanel extends HTMLElement {
     this._plans = null;
     this._year = new Date().getFullYear();
     this._month = new Date().getMonth() + 1;
-    this._eventFilter = "";
+    this._eventFilter = "important";
   }
 
   set hass(hass) {
@@ -409,6 +450,11 @@ class EvPilotPanel extends HTMLElement {
     }
     await this._loadPhoto();
     await this._loadView();
+    // Re-render only when something visible changed (ages tick every poll).
+    const signature = JSON.stringify([this._view, this._state, this._cache, this._plans, this._photoUrl, this._error],
+      (key, value) => (key === "age_s" ? undefined : value));
+    if (signature === this._signature) return;
+    this._signature = signature;
     this._render();
   }
 
@@ -447,7 +493,11 @@ class EvPilotPanel extends HTMLElement {
           c.yearDrive = await this._ws("get_year_statistics", { year: this._year });
         }
       } else if (this._view === "diag") {
-        c.events = await this._ws("get_events", { limit: 200, ...(this._eventFilter ? { category: this._eventFilter } : {}) });
+        if (!c.events || Date.now() - (c.eventsAt || 0) > 30000) {
+          const category = this._eventFilter && this._eventFilter !== "important" ? { category: this._eventFilter } : {};
+          c.events = await this._ws("get_events", { limit: 300, ...category });
+          c.eventsAt = Date.now();
+        }
         if (!c.replay) c.replay = await this._ws("get_replay");
       } else if (this._view === "settings" && !c.settings) {
         c.settings = await this._ws("get_settings");
@@ -503,6 +553,7 @@ class EvPilotPanel extends HTMLElement {
       // Never re-render under the user's cursor while a form field is being edited.
       return;
     }
+    const scrolls = [...this.shadowRoot.querySelectorAll(".scroll")].map((el) => [el.scrollTop, el.scrollLeft]);
     this.shadowRoot.innerHTML = `
       <style>${STYLE}</style>
       <header>
@@ -512,6 +563,9 @@ class EvPilotPanel extends HTMLElement {
       </header>
       <nav>${VIEWS.map(([id, label]) => `<button data-view="${id}" class="${this._view === id ? "active" : ""}">${id === "home" && s ? `Hausstrom → ${esc(s.vehicle_name)}` : label}</button>`).join("")}</nav>
       <main>${body}</main>`;
+    this.shadowRoot.querySelectorAll(".scroll").forEach((el, i) => {
+      if (scrolls[i]) [el.scrollTop, el.scrollLeft] = scrolls[i];
+    });
     this._bind();
   }
 
@@ -560,8 +614,23 @@ class EvPilotPanel extends HTMLElement {
           plan[field] = el.value;
         }
         this._queuePlanSave();
+        if (field === "enabled") this._render(true);
         break;
       }
+      case "plan-day": {
+        const plan = plans[Number(el.dataset.index)];
+        const days = new Set(plan.weekdays);
+        days.has(el.dataset.day) ? days.delete(el.dataset.day) : days.add(el.dataset.day);
+        plan.weekdays = WEEKDAYS.map(([d]) => d).filter((d) => days.has(d));
+        this._queuePlanSave();
+        this._render(true);
+        break;
+      }
+      case "plan-mode":
+        plans[Number(el.dataset.index)].mode = el.dataset.mode;
+        this._queuePlanSave();
+        this._render(true);
+        break;
       case "plan-add":
         plans.push({ id: `plan-${Date.now().toString(36)}`, name: "Neuer Plan", enabled: true,
           weekdays: ["sat", "sun"], mode: "departure_based", charge_start_time: "03:00",
@@ -579,7 +648,9 @@ class EvPilotPanel extends HTMLElement {
       case "odometer-add":
         this._addOdometer(); break;
       case "event-filter":
-        this._eventFilter = el.value; this._refresh(); break;
+        this._eventFilter = el.value; this._cache.events = null; this._refresh(); break;
+      case "events-reload":
+        this._cache.events = null; this._refresh(); break;
       case "replay-run":
         this._runReplay(); break;
       case "report":
@@ -867,8 +938,8 @@ class EvPilotPanel extends HTMLElement {
     const charging = ex.state === "CHARGING" || ex.state === "CHARGE_STABILIZING";
     const maxKw = Math.min(s.settings.vehicle_charger_kw || 4.6, s.settings.max_power_kw || 11);
     const reasons = s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("");
-    const notice = s.mode !== "live"
-      ? `<div class="notice info">Modus <b>${esc(s.mode)}</b>: Die Integration protokolliert nur, was sie schalten würde. Live erst nach Messphase, Dry-Run und Einzeltest (Grundsatz 11).</div>` : "";
+    // The status sentence already says "Probebetrieb"; the header badge shows the mode.
+    const notice = "";
     const errorBox = health === "ERROR"
       ? `<div class="notice bad"><b>Automatik gesperrt.</b>${reasons}</div>` : "";
     return `${notice}${errorBox}
@@ -882,7 +953,9 @@ class EvPilotPanel extends HTMLElement {
             ${this._sohChip(s)}
             ${w ? `<div class="hint"><span style="color:var(--warning-color)">┆</span> min. ${w.minimum_soc_pct} % · <span style="color:var(--primary-color)">┆</span> Ziel ${w.preferred_soc_pct} %${soc ? ` · <span class="pill ${QUALITY_CLASS[soc.quality]}">${esc(soc.quality)}</span>` : ""}</div>` : ""}
             ${!this._photoUrl ? `<div class="hint">Eigenes Fahrzeugfoto: Reiter „Einstellungen“</div>` : ""}
-            <div class="big">${esc(STATE_LABELS[ex.state] || ex.state || "–")}</div>
+            ${s.summary ? `<div class="status tone-${esc(s.summary.tone)}"><div class="big">${esc(s.summary.headline)}</div>
+              ${s.summary.detail ? `<div class="sdetail">${esc(s.summary.detail)}</div>` : ""}</div>`
+              : `<div class="big">${esc(STATE_LABELS[ex.state] || ex.state || "–")}</div>`}
             <div class="chips">
               <span class="pill ${plugged ? "info" : "muted"}">${plugged ? "eingesteckt" : "nicht eingesteckt"}</span>
               <span class="pill ${healthClass}">${esc(HEALTH_LABELS[health] || health)}</span>
@@ -891,7 +964,7 @@ class EvPilotPanel extends HTMLElement {
               ${!s.automation_enabled ? `<span class="pill warn">Automatik aus</span>` : ""}
               ${ex.failure_code ? `<span class="pill bad">${esc(ex.failure_code)}</span>` : ""}
             </div>
-            <div class="sub">Soll: ${esc(REASON_LABELS[desired.reason] || desired.reason || "–")}
+            <div class="sub">Zustand: ${esc(STATE_LABELS[ex.state] || ex.state || "–")} · Soll: ${esc(REASON_LABELS[desired.reason] || desired.reason || "–")}
               (${desired.charger_enabled === true ? "Wallbox an" : desired.charger_enabled === false ? "Wallbox aus" : "nicht eingreifen"}) · seit ${time(ex.since)}</div>
           </div>
           <div class="col">
@@ -951,7 +1024,8 @@ class EvPilotPanel extends HTMLElement {
           <button class="act" data-service="stop_climate">Klima stopp</button>
           <button class="act" data-service="vehicle_wakeup" data-confirm="Fahrzeug wirklich wecken? Jeder Wakeup kostet HV-Zyklen.">Fahrzeug wecken</button>` : ""}
           ${has("cp_relay") ? `<button class="act" data-service="cp_wakeup" data-confirm="CP-Puls auslösen?" ${s.settings.cp_failsafe_verified ? "" : "disabled title='Failsafe nicht verifiziert'"}>CP-Wakeup</button>` : ""}
-          <button class="act danger" data-service="reset_error" ${ex.failure_code || health === "ERROR" ? "" : "disabled"}>Fehler zurücksetzen</button>
+          ${ex.failure_code ? `<button class="act primary" data-service="reset_error" data-label="Neuer Ladeversuch">Erneut versuchen</button>`
+            : `<button class="act danger" data-service="reset_error" ${health === "ERROR" ? "" : "disabled"}>Fehler zurücksetzen</button>`}
         </div>
       </div>
     </div>`;
@@ -999,27 +1073,48 @@ class EvPilotPanel extends HTMLElement {
       <td class="n">${num(w.estimate.expected_soc_at_departure, 0, "%")}</td>
       <td>${w.blocks.length ? `günstig: ${w.blocks.map((b) => `${time(b[0])}–${time(b[1])}`).join(", ")}` : w.fallback_without_soc ? "fester Start" : "abfahrtsbasiert"}</td>
       <td class="n">${num(w.estimate.cost_eur, 2, "€")}</td></tr>`).join("");
-    const cards = plans.map((p, i) => `
-      <div class="card wide">
-        <h2>${esc(p.name)} ${p.enabled ? "" : `<span class="pill muted">aus</span>`}</h2>
-        <div class="form">
-          <label>Name<input data-action="plan-field" data-index="${i}" data-field="name" value="${esc(p.name)}"></label>
-          <label>Modus<select data-action="plan-field" data-index="${i}" data-field="mode">
-            <option value="departure_based" ${p.mode === "departure_based" ? "selected" : ""}>Abfahrtsbasiert</option>
-            <option value="fixed_start" ${p.mode === "fixed_start" ? "selected" : ""}>Fester Start</option></select></label>
-          <label>Abfahrt<input type="time" data-action="plan-field" data-index="${i}" data-field="departure_time" value="${esc(p.departure_time)}"></label>
-          <label>Fester Start / Rückfall<input type="time" data-action="plan-field" data-index="${i}" data-field="charge_start_time" value="${esc(p.charge_start_time)}"></label>
-          <label>Fertig vor Abfahrt (min)<input type="number" min="0" max="240" data-action="plan-field" data-index="${i}" data-field="ready_buffer_min" value="${p.ready_buffer_min}"></label>
-          <label>Mindestens bei Abfahrt: <b class="val">${p.minimum_departure_soc_pct} %</b><input type="range" min="10" max="100" step="5" data-action="plan-field" data-index="${i}" data-field="minimum_departure_soc_pct" value="${p.minimum_departure_soc_pct}"></label>
-          <label>Laden bis (Ziel): <b class="val">${p.preferred_departure_soc_pct} %</b><input type="range" min="10" max="100" step="5" data-action="plan-field" data-index="${i}" data-field="preferred_departure_soc_pct" value="${p.preferred_departure_soc_pct}"></label>
-          <label>Klima<select data-action="plan-field" data-index="${i}" data-field="climate">
-            ${[["off", "aus"], ["auto", "automatisch (Profil)"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"]]
+    const cards = plans.map((p, i) => {
+      const win = (s.windows || []).find((w) => w.source_id === p.id);
+      const fixed = p.mode === "fixed_start";
+      const field = (name) => `data-action="plan-field" data-index="${i}" data-field="${name}"`;
+      const summary = !p.enabled ? "Plan ist ausgeschaltet."
+        : !p.weekdays.length ? "Keine Abfahrtstage gewählt."
+        : win ? `Nächste Abfahrt ${dateTime(win.departure)} · Start ${dateTime(win.start)} · erwartet ${num(win.estimate.expected_soc_at_departure, 0, "%")}`
+        : "Keine Abfahrt in den nächsten Tagen.";
+      return `
+      <div class="card wide plan ${p.enabled ? "" : "off"}">
+        <div class="phead">
+          <input class="pname" ${field("name")} value="${esc(p.name)}" aria-label="Name des Plans">
+          <label class="switch" title="${p.enabled ? "Plan aktiv" : "Plan aus"}"><input type="checkbox" ${field("enabled")} ${p.enabled ? "checked" : ""}><span class="track"></span></label>
+        </div>
+        <div class="psum">${esc(summary)}</div>
+        <div class="psec"><span class="plabel">Abfahrt an diesen Tagen</span>
+          <div class="daychips">${WEEKDAYS.map(([d, l]) => `<button class="day ${p.weekdays.includes(d) ? "on" : ""}" data-action="plan-day" data-index="${i}" data-day="${d}" aria-pressed="${p.weekdays.includes(d)}">${l}</button>`).join("")}</div></div>
+        <div class="pgrid">
+          <label>Abfahrt um<input type="time" ${field("departure_time")} value="${esc(p.departure_time)}"></label>
+          <label>Fertig vor Abfahrt<span class="unitbox"><input type="number" min="0" max="240" step="5" ${field("ready_buffer_min")} value="${p.ready_buffer_min}"><span>min</span></span></label>
+          <label>Vorklimatisierung<select ${field("climate")}>
+            ${[["off", "aus"], ["auto", "automatisch (nach Temperatur)"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"]]
               .map(([v, l]) => `<option value="${v}" ${p.climate === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         </div>
-        <p class="days">${WEEKDAYS.map(([d, l]) => `<label><input type="checkbox" data-action="plan-field" data-index="${i}" data-field="weekday" value="${d}" ${p.weekdays.includes(d) ? "checked" : ""}>${l}</label>`).join("")}
-          <label><input type="checkbox" data-action="plan-field" data-index="${i}" data-field="enabled" ${p.enabled ? "checked" : ""}>aktiv</label></p>
-        <button class="act danger" data-action="plan-delete" data-index="${i}">Plan löschen</button>
-      </div>`).join("");
+        <div class="psec"><span class="plabel">Wann laden?</span>
+          <div class="seg">
+            <button class="${fixed ? "" : "on"}" data-action="plan-mode" data-index="${i}" data-mode="departure_based">Rechtzeitig zur Abfahrt</button>
+            <button class="${fixed ? "on" : ""}" data-action="plan-mode" data-index="${i}" data-mode="fixed_start">Ab fester Uhrzeit</button>
+          </div>
+          <div class="pmode">${fixed
+            ? `<label class="inline">Start um <input type="time" ${field("charge_start_time")} value="${esc(p.charge_start_time)}"></label>`
+            : `<span class="hint">Startet so spät wie möglich${s.prices.dynamic ? " bzw. in den günstigsten Stunden" : ""}, damit das Auto zur Abfahrt fertig ist.</span>
+               <label class="inline">Ohne aktuellen Ladestand ab <input type="time" ${field("charge_start_time")} value="${esc(p.charge_start_time)}"></label>`}</div></div>
+        <div class="psec"><span class="plabel">Ladestand bei Abfahrt</span>
+          <div class="socbar" aria-hidden="true"><div class="fill" style="width:${p.preferred_departure_soc_pct}%"></div><i style="left:${p.minimum_departure_soc_pct}%"></i></div>
+          <div class="pgrid two">
+            <label>Mindestens: <b class="val">${p.minimum_departure_soc_pct} %</b><input type="range" min="10" max="100" step="5" ${field("minimum_departure_soc_pct")} value="${p.minimum_departure_soc_pct}"></label>
+            <label>Laden bis (Ziel): <b class="val">${p.preferred_departure_soc_pct} %</b><input type="range" min="10" max="100" step="5" ${field("preferred_departure_soc_pct")} value="${p.preferred_departure_soc_pct}"></label>
+          </div></div>
+        <div class="pfoot"><button class="act danger" data-action="plan-delete" data-index="${i}">Plan löschen</button></div>
+      </div>`;
+    }).join("");
     const manual = s.settings.manual_target_soc ?? 100;
     return `<div class="grid">
       <div class="card wide">
@@ -1029,9 +1124,9 @@ class EvPilotPanel extends HTMLElement {
         <p class="hint">Gilt für „Jetzt laden“ (Cockpit, Push beim Einstecken, Service). Ohne Fahrzeugdaten wird bis zum Abstecken geladen.</p>
       </div>
       <div class="card wide"><h2>Kommende Ladefenster</h2>
+        ${s.next_window ? timelineSvg(s) : ""}
         ${windows ? `<div class="scroll"><table><tr><th>Plan</th><th>Start</th><th>Abfahrt</th><th class="n">SOC erwartet</th><th>Art</th><th class="n">Kosten*</th></tr>${windows}</table></div>` : `<p class="sub">Kein Plan aktiv.</p>`}
-        <p class="sub">Abfahrtstage = Tage der Abfahrt. Ohne SOC fällt ein abfahrtsbasierter Plan auf den festen Start zurück.
-          Mit dynamischem Preis (Tibber) lädt ein abfahrtsbasierter Plan in den günstigsten Stunden. * Schätzung</p>
+        <p class="sub">* Schätzung. Ist das Ziel erreicht, bleibt die Wallbox bis zur Abfahrt aus – das Auto wird dafür nie geweckt.</p>
       </div>
       ${cards}
       <div class="card wide actions">
@@ -1142,7 +1237,9 @@ class EvPilotPanel extends HTMLElement {
 
   _diag(s) {
     const c = this._cache;
-    const events = (c.events && c.events.items) || [];
+    const all = (c.events && c.events.items) || [];
+    const events = this._eventFilter === "important"
+      ? all.filter((e) => e.severity !== "debug" && !ROUTINE_EVENTS.has(e.code)) : all;
     const replay = c.replay || {};
     const last = replay.last;
     const values = Object.entries(s.values).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(s.entities[k] || "")}</td>
@@ -1168,12 +1265,12 @@ class EvPilotPanel extends HTMLElement {
       <div class="card wide"><h2>Datenqualität je Wert</h2><div class="scroll"><table>
         <tr><th>Wert</th><th>Entität</th><th class="n">Wert</th><th class="n">Alter</th><th>Qualität</th></tr>${values}</table></div></div>
       <div class="card wide"><h2>Event Log</h2>
-        <label style="max-width:220px">Kategorie<select data-action="event-filter">
-          ${["", "charging", "wakeup", "cp", "climate", "health", "config", "user"].map((k) => `<option value="${k}" ${this._eventFilter === k ? "selected" : ""}>${k || "alle"}</option>`).join("")}
-        </select></label>
-        <div class="scroll"><table><tr><th>Zeit</th><th>Kategorie</th><th>Code</th><th>Meldung</th></tr>
-          ${events.map((e) => `<tr><td>${dateTime(e.timestamp)}</td><td>${esc(e.category)}</td>
-            <td><span class="pill ${sevClass[e.severity]}">${esc(e.code)}</span></td><td>${esc(e.message)}</td></tr>`).join("")}
+        <div class="actions"><label style="max-width:220px">Anzeigen<select data-action="event-filter">
+          ${EVENT_FILTERS.map(([k, l]) => `<option value="${k}" ${this._eventFilter === k ? "selected" : ""}>${l}</option>`).join("")}
+        </select></label><button class="act" data-action="events-reload">Aktualisieren</button></div>
+        <div class="scroll"><table><tr><th>Zeit</th><th>Meldung</th><th>Code</th></tr>
+          ${events.map((e) => `<tr><td class="nowrap">${dateTime(e.timestamp)}</td><td>${esc(e.message)}</td>
+            <td><span class="pill ${sevClass[e.severity]}">${esc(e.code)}</span></td></tr>`).join("") || `<tr><td colspan="3" class="sub">Keine Einträge.</td></tr>`}
         </table></div></div>
       <div class="card wide"><h2>Replay</h2>
         <p class="sub">Datensätze liegen in <code>/config/ev_charging_pilot/replay</code>; erstellen mit dem Service <code>create_replay_dataset</code>.</p>

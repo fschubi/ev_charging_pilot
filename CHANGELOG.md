@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.11.0 – 2026-10-16
+
+- **Cockpit sagt in einem Satz, was passiert:** z. B. „Lädt in der günstigsten Zeit
+  Mi 02:00–03:12 – Abfahrt Mi 05:30, fertig vor 05:00“, „Ziel 90 % erreicht – das Auto ruht
+  bis zur Abfahrt“ oder „Nicht eingesteckt – bitte bis 04:27 einstecken“. Bei Fehlern steht
+  dort, was zu prüfen ist, und der Knopf heißt „Erneut versuchen“.
+- **Ladeplan-Karte neu:** Name und Ein/Aus-Schalter im Kopf, darunter eine Zeile mit der
+  nächsten Abfahrt; Abfahrtstage als Knöpfe; „Wann laden?“ als Umschalter „Rechtzeitig zur
+  Abfahrt“ / „Ab fester Uhrzeit“ – es erscheint nur die jeweils passende Uhrzeit;
+  Mindest- und Ziel-Ladestand mit Balken.
+- **Zeitleiste der Nacht** jetzt auch im Ladeplan, mit Uhrzeit des Ladeblocks und
+  Klimastart; der Block endet bei der voraussichtlichen Fertigzeit.
+- **Ereignisprotokoll:** Standardansicht „Wichtiges“ blendet Routineschritte aus,
+  Meldung vor Code, Knopf „Aktualisieren“; lädt nur noch alle 30 s statt alle 5 s.
+- **Ruhigeres Panel:** neu gezeichnet wird nur, wenn sich etwas Sichtbares geändert hat;
+  Scrollpositionen in Tabellen bleiben erhalten.
+
 ## 0.10.0 – 2026-10-16
 
 - **Fremdladeerkennung bei Wallbox-Cloud-Ausfall abgesichert:** Laden außer Haus wird nur

@@ -58,7 +58,18 @@ CONFLICT_GRACE_S = 180
 FINISHED_SIGNAL_MAX_AGE = timedelta(minutes=15)
 FULL_SOC_PCT = 99
 REMINDER_HORIZON = timedelta(hours=12)
+# The buttons of the plug-in push only apply to that plug-in, and not forever.
+PLUG_OFFER_VALID = timedelta(hours=12)
 CP_REASONS = ("CP_NOT_RESTORED", "CP_STATE_UNKNOWN", "CP_OPEN")
+# What the user can check – shown in pushes and in the panel.
+FAILURE_HINTS = {
+    "CHARGE_START_FAILED": "Bitte prüfen: Stecker am Auto ganz eingerastet, Auto entriegelt, "
+                           "Ladeklappe zu? Dann „Erneut versuchen“",
+    "CHARGER_NOT_CONFIRMED": "Die Wallbox reagiert nicht – ist sie online (App des "
+                             "Herstellers)? Dann „Erneut versuchen“",
+    "CHARGE_INTERRUPTED": "Wenn der Akku nicht voll ist: Stecker prüfen, dann "
+                          "„Erneut versuchen“",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +81,8 @@ class Notification:
     title: str
     message: str
     actionable: bool = False
+    # Extra buttons, e.g. ("retry",) after a failed start.
+    actions: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -121,7 +134,8 @@ class Engine:
         self.external = ExternalChargeDetector(
             capacity_kwh=s.usable_capacity_kwh, efficiency=s.charge_efficiency,
             min_kwh=s.external_min_kwh, soc_jump_pct=s.external_soc_jump_pct,
-            price_eur_kwh=s.external_price_eur_kwh, threshold_w=s.power_threshold_w)
+            price_eur_kwh=s.external_price_eur_kwh, threshold_w=s.power_threshold_w,
+            tz=config.tz)
 
         self.plans: list[WeeklySchedule] = [DEFAULT_PLAN]
         self.override: ManualOverride | None = None
@@ -153,6 +167,8 @@ class Engine:
         self._was_conflict = False
         self._conflict_since: datetime | None = None
         self._target_hold: str | None = None
+        self.plug_offer_at: datetime | None = None
+        self.last_unplug_at: datetime | None = None
         self.shadow = False
         self._virtual_charger: bool | None = None
         self.shelly_config_ok: bool | None = None
@@ -183,6 +199,8 @@ class Engine:
             # The first observation (e.g. after a restart) is no plug event.
             if self._cable is not None:
                 self.last_activity_at = now
+                if cable_flag is False:
+                    self.last_unplug_at = now
             self._cable = cable_flag
 
         self._expire(now, cable_flag)
@@ -318,7 +336,6 @@ class Engine:
             halo_limit_kw=s.max_power_kw,
             vehicle_charger_kw=s.vehicle_charger_kw,
             grid_limit_kw=s.grid_limit_kw,
-            safety_reserve_min=s.safety_margin_min,
         )
 
     def _expire(self, now: datetime, cable: bool | None) -> None:
@@ -599,11 +616,13 @@ class Engine:
             if event.code in ("CHARGE_START_FAILED", "CHARGER_NOT_CONFIRMED") \
                     and event.severity is Severity.ERROR and n.start_failed:
                 out.append(Notification("start_failed", "high", "Ladestart fehlgeschlagen",
-                                        event.message))
+                                        f"{event.message}. {FAILURE_HINTS[event.code]}",
+                                        actions=("retry",)))
             elif event.code == "CHARGE_INTERRUPTED" and event.severity is Severity.ERROR \
                     and n.start_failed:
                 out.append(Notification("start_failed", "high", "Ladung abgebrochen",
-                                        event.message))
+                                        f"{event.message}. {FAILURE_HINTS[event.code]}",
+                                        actions=("retry",)))
             elif event.code == "CP_NOT_RESTORED" and n.cp:
                 out.append(Notification("cp", "critical", "CP nicht zurückgestellt",
                                         "Shelly-Relais nach dem Puls nicht geschlossen – prüfen!"))
@@ -621,6 +640,7 @@ class Engine:
         self._health_push(now, result)
 
         if plugged_in and self.active_window is None and n.plug_in_action:
+            self.plug_offer_at = now
             out.append(Notification("plug_in_action", "normal", "Eingesteckt",
                                     "Wie soll geladen werden?", actionable=True))
             result.events.append(Event(now, Category.USER, Severity.INFO, "PLUGGED_IN",
@@ -723,6 +743,21 @@ class Engine:
         result.extend(self.executor.request_wakeup(kind, now))
         return result
 
+    def plug_offer_valid(self, now: datetime) -> bool:
+        """May a button of the plug-in push still act? Only for that plug-in."""
+        offer = self.plug_offer_at
+        return offer is not None and now - offer <= PLUG_OFFER_VALID \
+            and self._cable is True \
+            and (self.last_unplug_at is None or self.last_unplug_at <= offer)
+
+    def retry(self, now: datetime) -> TickResult:
+        """"Erneut versuchen" after a failed start: forget the failure, try once more."""
+        if self._cable is not True:
+            return self._user_event(now, "RETRY_IGNORED",
+                                    "Erneut versuchen ignoriert – kein Kabel gesteckt")
+        self.executor.reset(now)
+        return self._user_event(now, "RETRY", "Neuer Ladeversuch angefordert")
+
     def reset(self, now: datetime) -> TickResult:
         self.executor.reset(now)
         return self._user_event(now, "RESET", "Fehlerzustand zurückgesetzt")
@@ -768,6 +803,8 @@ class Engine:
             "last_result": self.last_result,
             "reminder_day": self._reminder_day.isoformat() if self._reminder_day else None,
             "target_hold": self._target_hold,
+            "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
+            "last_unplug_at": self.last_unplug_at.isoformat() if self.last_unplug_at else None,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -793,3 +830,6 @@ class Engine:
         day = data.get("reminder_day")
         self._reminder_day = date.fromisoformat(day) if day else None
         self._target_hold = data.get("target_hold")
+        offer, unplug = data.get("plug_offer_at"), data.get("last_unplug_at")
+        self.plug_offer_at = datetime.fromisoformat(offer) if offer else None
+        self.last_unplug_at = datetime.fromisoformat(unplug) if unplug else None

@@ -129,7 +129,7 @@ SENSORS: tuple[ChargingSensorDescription, ...] = (
     ),
     ChargingSensorDescription(
         key="last_event",
-        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_category=EntityCategory.DIAGNOSTIC, entity_registry_enabled_default=False,
         value=lambda c: c.events[-1]["code"] if c.events else None,
         attributes=lambda c: dict(c.events[-1]) if c.events else {},
     ),

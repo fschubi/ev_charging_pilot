@@ -48,3 +48,18 @@ async def test_create_replay_dataset_from_recorder(hass, entry, halo, tmp_path):
             DOMAIN, "start_replay", {"file": "night.json"}, blocking=True, return_response=True)
     assert replay["name"] == "night"
     assert replay["ticks"] > 0
+
+
+async def test_cockpit_chart_is_filled_from_the_recorder(hass, entry, halo):
+    from homeassistant.components.recorder import get_instance
+
+    from .conftest import POWER
+
+    hass.states.async_set(POWER, "2.3", {"unit_of_measurement": "kW"})
+    await hass.async_block_till_done()
+    await get_instance(hass).async_block_till_done()
+    await _setup(hass, entry)
+    await hass.async_block_till_done()
+    history = list(entry.runtime_data.history)
+    assert len(history) >= 1000  # a full day of minutes
+    assert any(power == 2300 for _, power, _ in history)

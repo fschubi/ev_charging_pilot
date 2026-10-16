@@ -8,7 +8,7 @@ from typing import Any
 
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 
-from .const import ACTION_NOW, ACTION_PLAN, ACTION_TONIGHT, CONF_NOTIFY_SERVICE
+from .const import ACTION_NOW, ACTION_PLAN, ACTION_RETRY, ACTION_TONIGHT, CONF_NOTIFY_SERVICE
 from .core.engine import Notification
 
 _LOGGER = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ ACTIONS = (
     {"action": ACTION_TONIGHT, "title": "Heute Nacht laden"},
     {"action": ACTION_NOW, "title": "Jetzt laden"},
 )
+EXTRA_ACTIONS = {"retry": {"action": ACTION_RETRY, "title": "Erneut versuchen"}}
 MOBILE_ACTION_EVENT = "mobile_app_notification_action"
 
 
@@ -42,6 +43,9 @@ class Notifier:
             data["priority"] = "high"
         if notification.actionable:
             data["actions"] = list(ACTIONS)
+        elif notification.actions:
+            data["actions"] = [EXTRA_ACTIONS[a] for a in notification.actions
+                               if a in EXTRA_ACTIONS]
         # Tapping a push opens the panel (iOS: url, Android: clickAction).
         data["url"] = data["clickAction"] = "/ev-pilot"
         try:
@@ -62,7 +66,7 @@ class Notifier:
         @callback
         def on_action(event: Event) -> None:
             action = event.data.get("action")
-            if action in (ACTION_PLAN, ACTION_TONIGHT, ACTION_NOW):
+            if action in (ACTION_PLAN, ACTION_TONIGHT, ACTION_NOW, ACTION_RETRY):
                 self.hass.async_create_task(handler(action))
 
         return self.hass.bus.async_listen(MOBILE_ACTION_EVENT, on_action)

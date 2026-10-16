@@ -77,22 +77,25 @@ BINARY_SENSORS: tuple[ChargingBinaryDescription, ...] = (
     ),
     ChargingBinaryDescription(
         key="charger_available", device_class=BinarySensorDeviceClass.CONNECTIVITY,
-        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_category=EntityCategory.DIAGNOSTIC, entity_registry_enabled_default=False,
         value=lambda c: c.engine.values.get(Inp.CHARGER_ENABLE) is not None
         and c.engine.values[Inp.CHARGER_ENABLE].available,
     ),
     ChargingBinaryDescription(
         key="vehicle_available", device_class=BinarySensorDeviceClass.CONNECTIVITY,
         requires=Inp.OVMS_SOC, entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value=lambda c: c.engine.soc.quality is Quality.GOOD,
         attributes=lambda c: {"soc_quality": str(c.engine.soc.quality)},
     ),
     ChargingBinaryDescription(
         key="data_conflict", device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC, entity_registry_enabled_default=False,
         value=lambda c: c.engine.data_conflict,
     ),
     ChargingBinaryDescription(
         key="soc_stale", device_class=BinarySensorDeviceClass.PROBLEM, requires=Inp.OVMS_SOC,
+        entity_category=EntityCategory.DIAGNOSTIC, entity_registry_enabled_default=False,
         value=lambda c: c.engine.soc.quality is Quality.STALE,
     ),
     ChargingBinaryDescription(

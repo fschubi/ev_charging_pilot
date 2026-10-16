@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.10.0 – 2026-10-16
+
+- **Fremdladeerkennung bei Wallbox-Cloud-Ausfall abgesichert:** Laden außer Haus wird nur
+  erkannt, wenn das Kabel zuhause nachweislich nicht steckt; ein SOC-Sprung nur, wenn der
+  Zähler der Wallbox an beiden Enden bekannt ist. Vorher konnte ein Cloud-Ausfall eine
+  Heimladung als Fremdladung (0,59 €/kWh) eintragen. Uhrzeiten in der Notiz jetzt in Ortszeit.
+- **Nur noch ein Zeitpuffer:** „Fertig vor Abfahrt“ im Plan. Die separate
+  „Sicherheitsreserve“ (20 min) entfällt; die Startzeit enthält automatisch eine Reserve von
+  10 % der Ladedauer (mind. 5 min) für Prognosefehler. Bestehende Einstellungen werden
+  automatisch umgestellt.
+- **Ladepläne und „Jetzt laden“-Ziel für alle Benutzer:** auch Nicht-Admins (z. B.
+  Familienmitglieder) können Pläne und das manuelle Ladeziel ändern. Die übrigen
+  Einstellungen bleiben Administratoren vorbehalten.
+- **Push-Knöpfe gelten nur für das jeweilige Einstecken:** eine alte „Eingesteckt“-Nachricht
+  (Kabel seitdem gezogen oder älter als 12 h) startet nichts mehr.
+- **„Erneut versuchen“ direkt in der Push-Nachricht** nach fehlgeschlagenem Start oder
+  Abbruch, dazu ein konkreter Hinweis, was zu prüfen ist (Stecker, Wallbox online …).
+- **Cockpit-Kurve nach Neustart nicht mehr leer:** die letzten 24 h kommen aus dem Verlauf
+  von Home Assistant.
+- Selten gebrauchte Diagnose-Entitäten (letztes Ereignis, Datenkonflikt, SOC veraltet,
+  Erreichbarkeit) sind bei Neuinstallation ausgeblendet.
+
 ## 0.9.3 – 2026-10-16
 
 - **Behoben: Nach Erreichen des Ziel-SOC wurde das Auto geweckt.** Sobald der SOC-Wert des

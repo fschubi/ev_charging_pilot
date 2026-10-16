@@ -96,7 +96,6 @@ from .core.settings import (
     OPT_PRICE_OPTIMIZATION,
     OPT_PRICE_SOURCE,
     OPT_REPORT_AUTO,
-    OPT_SAFETY_MARGIN_MIN,
     OPT_STABLE_MIN_S,
     OPT_STABLE_SAMPLES,
     OPT_START_DETECTION_WAIT_S,
@@ -188,6 +187,7 @@ def _clean(data: dict[str, Any]) -> dict[str, Any]:
 
 class EvChargingPilotConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 2
+    MINOR_VERSION = 2
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
@@ -353,7 +353,6 @@ class EvChargingPilotOptionsFlow(OptionsFlow):
             d(OPT_MAX_POWER_KW): _number(1, 22, 0.1, "kW"),
             d(OPT_VEHICLE_CHARGER_KW): _number(1, 22, 0.1, "kW"),
             d(OPT_GRID_LIMIT_KW): _number(0, 22, 0.1, "kW"),
-            d(OPT_SAFETY_MARGIN_MIN): _number(0, 180, unit="min"),
         })
 
     async def async_step_climate(self, user_input=None) -> ConfigFlowResult:

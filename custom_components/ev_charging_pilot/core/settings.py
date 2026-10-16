@@ -63,7 +63,6 @@ OPT_EFFICIENCY = "charge_efficiency"
 OPT_MAX_POWER_KW = "max_power_kw"
 OPT_VEHICLE_CHARGER_KW = "vehicle_charger_kw"
 OPT_GRID_LIMIT_KW = "grid_limit_kw"
-OPT_SAFETY_MARGIN_MIN = "safety_margin_min"
 OPT_CLIMATE_ENABLED = "climate_enabled"
 OPT_CLIMATE_MIN_SOC = "climate_min_soc_pct"
 OPT_CLIMATE_AFTER_TARGET = "climate_after_target_soc"
@@ -136,7 +135,6 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_MAX_POWER_KW: 11.0,
     OPT_VEHICLE_CHARGER_KW: 4.6,
     OPT_GRID_LIMIT_KW: 0.0,
-    OPT_SAFETY_MARGIN_MIN: 20,
     OPT_CLIMATE_ENABLED: False,
     OPT_CLIMATE_MIN_SOC: 35,
     OPT_CLIMATE_AFTER_TARGET: ClimateAfterTarget.ALLOW_TOPUP.value,
@@ -264,7 +262,6 @@ class Settings:
     max_power_kw: float = 11.0
     vehicle_charger_kw: float = 4.6
     grid_limit_kw: float | None = None
-    safety_margin_min: int = 20
     climate_enabled: bool = False
     climate_min_soc_pct: float = 35
     climate_after_target: ClimateAfterTarget = ClimateAfterTarget.ALLOW_TOPUP
@@ -327,7 +324,6 @@ class Settings:
             max_power_kw=float(o[OPT_MAX_POWER_KW]),
             vehicle_charger_kw=float(o[OPT_VEHICLE_CHARGER_KW]),
             grid_limit_kw=grid if grid > 0 else None,
-            safety_margin_min=int(o[OPT_SAFETY_MARGIN_MIN]),
             climate_enabled=bool(o[OPT_CLIMATE_ENABLED]),
             climate_min_soc_pct=float(o[OPT_CLIMATE_MIN_SOC]),
             climate_after_target=ClimateAfterTarget(o[OPT_CLIMATE_AFTER_TARGET]),

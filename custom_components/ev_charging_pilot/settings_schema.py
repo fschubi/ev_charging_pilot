@@ -128,8 +128,6 @@ GROUPS: list[dict[str, Any]] = [
         _n("grid_limit_kw", "Netzbetreiber-Limit §14a (0 = keins)", 0, 22, 0.1, "kW",
            help="Nur falls der Netzbetreiber die Wallbox dimmen darf (z. B. 4,2 kW)."),
         _n("charge_efficiency", "Ladewirkungsgrad", 0.5, 1, 0.01, advanced=True),
-        _n("safety_margin_min", "Sicherheitsreserve vor Abfahrt", 0, 180, 5, "min",
-           advanced=True),
     ]},
     {"id": "external", "title": "Fremdladen", "icon": "mdi:map-marker-radius",
      "description": "Ladungen außer Haus, z. B. an öffentlichen Säulen.",

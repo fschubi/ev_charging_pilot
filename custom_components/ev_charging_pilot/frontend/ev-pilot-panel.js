@@ -587,7 +587,7 @@ class EvPilotPanel extends HTMLElement {
       case "open-report":
         this._openReport(el.dataset.url); break;
       case "manual-target":
-        this._ws("set_settings", { values: { manual_target_soc: Number(el.value) } })
+        this._ws("set_manual_target", { value: Number(el.value) })
           .then(() => { this._toast(`Manuelles Ladeziel ${el.value} %`); this._refresh(); })
           .catch((err) => this._toast(`Fehler: ${err.message || err}`));
         break;

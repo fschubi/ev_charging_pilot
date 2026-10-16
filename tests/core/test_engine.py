@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from custom_components.ev_charging_pilot.core.executor import ExecState
 from custom_components.ev_charging_pilot.core.inputs import Inp
@@ -241,3 +241,29 @@ def test_climate_blocked_without_soc():
     world.run(10)
     assert world.engine.climate_blocked == "SOC_TOO_LOW"
     assert CommandKind.CLIMATE_START not in world.commands
+
+
+def test_plug_in_push_buttons_expire_with_the_plug_in():
+    world = World(local(2026, 10, 13, 12, 0))
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.run(10)
+    world.set(Inp.CABLE_CONNECTED, "on")
+    world.run(10)
+    assert world.engine.plug_offer_valid(world.now)
+    assert not world.engine.plug_offer_valid(world.now + timedelta(hours=13))
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.run(10)
+    assert not world.engine.plug_offer_valid(world.now)  # unplugged since the push
+
+
+def test_failed_start_push_offers_retry():
+    world = World(local(2026, 10, 13, 4, 0))
+    world.car_charges_when_enabled = False
+    world.run(900)
+    failed = [n for r in world.results for n in r.notifications if n.category == "start_failed"]
+    assert failed and failed[0].actions == ("retry",)
+    assert "Stecker" in failed[0].message
+    world.car_charges_when_enabled = True
+    world.engine.retry(world.now)
+    world.run(300)
+    assert world.engine.executor.state is ExecState.CHARGING

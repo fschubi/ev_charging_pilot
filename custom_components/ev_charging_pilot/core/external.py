@@ -16,7 +16,7 @@ cost and provider later (``add_external_charge`` with the same id).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any
 
 from .model import Quality, Value
@@ -46,7 +46,9 @@ class _Live:
 
 class ExternalChargeDetector:
     def __init__(self, *, capacity_kwh: float, efficiency: float, min_kwh: float,
-                 soc_jump_pct: float, price_eur_kwh: float, threshold_w: float) -> None:
+                 soc_jump_pct: float, price_eur_kwh: float, threshold_w: float,
+                 tz: tzinfo = UTC) -> None:
+        self.tz = tz
         self.capacity = capacity_kwh
         self.efficiency = efficiency
         self.min_kwh = min_kwh
@@ -74,8 +76,11 @@ class ExternalChargeDetector:
         charging = vehicle_charging.quality is Quality.GOOD and bool(vehicle_charging.normalized)
         soc_now = soc.quality is Quality.GOOD and soc.normalized is not None
 
-        # --- 1. live detection
-        if charging and not home_delivering:
+        # --- 1. live detection – only while the cable at home is known to be unplugged.
+        # If the wallbox cloud is down (cable unknown, no power) a home charge would
+        # otherwise look like an external one.
+        away = cable_connected is False
+        if charging and away:
             if self.live is None:
                 self.live = _Live(started_at=now, soc_start=self.last_soc[1]
                                   if self.last_soc else _num(soc))
@@ -95,11 +100,11 @@ class ExternalChargeDetector:
         home_kwh = _num(halo_total)
         if soc_now and self.live is None:
             current = float(soc.normalized)
+            # Without the home counter at both ends the jump cannot be explained – skip it.
             if self.last_soc is not None and current - self.last_soc[1] >= self.soc_jump \
-                    and not charging:
-                explained = 0.0
-                if home_kwh is not None and self.last_home_kwh is not None:
-                    explained = max(0.0, home_kwh - self.last_home_kwh) * self.efficiency
+                    and not charging and home_kwh is not None \
+                    and self.last_home_kwh is not None:
+                explained = max(0.0, home_kwh - self.last_home_kwh) * self.efficiency
                 needed = (current - self.last_soc[1]) / 100 * self.capacity
                 if explained < needed * HOME_SHARE_LIMIT:
                     grid = (needed - explained) / self.efficiency
@@ -148,7 +153,8 @@ class ExternalChargeDetector:
             price_eur_kwh=self.price,
             soc_before=soc_before,
             soc_after=soc_after,
-            note=f"automatisch erkannt ({method}), {start:%H:%M}–{end:%H:%M} UTC",
+            note=f"automatisch erkannt ({method}), "
+                 f"{start.astimezone(self.tz):%H:%M}–{end.astimezone(self.tz):%H:%M}",
             detected=True,
             quality="ESTIMATED",
         )

@@ -49,7 +49,11 @@ class VehicleParams:
     halo_limit_kw: float = 11.0
     vehicle_charger_kw: float = 4.6
     grid_limit_kw: float | None = None
-    safety_reserve_min: int = 20
+    # The estimate is never exact (temperature, slower charging near full): the
+    # start moves this share of the charging time earlier. The visible buffer is
+    # the plan's "ready before departure".
+    reserve_share: float = 0.1
+    reserve_min_minutes: int = 5
 
     @property
     def expected_power_kw(self) -> float:
@@ -346,7 +350,9 @@ def _window(
         _, duration = charge_duration(float(soc.normalized), preferred_pct, params)
         # Whole minutes keep plans and push texts readable.
         duration = timedelta(minutes=math.ceil(duration.total_seconds() / 60))
-        needed = duration + timedelta(minutes=params.safety_reserve_min)
+        reserve = max(params.reserve_min_minutes,
+                      math.ceil(duration.total_seconds() / 60 * params.reserve_share))
+        needed = duration + timedelta(minutes=reserve)
         start = ready_at - needed
         if prices and price_blocks > 0 and duration > timedelta(0):
             # Without full price coverage (tomorrow's prices come around 13:00)

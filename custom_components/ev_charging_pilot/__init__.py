@@ -63,6 +63,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         options = {OPT_MODE: "dry_run", **{k: v for k, v in entry.options.items()
                                            if k != "dry_run"}}
         hass.config_entries.async_update_entry(entry, data=data, options=options, version=2)
+    if entry.version == 2 and entry.minor_version < 2:
+        # 0.10: the separate safety margin was merged into the plan's "ready before departure".
+        options = {k: v for k, v in entry.options.items() if k != "safety_margin_min"}
+        hass.config_entries.async_update_entry(entry, options=options, minor_version=2)
     return True
 
 

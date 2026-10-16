@@ -53,7 +53,9 @@ def test_target_reached_is_held_without_wakeup_until_departure():
 def test_fresh_soc_far_below_target_tops_up_once_without_wakeup():
     world = SleepyCar(TUESDAY_0255, configured=WITH_OVMS, cp_pulse=True, ovms_port=True,
                       ovms_enabled=True, cp_failsafe_verified=True)
-    world.run(7200)  # target reached around 04:50
+    while world.engine.desired is None or world.engine.desired.reason != "target_soc_reached":
+        world.tick(5)
+    world.run(900)  # the car is asleep now, the SOC ages
     assert world.engine.desired.reason == "target_soc_reached"
     # the car reports a clearly lower SOC (e.g. climate used energy) while it sleeps
     world.soc = 84.0

@@ -189,3 +189,15 @@ async def test_settings_and_deleted_plans_survive_restart(hass, entry, halo, has
         "number", "set_value",
         {"entity_id": "number.ev_pilot_minimum_departure_soc", "value": 60}, blocking=True)
     assert center.engine.plans[0].minimum_departure_soc_pct == 60
+
+
+async def test_merged_safety_margin_is_migrated_away(hass, halo):
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from .conftest import DATA
+
+    old = MockConfigEntry(domain=DOMAIN, version=2, minor_version=1, data=DATA,
+                          options={"mode": "dry_run", "safety_margin_min": 20})
+    await _setup(hass, old)
+    assert old.minor_version == 2
+    assert "safety_margin_min" not in old.options

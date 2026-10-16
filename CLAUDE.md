@@ -134,10 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-13 – v0.6.1–v0.7.0 nach erstem Test bei Frank.** Auto-Erkennung im
-  Config Flow, grafisches Cockpit, Shelly per Klick konfigurieren, Reiter
-  Einstellungen, eigenes Fahrzeugfoto statt Zeichnung (Frank: Zeichnung war „kein 453“),
-  Ladeziel-Regler, Icon. 133 Tests grün.
 - **2026-10-15 – v0.8.0 Umbenennung in „EV Charging Pilot“.** Domain/Repo/Entitäten neu
   (`ev_charging_pilot`, `ev_pilot_*`), frei wählbarer Fahrzeugname → „<Name> Charging Pilot“
   überall, Texte herstellerneutral (Wallbox statt Halo, Fahrzeug statt OVMS).
@@ -152,3 +148,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   (`_target_hold`, Nachladen nur frisch −3 %, `wake_allowed=False`), Ladeende per
   Leistungsabfall/OVMS/99 %, Dry-Run = Schattenbetrieb (`set_shadow`, virtuelle Wallbox),
   Konflikt-Karenz 180 s, `tests/core/test_scenarios.py`.
+- **2026-10-16 – v0.10.0 Robustheit (Review Stufe 2a).** Fremdladen nur bei Kabel=aus bzw.
+  bekanntem Zähler, `safety_margin_min` entfernt (Migration minor 2, Reserve 10 %/≥5 min),
+  `set_plans`/`set_manual_target` ohne Admin, Push-Aktionen an Einstecken gebunden
+  (`plug_offer_valid`), `ACTION_RETRY`, Chart-Backfill aus Recorder.

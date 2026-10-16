@@ -15,7 +15,7 @@ from .coordinator import ChargingCenter
 from .core.inputs import Inp
 from .core.model import Value
 from .core.planner import ChargeWindow, WeeklySchedule
-from .core.settings import DEFAULT_OPTIONS
+from .core.settings import DEFAULT_OPTIONS, OPT_MANUAL_TARGET_SOC
 from .reports import async_create_report, async_list_reports
 from .settings_schema import GROUPS, apply_changes, current_values
 from .vehicle_image import IMAGE_URL
@@ -303,7 +303,7 @@ def ws_get_plans(hass, connection, msg) -> None:
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{PREFIX}/set_plans", vol.Required("plans"): [dict]})
-@websocket_api.require_admin
+# Charging plans are everyday use (every household member), unlike the settings.
 @websocket_api.async_response
 async def ws_set_plans(hass, connection, msg) -> None:
     center = _require(connection, msg, hass)
@@ -384,7 +384,21 @@ async def ws_set_settings(hass, connection, msg) -> None:
     _send(connection, msg, {"values": current_values(options)})
 
 
-COMMANDS = (ws_get_settings, ws_set_settings, ws_create_report, ws_list_reports, ws_state,
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/set_manual_target",
+    vol.Required("value"): vol.All(vol.Coerce(int), vol.Range(min=20, max=100))})
+@callback
+def ws_set_manual_target(hass, connection, msg) -> None:
+    """Target of "Jetzt laden" – everyday use, applied live without a reload."""
+    if center := _require(connection, msg, hass):
+        value = int(msg["value"]) // 5 * 5
+        hass.config_entries.async_update_entry(
+            center.entry, options={**center.entry.options, OPT_MANUAL_TARGET_SOC: value})
+        _send(connection, msg, {"value": value})
+
+
+COMMANDS = (ws_set_manual_target, ws_get_settings, ws_set_settings, ws_create_report,
+            ws_list_reports, ws_state,
             ws_health, ws_plan_preview, ws_sessions, ws_trips, ws_external, ws_month, ws_year,
             ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)
 

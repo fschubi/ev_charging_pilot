@@ -177,8 +177,7 @@
           "charge_efficiency": "Ladewirkungsgrad",
           "max_power_kw": "Wallbox-Limit",
           "vehicle_charger_kw": "Fahrzeuglader",
-          "grid_limit_kw": "Netzlimit §14a (0 = keins)",
-          "safety_margin_min": "Sicherheitsreserve"
+          "grid_limit_kw": "Netzlimit §14a (0 = keins)"
         }
       },
       "prices": {

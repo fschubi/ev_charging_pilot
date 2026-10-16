@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-13 – v0.6.1–v0.7.0 nach erstem Test bei Frank.** Auto-Erkennung im
+  Config Flow, grafisches Cockpit, Shelly per Klick konfigurieren, Reiter
+  Einstellungen, eigenes Fahrzeugfoto statt Zeichnung (Frank: Zeichnung war „kein 453“),
+  Ladeziel-Regler, Icon. 133 Tests grün.
+
 - **2026-10-13 – v0.6.0 Tibber, PDF, Fremdladeerkennung.** Repo öffentlich, evcc
   aus der Doku entfernt, Release für HACS-Testinstallation. 121 Tests grün.
 

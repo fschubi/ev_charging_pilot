@@ -88,6 +88,7 @@ INPUT_DOMAINS: Final = {
 ACTION_PLAN: Final = "SMART_EQ_PLAN"
 ACTION_TONIGHT: Final = "SMART_EQ_TONIGHT"
 ACTION_NOW: Final = "SMART_EQ_NOW"
+ACTION_RETRY: Final = "EV_PILOT_RETRY"
 
 # Events that also go into the HA logbook (§8.5).
 LOGBOOK_SEVERITIES: Final = ("warning", "error", "critical")

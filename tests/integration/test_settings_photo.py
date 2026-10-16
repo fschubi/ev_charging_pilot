@@ -93,3 +93,20 @@ async def test_vehicle_photo_needs_login(hass, entry, halo, hass_client_no_auth)
     await _setup(hass, entry)
     client = await hass_client_no_auth()
     assert (await client.get("/api/ev_charging_pilot/vehicle_image")).status == 401
+
+
+async def test_non_admin_can_plan_and_set_target_but_not_settings(
+        hass, entry, halo, hass_ws_client, hass_read_only_access_token):
+    await _setup(hass, entry)
+    client = await hass_ws_client(hass, hass_read_only_access_token)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/set_plans", "plans": [
+        {"id": "a", "name": "Arbeit", "weekdays": ["mon"], "departure_time": "07:00"}]})
+    assert (await client.receive_json())["success"]
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/set_manual_target", "value": 82})
+    msg = await client.receive_json()
+    assert msg["success"] and msg["result"]["value"] == 80
+    await hass.async_block_till_done()
+    assert entry.options["manual_target_soc"] == 80
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/set_settings",
+                            "values": {"loss_timeout_s": 240}})
+    assert not (await client.receive_json())["success"]

@@ -177,8 +177,7 @@
           "charge_efficiency": "Charging efficiency",
           "max_power_kw": "Wallbox limit",
           "vehicle_charger_kw": "On-board charger",
-          "grid_limit_kw": "Grid limit §14a (0 = none)",
-          "safety_margin_min": "Safety margin"
+          "grid_limit_kw": "Grid limit §14a (0 = none)"
         }
       },
       "prices": {

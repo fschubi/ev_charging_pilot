@@ -214,6 +214,30 @@ def test_detector_round_trip():
     assert copy.as_dict() == d.as_dict()
 
 
+def test_wallbox_outage_is_not_mistaken_for_external_charging():
+    """Cable state unknown and no counter: a home charge must not become external."""
+    d = detector()
+    t = local(2026, 10, 14, 3, 0)
+    found = []
+    for minute in range(75):
+        now = t + timedelta(minutes=minute)
+        charging = minute < 60
+        found += d.update(now, vehicle_charging=v(charging, now),
+                          vehicle_power=v(2200.0 if charging else 0.0, now),
+                          soc=v(40 + min(minute, 60) * 0.2, now),
+                          halo_power=Value.unavailable("halo"), cable_connected=None,
+                          halo_total=Value.unavailable("halo"))
+    assert found == []
+
+
+def test_external_note_uses_local_time():
+    d = ExternalChargeDetector(capacity_kwh=16.7, efficiency=0.88, min_kwh=1.0, soc_jump_pct=5,
+                               price_eur_kwh=0.59, threshold_w=300, tz=local(2026, 1, 1).tzinfo)
+    t = local(2026, 10, 14, 12, 0)
+    charge = d._charge(t, t + timedelta(hours=1), 5.0, 40, 70, "ovms_live")
+    assert "12:00–13:00" in charge.note
+
+
 # ---------------------------------------------------------------- reports
 
 def test_pdf_writer_produces_valid_structure():

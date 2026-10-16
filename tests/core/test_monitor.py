@@ -208,7 +208,7 @@ def test_settings_defaults_follow_masterplan():
     s = Settings.from_options({})
     assert s.charge_efficiency == 0.88
     assert s.loss_timeout_s == 180
-    assert s.safety_margin_min == 20
+    assert not hasattr(s, "safety_margin_min")
     assert s.mode == "dry_run"
     assert s.grid_limit_kw is None
     assert Settings.from_options({"grid_limit_kw": 4.2}).grid_limit_kw == 4.2

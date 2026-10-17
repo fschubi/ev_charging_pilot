@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.0 – 2026-10-18
+
+- **Mehr Preis-Sensoren werden verstanden.** Bei der Preisquelle „Preis-Entität“ liest
+  der Pilot jetzt zusätzlich:
+  - Paare `[[Zeitstempel, Preis], …]` unter beliebigem Namen (z. B. `daten`), mit
+    Zeitstempeln in Sekunden oder Millisekunden
+  - ENTSO-e (`prices_today` / `prices_tomorrow` mit `time` / `price`)
+  - weitere Feldnamen (`time`, `from`, `till`, `marketprice` …)
+  - Preise in €/MWh, erkannt an der Einheit
+  - als letzte Möglichkeit jede Liste, aus der sich Preise lesen lassen
+- **Neu: „Preisquelle prüfen“** im Einstellungen-Reiter → Strompreis. Ein Klick zeigt, ob
+  die gewählte Quelle eine brauchbare Preisliste liefert, z. B. „192 Preise bis
+  Mo., 19.10., 00:00 · 15-Minuten-Raster · 0,386–0,498 €/kWh · am günstigsten
+  So., 18.10., 06:00“. Das geht auch vor dem Speichern. Liefert eine Entität nur den
+  aktuellen Preis, erklärt der Pilot, warum er damit keine günstigen Zeiten planen kann.
+
 ## 0.18.0 – 2026-10-17
 
 - **Neu: Monatsbericht per E-Mail.** Am 1. des Monats geht der PDF-Bericht des Vormonats an

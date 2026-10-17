@@ -18,7 +18,12 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.util import dt as dt_util
 
-from .core.prices import PriceSlot, parse_price_attributes, parse_tibber_response
+from .core.prices import (
+    PriceSlot,
+    describe_prices,
+    parse_price_attributes,
+    parse_tibber_response,
+)
 from .core.settings import PriceSource, Settings
 
 _LOGGER = logging.getLogger(__name__)
@@ -120,6 +125,25 @@ class PriceFetcher:
             self._retry = async_call_later(self.hass, delay, self._retry_now)
             return
         self._problem(message)
+
+    async def async_check(self, source: PriceSource, entity_id: str | None) -> dict[str, Any]:
+        """Settings check: what a source delivers right now – nothing is stored."""
+        try:
+            if source is PriceSource.FIXED:
+                return {"ok": True, "slots": 0, "note": "Festpreis – keine dynamischen Preise"}
+            if source is PriceSource.TIBBER:
+                slots = await self._tibber()
+            else:
+                if not entity_id:
+                    raise HomeAssistantError("keine Preis-Entität gewählt")
+                slots = self._entity(entity_id)
+        except (HomeAssistantError, ValueError, KeyError) as err:
+            return {"ok": False, "error": str(err)}
+        if len(slots) <= 1:
+            return {"ok": False, **describe_prices(slots, self.tz),
+                    "error": "nur der aktuelle Preis, keine Preisliste – günstige Zeiten "
+                             "lassen sich damit nicht planen"}
+        return {"ok": True, **describe_prices(slots, self.tz)}
 
     def _problem(self, message: str) -> None:
         if message != self.last_error:

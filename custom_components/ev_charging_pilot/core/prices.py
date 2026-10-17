@@ -6,9 +6,15 @@ is just another price source. Every common HA price format is understood:
 * Tibber service ``tibber.get_prices`` → ``{"prices": {home: [{start_time, price}]}}``
 * Nordpool-style attributes ``raw_today`` / ``raw_tomorrow`` → ``[{start, end, value}]``
 * EPEX-Spot-style attribute ``data`` → ``[{start_time, end_time, price_per_kwh}]``
+* ENTSO-e-style attributes ``prices_today`` / ``prices_tomorrow`` / ``prices``
+  → ``[{time, price}]``
+* Pairs ``[[timestamp, price], …]`` in any list attribute (e.g. ``daten``), with
+  epoch seconds/milliseconds or ISO times
 * Generic attributes ``prices`` / ``today`` + ``tomorrow`` (dicts or plain numbers)
+* Anything else: the first list attribute that yields prices
 
-Prices are always € per kWh. Values above 5 are taken as ct/kWh and divided by 100.
+Prices are always € per kWh. Values above 5 are taken as ct/kWh and divided by 100;
+a unit in €/MWh is divided by 1000.
 """
 
 from __future__ import annotations
@@ -54,17 +60,26 @@ class PriceSlot:
                 "eur_per_kwh": round(self.eur_per_kwh, 5)}
 
 
-def _eur(value: Any) -> float | None:
+def _eur(value: Any, mwh: bool = False) -> float | None:
     try:
         number = float(value)
     except (TypeError, ValueError):
         return None
+    if mwh:
+        return number / 1000
     return number / 100 if number > CENT_THRESHOLD else number
 
 
 def _time(value: Any, tz: ZoneInfo) -> datetime | None:
     if isinstance(value, datetime):
         moment = value
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        # Epoch seconds or milliseconds (JavaScript-style charts).
+        seconds = value / 1000 if value > 1e11 else value
+        try:
+            return datetime.fromtimestamp(seconds, tz)
+        except (OverflowError, OSError, ValueError):
+            return None
     else:
         try:
             moment = datetime.fromisoformat(str(value))
@@ -90,27 +105,40 @@ def _close(slots: list[tuple[datetime, datetime | None, float]]) -> list[PriceSl
     return out
 
 
-def _from_dicts(items: Iterable[Any], tz: ZoneInfo) -> list[tuple]:
+START_KEYS = ("start", "start_time", "startsAt", "time", "datetime", "from", "timestamp")
+END_KEYS = ("end", "end_time", "endsAt", "till", "to")
+PRICE_KEYS = ("value", "price", "total", "price_per_kwh", "price_eur_kwh", "price_ct_per_kwh",
+              "marketprice")
+
+
+def _from_dicts(items: Iterable[Any], tz: ZoneInfo, mwh: bool = False) -> list[tuple]:
     found = []
     for item in items:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            # [timestamp, price] pairs.
+            start, price = _time(item[0], tz), _eur(item[1], mwh)
+            if start is not None and price is not None:
+                found.append((start, None, price))
+            continue
         if not isinstance(item, dict):
             continue
-        start = _time(item.get("start") or item.get("start_time") or item.get("startsAt"), tz)
-        end_raw = item.get("end") or item.get("end_time") or item.get("endsAt")
+        start = _time(next((item[k] for k in START_KEYS if item.get(k) is not None), None), tz)
+        end_raw = next((item[k] for k in END_KEYS if item.get(k)), None)
         end = _time(end_raw, tz) if end_raw else None
         price = None
-        for key in ("value", "price", "total", "price_per_kwh", "price_eur_kwh"):
+        for key in PRICE_KEYS:
             if key in item:
-                price = _eur(item[key])
+                price = _eur(item[key], mwh)
                 break
         if start is not None and price is not None:
             found.append((start, end, price))
     return found
 
 
-def _from_numbers(values: Sequence[Any], day: date, tz: ZoneInfo) -> list[tuple]:
+def _from_numbers(values: Sequence[Any], day: date, tz: ZoneInfo,
+                  mwh: bool = False) -> list[tuple]:
     """A plain list of prices for one day: 24 (hourly), 96 (15 min) or with DST 23/25."""
-    numbers = [_eur(v) for v in values]
+    numbers = [_eur(v, mwh) for v in values]
     if not numbers or any(n is None for n in numbers):
         return []
     slots_per_hour = 4 if len(numbers) >= 92 else 1
@@ -119,22 +147,51 @@ def _from_numbers(values: Sequence[Any], day: date, tz: ZoneInfo) -> list[tuple]
     return [(start + i * step, start + (i + 1) * step, n) for i, n in enumerate(numbers)]
 
 
+KNOWN_LISTS = ("raw_today", "raw_tomorrow", "data", "prices", "forecast", "prices_today",
+               "prices_tomorrow")
+
+
 def parse_price_attributes(attributes: dict[str, Any], tz: ZoneInfo,
                            today: date) -> list[PriceSlot]:
+    unit = str(attributes.get("unit_of_measurement") or attributes.get("unit") or "")
+    mwh = "MWh" in unit
     found: list[tuple] = []
-    for key in ("raw_today", "raw_tomorrow", "data", "prices", "forecast"):
+    for key in KNOWN_LISTS:
         value = attributes.get(key)
         if isinstance(value, list):
-            found += _from_dicts(value, tz)
+            found += _from_dicts(value, tz, mwh)
     if not found:
         for key, day in (("today", today), ("tomorrow", today + timedelta(days=1))):
             value = attributes.get(key)
             if isinstance(value, list) and value:
-                if isinstance(value[0], dict):
-                    found += _from_dicts(value, tz)
+                if isinstance(value[0], (dict, list, tuple)):
+                    found += _from_dicts(value, tz, mwh)
                 else:
-                    found += _from_numbers(value, day, tz)
+                    found += _from_numbers(value, day, tz, mwh)
+    if not found:
+        # Unknown attribute name (e.g. "daten"): the first list that yields prices.
+        for key, value in attributes.items():
+            if key not in KNOWN_LISTS and isinstance(value, list) and len(value) >= 4:
+                found = _from_dicts(value, tz, mwh)
+                if found:
+                    break
     return _close(_dedupe(found))
+
+
+def describe_prices(slots: Sequence[PriceSlot], tz: ZoneInfo) -> dict[str, Any]:
+    """Short summary for the settings check: count, range, cheapest slot."""
+    if not slots:
+        return {"slots": 0}
+    cheapest = min(slots, key=lambda s: s.eur_per_kwh)
+    return {
+        "slots": len(slots),
+        "from": slots[0].start.astimezone(tz).isoformat(),
+        "until": slots[-1].end.astimezone(tz).isoformat(),
+        "minutes": round((slots[0].end - slots[0].start).total_seconds() / 60),
+        "min_eur_kwh": round(min(s.eur_per_kwh for s in slots), 4),
+        "max_eur_kwh": round(max(s.eur_per_kwh for s in slots), 4),
+        "cheapest_at": cheapest.start.astimezone(tz).isoformat(),
+    }
 
 
 def parse_tibber_response(response: dict[str, Any], tz: ZoneInfo) -> list[PriceSlot]:

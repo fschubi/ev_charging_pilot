@@ -169,3 +169,25 @@ async def test_options_prices_step_validates(hass, halo):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert entry.options["price_blocks"] == 2
+
+
+async def test_settings_price_check(hass, halo, hass_ws_client):
+    entry = await _setup(hass, {"price_source": "fixed"})
+    start_ms = int(dt_util.start_of_local_day().timestamp() * 1000)
+    hass.states.async_set("sensor.preisprognose", "0.41", {
+        "daten": [[start_ms + i * 900_000, 40.0] for i in range(96)],
+        "unit_of_measurement": "EUR/kWh"})
+    hass.states.async_set("sensor.nur_aktuell", "0.41", {"unit_of_measurement": "EUR/kWh"})
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/check_prices", "source": "entity",
+                            "entity_id": "sensor.preisprognose"})
+    result = (await client.receive_json())["result"]
+    assert result["ok"] and result["slots"] == 96 and result["minutes"] == 15
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/check_prices", "source": "entity",
+                            "entity_id": "sensor.nur_aktuell"})
+    result = (await client.receive_json())["result"]
+    assert not result["ok"] and "keine Preisliste" in result["error"]
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/check_prices", "source": "tibber"})
+    result = (await client.receive_json())["result"]
+    assert not result["ok"] and "Tibber" in result["error"]
+    assert entry.runtime_data.engine.dynamic_prices is False  # a check changes nothing

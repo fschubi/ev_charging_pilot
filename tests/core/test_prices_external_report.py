@@ -359,3 +359,31 @@ def test_quick_pick_price_setting():
                                                                               0.89)
     assert parse_price_list("") == ()
     assert Settings.from_options({}).external_price_buttons == (0.39, 0.49, 0.59, 0.69)
+
+
+def test_more_price_formats():
+    from custom_components.ev_charging_pilot.core.prices import describe_prices
+
+    day = date(2026, 10, 17)
+    # Pairs with epoch milliseconds and cents under an unknown name (sensor.tibber_preisprognose).
+    start_ms = int(local(2026, 10, 17, 0).timestamp() * 1000)
+    pairs = {"daten": [[start_ms + i * 900_000, 40 + i % 10] for i in range(192)],
+             "unit_of_measurement": "EUR/kWh"}
+    slots = parse_price_attributes(pairs, TZ, day)
+    assert len(slots) == 192
+    assert slots[0].start == local(2026, 10, 17, 0) and slots[0].eur_per_kwh == 0.40
+    assert slots[-1].end == local(2026, 10, 19, 0)
+    info = describe_prices(slots, TZ)
+    assert info["minutes"] == 15 and info["max_eur_kwh"] == 0.49
+    # ENTSO-e style.
+    entsoe = {"prices_today": [{"time": "2026-10-17 00:00:00+02:00", "price": 0.21},
+                               {"time": "2026-10-17 01:00:00+02:00", "price": 0.19}]}
+    assert [s.eur_per_kwh for s in parse_price_attributes(entsoe, TZ, day)] == [0.21, 0.19]
+    # €/MWh – including small values that must not be mistaken for €/kWh.
+    mwh = {"data": [{"start_time": "2026-10-17T00:00:00+02:00", "price_per_kwh": 120.0},
+                    {"start_time": "2026-10-17T01:00:00+02:00", "price_per_kwh": 3.0}],
+           "unit_of_measurement": "EUR/MWh"}
+    assert [s.eur_per_kwh for s in parse_price_attributes(mwh, TZ, day)] == [0.12, 0.003]
+    # Epoch seconds work too.
+    secs = {"forecast": [[int(local(2026, 10, 17, h).timestamp()), 0.3] for h in range(3)]}
+    assert len(parse_price_attributes(secs, TZ, day)) == 3

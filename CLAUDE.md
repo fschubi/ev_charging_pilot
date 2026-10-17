@@ -64,7 +64,7 @@ custom_components/ev_charging_pilot/
     climate.py, health.py, costs.py, sessions.py, trips.py, statistics.py, monitor.py
     replay.py          Datensätze, Poll-Nachbildung, Abgleich mit realem Schalten
     mail.py            Monatsbericht-Mail: Text, Anbieter-Presets, SMTP mit PDF-Anhang
-    prices.py          Preis-Parser (Tibber/Nordpool/EPEX), PriceSchedule, cheapest_blocks
+    prices.py          Preis-Parser (Tibber/Nordpool/EPEX/ENTSO-e/Paare, €/MWh), PriceSchedule, cheapest_blocks
     external.py        Automatische Fremdladeerkennung (OVMS live + SOC-Sprung)
     pdf.py / report.py Eigener PDF-Writer (cp1252, Helvetica), Monats-/Jahresbericht
   coordinator.py       ChargingCenter: Tick 5 s + bei Zustandswechsel; live → HaPorts,
@@ -135,10 +135,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.17.0 Preis per Knopf/Ziffernblock.** Push-Aktionen
-  `EV_PILOT_EXT_PRICE|<id>|<preis>` aus Option `external_price_buttons` (`prices.parse_price_list`),
-  Push-`url` `/ev-pilot?external_price=<id>` → Panel-Dialog (`inputmode=decimal`) → Dienst
-  `set_external_price`. iOS-Textfeld entfernt (Tastatur nicht steuerbar). Frank wollte Ziffernblock.
 - **2026-10-17 – v0.17.1 Preis-Fenster.** Overlay deckend (Hintergrundfarbe), `.pform`/`.pbar`
   statt `.form`/`.bar` (Konflikt mit Grid bzw. 8-px-Fortschrittsbalken), Knöpfe 2×2.
   Frank: Knöpfe und Ziffernblock auf dem iPhone funktionieren.
@@ -151,3 +147,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `build_message`, `send` im Executor), Optionen `mail_*`/`report_push_targets`, Feldtyp
   `password` (nie zurück, leer = behalten), `async_send_report_mail` am 1. + Dienst
   `send_report_mail`, Push an Zusatzziele. Frank: Gmail (App-Passwort), Empfängerin Melanie.
+- **2026-10-18 – v0.19.0 Preisformate + Prüfung.** `prices.py`: Paare `[ts, preis]`
+  (s/ms), ENTSO-e, mehr Schlüssel, €/MWh per Einheit, Fallback auf beliebige Liste;
+  `describe_prices`; WS `check_prices` → `PriceFetcher.async_check`; Einstellungszeile
+  „Preisquelle prüfen“. Frank nutzt Tibber-Dienst (nicht `sensor.tibber_preisprognose`).

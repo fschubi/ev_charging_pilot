@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.17.0 Preis per Knopf/Ziffernblock.** Push-Aktionen
+  `EV_PILOT_EXT_PRICE|<id>|<preis>` aus Option `external_price_buttons` (`prices.parse_price_list`),
+  Push-`url` `/ev-pilot?external_price=<id>` → Panel-Dialog (`inputmode=decimal`) → Dienst
+  `set_external_price`. iOS-Textfeld entfernt (Tastatur nicht steuerbar). Frank wollte Ziffernblock.
 - **2026-10-17 – v0.16.1 Push-Test Preisabfrage.** Dienst `test_price_push` →
   `Coordinator.async_test_price_push` (Aktion `ext_price:test-…`), Antwort in
   `price_push_test` (WS-State), Diagnose-Karte; Test-IDs ändern keine Fremdladung.

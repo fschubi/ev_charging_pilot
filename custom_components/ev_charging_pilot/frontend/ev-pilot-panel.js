@@ -822,6 +822,13 @@ class EvPilotPanel extends HTMLElement {
         this._createReport(el.dataset.month ? Number(el.dataset.month) : null); break;
       case "open-report":
         this._openReport(el.dataset.url); break;
+      case "price-check":
+        this._priceCheck = { running: true };
+        this._render(true);
+        this._ws("check_prices", { source: el.dataset.source, entity_id: el.dataset.entity || null })
+          .then((r) => { this._priceCheck = r; this._render(true); })
+          .catch((err) => { this._priceCheck = { ok: false, error: err.message || String(err) }; this._render(true); });
+        break;
       case "price-pick":
         this._savePrice(el.dataset.price); break;
       case "price-save": {
@@ -984,6 +991,7 @@ class EvPilotPanel extends HTMLElement {
         ${isOpen ? `<div class="sbody">
           ${g.id === "general" ? photoRows : ""}
           ${g.fields.filter(shown).map(row).join("")}
+          ${g.id === "prices" ? this._priceCheckRow(value) : ""}
           ${g.id === "prices" && history ? `<div class="srow"><div class="stext"><div class="slabel">Bisherige Preise</div></div><div class="sctl wrap">${history}</div></div>` : ""}
         </div>` : ""}
       </section>`;
@@ -1456,6 +1464,19 @@ class EvPilotPanel extends HTMLElement {
   /** Collapsible sections keep their state across the frequent re-renders. */
   _open(id) {
     return this._openDetails && this._openDetails.has(id) ? "open" : "";
+  }
+
+  _priceCheckRow(value) {
+    const r = this._priceCheck;
+    let result = "";
+    if (r && r.running) result = `<span class="pill info">prüft …</span>`;
+    else if (r && r.ok && r.slots) {
+      result = `<span class="pill ok">${r.slots} Preise</span> bis ${dateTime(r.until)} · ${r.minutes}-Minuten-Raster · ${num(r.min_eur_kwh, 3)}–${num(r.max_eur_kwh, 3, "€/kWh")} · am günstigsten ${dateTime(r.cheapest_at)}`;
+    } else if (r && r.ok) result = `<span class="pill info">${esc(r.note || "ok")}</span>`;
+    else if (r) result = `<span class="pill bad">Problem</span> ${esc(r.error || "")}`;
+    return `<div class="srow"><div class="stext"><div class="slabel">Preisquelle prüfen</div>
+        <div class="shelp">Zeigt, ob die gewählte Quelle eine Preisliste liefert, die der Pilot lesen kann (auch vor dem Speichern).</div></div>
+      <div class="sctl wrap"><button class="act" data-action="price-check" data-source="${esc(value("price_source"))}" data-entity="${esc(value("price_entity") || "")}">Prüfen</button> ${result}</div></div>`;
   }
 
   _mailCard(s) {

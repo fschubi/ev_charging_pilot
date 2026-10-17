@@ -20,6 +20,7 @@ from .core.settings import (
     DEFAULT_OPTIONS,
     OPT_MANUAL_CURRENT_A,
     OPT_MANUAL_TARGET_SOC,
+    PriceSource,
     RunMode,
 )
 from .core.summary import summary
@@ -422,6 +423,18 @@ def ws_set_manual_target(hass, connection, msg) -> None:
 
 
 @websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/check_prices",
+    vol.Required("source"): vol.In([s.value for s in PriceSource]),
+    vol.Optional("entity_id"): vol.Any(None, str)})
+@websocket_api.async_response
+async def ws_check_prices(hass, connection, msg) -> None:
+    """Settings: does the chosen price source deliver a usable price list?"""
+    if center := _require(connection, msg, hass):
+        _send(connection, msg, await center.price_fetcher.async_check(
+            PriceSource(msg["source"]), msg.get("entity_id")))
+
+
+@websocket_api.websocket_command({
     vol.Required("type"): f"{PREFIX}/set_manual_current",
     vol.Required("value"): vol.All(vol.Coerce(int), vol.Range(min=0, max=32))})
 @callback
@@ -450,7 +463,8 @@ async def ws_run_system_check(hass, connection, msg) -> None:
     _send(connection, msg, {"results": results, "at": _iso(dt_util.utcnow())})
 
 
-COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_set_manual_current, ws_get_settings,
+COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_set_manual_current, ws_check_prices,
+            ws_get_settings,
             ws_set_settings,
             ws_create_report, ws_list_reports, ws_state,
             ws_health, ws_plan_preview, ws_sessions, ws_trips, ws_external, ws_month, ws_year,

@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
+from custom_components.ev_charging_pilot.core.executor import ExecState
 from custom_components.ev_charging_pilot.core.external import ExternalChargeDetector
 from custom_components.ev_charging_pilot.core.inputs import Inp
 from custom_components.ev_charging_pilot.core.model import Quality, Value
@@ -18,7 +19,6 @@ from custom_components.ev_charging_pilot.core.prices import (
     parse_price_attributes,
     parse_tibber_response,
 )
-from custom_components.ev_charging_pilot.core.executor import ExecState
 from custom_components.ev_charging_pilot.core.report import month_report, year_report
 from custom_components.ev_charging_pilot.core.sessions import ChargeSession
 from custom_components.ev_charging_pilot.core.settings import Settings

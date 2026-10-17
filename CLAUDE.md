@@ -123,6 +123,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Offene Punkte / Entscheidungen
 
+- **Als Nächstes: [`docs/pruefliste-erste-nacht.md`](docs/pruefliste-erste-nacht.md)** – erste
+  echte Ladung mit v0.19.8 (So 18.10. ab 06:00) prüfen, sobald Frank sich meldet.
 - Gates §15 sind real zu erfüllen (Messungen, Dry-Run-Nächte, Feldtests) – Code ist fertig.
 - `docs/messungen.md` ausfüllen → Defaults in `core/settings.py` anpassen.
 - OVMS ist bei Frank eingebunden (HACS „OVMS“, Domain `ovms`). Befehlsweg wird automatisch

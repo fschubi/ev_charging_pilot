@@ -39,6 +39,12 @@ class ExecState(StrEnum):
 # States in which the executor is still trying to get energy flowing.
 _STARTING = (ExecState.WAITING_FOR_CHARGE, ExecState.WAKEUP_OVMS, ExecState.WAKEUP_CP)
 
+STATE_TEXT = {
+    ExecState.DISCONNECTED: "nicht eingesteckt", ExecState.IDLE: "bereit",
+    ExecState.WAITING_FOR_CHARGE: "wartet auf Ladeleistung", ExecState.CHARGING: "lädt",
+    ExecState.CHARGE_ENDED: "Auto hat fertig geladen",
+    ExecState.START_FAILED: "Start fehlgeschlagen",
+}
 # After the wallbox refused to confirm "off" several times, wait this long.
 OFF_RETRY_AFTER = timedelta(minutes=30)
 # How often a "close the CP" command is repeated while the relay stays open.
@@ -397,7 +403,8 @@ class Executor:
             state = ExecState.WAITING_FOR_CHARGE
         else:
             state = ExecState.IDLE
-        self._go(state, now, "EXECUTOR_STARTED", f"Executor gestartet in {state}",
+        self._go(state, now, "EXECUTOR_STARTED",
+                 f"Neustart der Steuerung – Zustand: {STATE_TEXT.get(state, state)}",
                  Category.CONFIG)
 
     def _on_unplugged(self, now: datetime) -> None:
@@ -422,7 +429,7 @@ class Executor:
                 if self._violation_reported_for != key:
                     self._violation_reported_for = key
                     self._event(now, Category.CHARGING, Severity.DEBUG, "SWITCH_CYCLE_VIOLATION",
-                                "Schaltbefehl im Cooldown zurückgestellt",
+                                "Schaltbefehl zurückgestellt (Mindestpause zwischen Schaltungen)",
                                 wait_s=round(self.config.min_switch_interval_s - since))
                 return False
         self._violation_reported_for = None
@@ -554,7 +561,8 @@ class Executor:
         if attempts.restart_used:
             self._fail(snap, "CHARGE_INTERRUPTED", "Ladung abgebrochen, Neustart erfolglos")
         else:
-            self._fail(snap, "CHARGE_START_FAILED", "Ladestart fehlgeschlagen (Kaskade erfolglos)")
+            self._fail(snap, "CHARGE_START_FAILED",
+                       "Ladestart fehlgeschlagen – das Auto ließ sich nicht wecken")
 
     def _start_pulse(self, now: datetime) -> None:
         cfg = self.config

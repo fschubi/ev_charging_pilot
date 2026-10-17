@@ -86,7 +86,8 @@ def monthly_mail(summary: dict[str, Any], vehicle: str, year: int, month: int,
         lines += ["", f"Unterwegs: {external_count} Fremdladung"
                   f"{'en' if external_count != 1 else ''} mit "
                   f"{_kwh(summary.get('external_energy_kwh'))}, "
-                  f"{_eur(summary.get('external_cost_eur'))} (bereits bezahlt)."]
+                  f"{_eur(summary.get('external_cost_eur'))} (unterwegs bezahlt, nicht Teil des "
+                  "Hausstroms)."]
     if summary.get("distance_km"):
         lines += ["", f"Gefahren: {summary['distance_km']:.0f} km".replace(".", ",")]
     lines += ["", "Der vollständige Monatsbericht liegt als PDF im Anhang.", "",

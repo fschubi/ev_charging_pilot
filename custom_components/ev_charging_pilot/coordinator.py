@@ -634,8 +634,8 @@ class ChargingCenter:
                           "Test der Preisabfrage per Push gesendet")],
             notifications=[Notification(
                 "external_test", "normal", "Test: Preis eingeben",
-                "Nur ein Test – keine echte Fremdladung. Antippen zum Eintippen oder lange "
-                "drücken für die Preis-Knöpfe.",
+                "Nur ein Test – keine echte Fremdladung. Antippen öffnet die Preiseingabe, "
+                "lange drücken zeigt die Preis-Knöpfe.",
                 actions=(f"ext_price:{test_id}",), url=external_price_url(test_id))]))
         self._notify_listeners()
         return self.price_push_test
@@ -711,7 +711,7 @@ class ChargingCenter:
         """Run a recorded night through the engine (no hardware, §6.1)."""
         if dataset is None:
             if not file:
-                raise ValueError("file oder dataset ist nötig")
+                raise ValueError("Bitte eine Datei oder einen Datensatz angeben")
             text = await self.hass.async_add_executor_job(self._replay_path(file).read_text)
             dataset = json.loads(text)
         parsed = ReplayDataset.from_dict(dataset)

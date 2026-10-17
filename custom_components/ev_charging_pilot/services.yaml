@@ -1,7 +1,6 @@
 start_charging:
   fields:
     mode:
-      default: until_unplugged
       selector:
         select:
           translation_key: override_mode
@@ -99,6 +98,10 @@ start_climate:
 stop_climate:
 add_external_charge:
   fields:
+    id:
+      example: "auto-202610171200"
+      selector:
+        text:
     date:
       required: true
       selector:

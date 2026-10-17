@@ -349,7 +349,7 @@ class EvChargingPilotOptionsFlow(OptionsFlow):
             return self._save(user_input)
         d = self._d
         return self._form("planning", {
-            d(OPT_CAPACITY_KWH): _number(5, 30, 0.1, "kWh"),
+            d(OPT_CAPACITY_KWH): _number(5, 150, 0.1, "kWh"),
             d(OPT_EFFICIENCY): _number(0.5, 1, 0.01),
             d(OPT_MAX_POWER_KW): _number(1, 22, 0.1, "kW"),
             d(OPT_VEHICLE_CHARGER_KW): _number(1, 22, 0.1, "kW"),

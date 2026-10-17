@@ -85,7 +85,7 @@
           "ovms_command_script": "Oder: Script für OVMS-Befehle (Variable command)"
         },
         "data_description": {
-          "ovms_plug": "Meldet das Auto, dass ein Ladestecker steckt (z. B. …_charge_plug_detected). Die Halo meldet das Kabel nur bei freigegebenem Ladepunkt – damit wird das Einstecken auch bei gesperrter Wallbox erkannt.",
+          "ovms_plug": "Meldet das Auto, dass ein Ladestecker steckt (z. B. …_charge_plug_detected). Manche Wallboxen (z. B. Halo) melden das Kabel nur bei freigegebenem Ladepunkt – damit wird das Einstecken auch bei gesperrter Wallbox erkannt.",
           "ovms_location": "Standort des Autos (device_tracker …_location). Steckt das Auto nicht zu Hause, zählt der Stecker nicht als Wallbox-Kabel.",
           "outside_temp": "Außentemperatur-Sensor für die Klimaprofile. Optional.",
           "weather": "Wetter-Entität als Rückfall für die Außentemperatur. Optional.",
@@ -155,7 +155,7 @@
           "confirm_timeout_s": "Wartezeit auf Wallbox-Bestätigung",
           "finished_statuses": "Wallbox-Status „fertig“ (kommagetrennt, nach Messung)"
         },
-        "description": "Vorläufige Werte bis zur Messphase (Phase 0). Live schaltet erst nach dem Gate von v0.1."
+        "description": "Vorläufige Werte – erst nach der Messphase (docs/messungen.md) anpassen."
       },
       "wakeup": {
         "title": "Wakeup und CP",
@@ -192,7 +192,7 @@
           "price_optimization": "In den günstigsten Stunden laden",
           "price_blocks": "Max. Ladeblöcke pro Nacht (jeder Block kann einen Wakeup kosten)"
         },
-        "description": "Tibber: offizielle Tibber-Integration einrichten. Entität: jeder Sensor mit Preisliste in den Attributen (raw_today/raw_tomorrow, data, today/tomorrow). Ohne SOC oder ohne Preise für die ganze Nacht wird wie bisher geladen."
+        "description": "Tibber: offizielle Tibber-Integration einrichten. Preis-Entität: jeder Sensor mit einer Preisliste in den Attributen (Nordpool, EPEX, ENTSO-e, Paare …) – „Preisquelle prüfen“ im Einstellungen-Reiter zeigt, ob sie lesbar ist. Ohne SOC oder ohne Preise für die ganze Nacht wird wie bisher geladen."
       },
       "climate": {
         "title": "Vorklimatisierung",
@@ -215,7 +215,7 @@
         "data": {
           "max_age_halo_power_s": "Max. Alter Wallbox-Leistung (3 × Poll-Intervall)",
           "max_age_halo_energy_s": "Max. Alter Wallbox-Zähler",
-          "max_age_vehicle_charging_s": "Max. Alter Ladezustand Fahrzeug",
+          "max_age_vehicle_charging_s": "Max. Alter „Fahrzeug lädt“",
           "max_age_soc_s": "Max. Alter SOC beim Laden",
           "max_age_odometer_s": "Max. Alter Kilometerstand",
           "max_age_temperature_s": "Max. Alter Temperaturen"
@@ -264,11 +264,11 @@
       "ovms_commands": {
         "title": "OVMS-Befehle",
         "data": {
-          "ovms_wakeup_command": "OVMS-Wakeup-Befehl (Standard: wakeup)",
+          "ovms_wakeup_command": "OVMS-Wakeup-Befehl („auto“ = xsq wakeup beim smart 453)",
           "ovms_climate_command": "OVMS-Klimabefehl ({level} = 1/2/3, {minutes})",
           "ovms_climate_stop_command": "OVMS-Klima-Stopp-Befehl"
         },
-        "description": "Nur Befehle eintragen, die am Fahrzeug getestet sind (§1.2). Leer = Funktion gesperrt."
+        "description": "Vorbelegt – gesendet wird erst mit „Fahrzeug: Lesen & Schreiben“. Leer = Funktion gesperrt."
       }
     },
     "error": {
@@ -279,7 +279,7 @@
   "selector": {
     "mode": {
       "options": {
-        "dry_run": "Dry-Run (nur protokollieren)",
+        "dry_run": "Probebetrieb (Dry-Run, nur protokollieren)",
         "live": "Live (schaltet Hardware)",
         "replay": "Replay (keine Hardware)"
       }
@@ -339,7 +339,7 @@
   "entity": {
     "sensor": {
       "executor_state": {
-        "name": "Ladezustand",
+        "name": "Ladeablauf",
         "state": {
           "disconnected": "Nicht gesteckt",
           "idle": "Bereit",
@@ -362,7 +362,7 @@
           "safety_lock": "Sicherheitssperre",
           "override": "Override",
           "rfid": "RFID",
-          "one_shot": "Heute Nacht",
+          "one_shot": "Einmalige Abfahrt",
           "target_soc_reached": "Ziel-SOC erreicht",
           "climate": "Vorklimatisierung",
           "schedule": "Wochenplan",
@@ -506,7 +506,7 @@
         "name": "Automatik"
       },
       "dry_run": {
-        "name": "Dry-Run"
+        "name": "Probebetrieb (Dry-Run)"
       }
     },
     "button": {
@@ -647,8 +647,8 @@
       }
     },
     "cancel_one_shot": {
-      "name": "One-Shot löschen",
-      "description": "One-Shot löschen"
+      "name": "Einmalige Abfahrt löschen",
+      "description": "Einmalige Abfahrt löschen"
     },
     "vehicle_wakeup": {
       "name": "Fahrzeug wecken",
@@ -720,6 +720,10 @@
       "name": "Fremdladung erfassen",
       "description": "Ladung außer Haus; fließt nicht in die Hausabrechnung.",
       "fields": {
+        "id": {
+          "name": "ID",
+          "description": "ID"
+        },
         "date": {
           "name": "Datum",
           "description": "Datum"

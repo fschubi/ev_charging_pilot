@@ -19,15 +19,15 @@ Spezifikation: [Masterplan v1.3](docs/masterplan-v1.3.md) · Stand: [Roadmap](do
 > protokolliert nur, was sie schalten würde. Live geht sie erst nach Messphase,
 > Dry-Run-Abgleich und Einzeltest (Grundsatz 11). Der CP-Wakeup bleibt gesperrt,
 > bis die Failsafe-Checkliste (§3.6) abgehakt und die Verdrahtung von einer
-> Elektrofachkraft abgenommen ist. Fahrzeugbefehle (OVMS) sind leer, bis sie am
-> Fahrzeug getestet wurden.
+> Elektrofachkraft abgenommen ist. Fahrzeugbefehle (OVMS) sind vorbelegt, werden aber
+> erst gesendet, wenn „Fahrzeug: Lesen & Schreiben“ eingeschaltet ist.
 
 ## Was die Integration beantwortet
 
 - Ist der Smart angeschlossen und lädt er stabil?
 - Erreicht er bis zur Abfahrt den Mindest-SOC?
 - Musste er geweckt werden – und kostete das HV-Kontaktorzyklen?
-- Wie viele kWh wurden diesen Monat zuhause geladen, was hat das gekostet?
+- Wie viele kWh wurden diesen Monat zu Hause geladen, was hat das gekostet?
 - Ist das System gesund?
 
 ## Voraussetzungen
@@ -81,12 +81,22 @@ wird wie gewohnt geladen; Kosten werden je 15 Minuten mit dem echten Preis berec
 Monatsersten um 06:00. Ablage in `/config/ev_charging_pilot/reports`, Download nur
 für angemeldete Benutzer.
 
-**Fremdladen:** Ladungen außer Haus werden aus den Fahrzeugdaten erkannt (ohne das Auto
-zu wecken) und als *geschätzt* eingetragen; Kosten und Anbieter im Panel ergänzen.
+**Monatsbericht per E-Mail:** Einstellungen → *Monatsbericht per E-Mail* (Gmail, GMX,
+web.de, T-Online, iCloud, Outlook oder eigener Server; bei Gmail/iCloud ein
+App-Passwort). Am 1. geht der PDF-Bericht des Vormonats mit kWh und Kosten im Text an bis
+zu zwei Empfänger; der Betrag kann zusätzlich per Push an weitere Handys gehen.
 
-**Systemtest:** Panel → Diagnose → *Systemtest starten*. Prüft Wallbox, CP-Relais,
-Fahrzeugdaten, Befehlsweg, Push und Strompreis Schritt für Schritt – ohne etwas zu
-schalten und ohne das Auto zu wecken. Ideal vor dem Wechsel auf Live.
+**Fremdladen:** Ladungen außer Haus werden aus den Fahrzeugdaten erkannt (ohne das Auto
+zu wecken) und als *geschätzt* eingetragen. Eine Push-Nachricht fragt den bezahlten Preis
+ab (Preis-Knöpfe oder Eingabefenster mit Ziffernblock); ergänzen geht auch im Panel.
+
+**Ladestrom:** je Wochenplan, einmaliger Abfahrt und „Jetzt laden“ einstellbar (6–16 A);
+der Pilot setzt ihn an der Wallbox und rechnet die Prognose damit.
+
+**Test-Center:** Panel → Diagnose → *Test-Center*. *Systemtest* prüft Wallbox,
+CP-Relais, Fahrzeugdaten, Befehlsweg, Push und Strompreis, ohne etwas zu schalten;
+*Ladetest* startet die echte Kette (Wallbox an, Wecken per OVMS/CP, kurz laden, aus);
+dazu Push-Test der Preisabfrage und Test-Mail des Monatsberichts.
 
 **Einmalige Abfahrt:** Panel → Ladeplan → *Einmalige Abfahrt* (Datum, Uhrzeit, Ziel),
 z. B. für einen Urlaubstag; löscht sich nach der Abfahrt selbst.
@@ -97,7 +107,8 @@ z. B. für einen Urlaubstag; löscht sich nach der Abfahrt selbst.
 Dashboards → Energie → Einzelne Geräte* eintragen.
 
 **Lernende Prognose:** Nach drei Heimladungen rechnet der Plan mit der gemessenen
-Ladeleistung und der Netzenergie je Prozent; oberhalb von 90 % langsamer.
+Ladeleistung und der Netzenergie je Prozent; oberhalb von „Lädt langsamer ab“ (Standard
+80 %) langsamer. Ein hohes Ziel (über 90 %) wird höchstens 2 h vor der Abfahrt erreicht.
 
 **Standard-Dashboard** ohne Panel: [dashboards/ev_pilot_dashboard.yaml](dashboards/ev_pilot_dashboard.yaml).
 
@@ -105,15 +116,15 @@ Ladeleistung und der Netzenergie je Prozent; oberhalb von 90 % langsamer.
 
 | Entität | Bedeutung |
 | --- | --- |
-| `sensor.ev_pilot_executor_state` | Ladezustand (Bereit, Lädt, Wakeup CP, Start fehlgeschlagen …) |
+| `sensor.ev_pilot_executor_state` | Ladeablauf (Bereit, Lädt, Wakeup CP, Start fehlgeschlagen …) |
 | `sensor.ev_pilot_desired_reason` | Warum die Wallbox an/aus sein soll |
 | `sensor.ev_pilot_system_health` | Gesund / Eingeschränkt / Fehler mit Gründen |
 | `sensor.ev_pilot_next_charge_start`, `_next_departure`, `_estimated_finish` | Plan |
 | `sensor.ev_pilot_expected_departure_soc` | Prognose (Schätzung) |
 | `sensor.ev_pilot_month_home_energy`, `_month_cost`, `_year_*` … | Hausabrechnung und Kosten |
 | `sensor.ev_pilot_soc`, `_soh`, `_range`, `_odometer`, `_hv_contactor_cycles` | Fahrzeug (mit Fahrzeugdaten) |
-| `binary_sensor.ev_charging_pilot`, `_charge_problem`, `_cp_failsafe_ok`, `_data_conflict` … | Status |
-| `switch.ev_pilot_automation`, `switch.ev_pilot_dry_run` | Automatik, Dry-Run |
+| `binary_sensor.ev_pilot_vehicle_connected`, `_charging`, `_charge_problem`, `_cp_failsafe_ok`, `_data_conflict` … | Status |
+| `switch.ev_pilot_automation`, `switch.ev_pilot_dry_run` | Automatik, Probebetrieb (Dry-Run) |
 | `select.ev_pilot_override_mode`, `number.ev_pilot_*_departure_soc`, `time.ev_pilot_departure` | Plan bedienen |
 | Buttons | Jetzt laden · Stopp · Heute Nacht · Fahrzeug wecken · CP-Wakeup · Klima 5/10/15 · Klima stopp · Fehler zurücksetzen |
 
@@ -124,7 +135,8 @@ Ladeleistung und der Netzenergie je Prozent; oberhalb von 90 % langsamer.
 `reset_error`, `start_climate`, `stop_climate`, `add_external_charge`,
 `delete_external_charge`, `add_manual_odometer`, `set_plans`,
 `export` (CSV/JSON nach `/config/ev_charging_pilot/export`),
-`create_report` (PDF), `refresh_prices`,
+`create_report` (PDF), `refresh_prices`, `send_report_mail`, `configure_shelly`,
+`charge_test`, `test_price_push`, `set_external_price`,
 `create_replay_dataset`, `start_replay`, `stop_replay`.
 
 Alle Services laufen durch Arbiter und Executor – nie direkt auf die Hardware.

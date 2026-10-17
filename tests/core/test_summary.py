@@ -65,4 +65,4 @@ def test_weekly_summary_line():
     week = world.engine.monitor.week(world.now)
     assert week["charges"] == 3 and week["km"] is None
     line = weekly_text(week)
-    assert line.startswith("25,2 kWh zuhause für 7,50 € · 3 Ladungen · 0× geweckt")
+    assert line.startswith("25,2 kWh zu Hause für 7,50 € · 3 Ladungen · 0× geweckt")

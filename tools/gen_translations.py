@@ -81,10 +81,10 @@ FIELD_HELP = {
     "weather": T("Wetter-Entität als Rückfall für die Außentemperatur. Optional.",
                  "Weather entity as fallback for the outside temperature. Optional."),
     "ovms_plug": T("Meldet das Auto, dass ein Ladestecker steckt (z. B. …_charge_plug_detected). "
-                   "Die Halo meldet das Kabel nur bei freigegebenem Ladepunkt – damit wird "
-                   "das Einstecken auch bei gesperrter Wallbox erkannt.",
-                   "The car reports a plugged-in charge cable. The Halo only reports the "
-                   "cable while enabled – this detects plugging in while it is locked."),
+                   "Manche Wallboxen (z. B. Halo) melden das Kabel nur bei freigegebenem "
+                   "Ladepunkt – damit wird das Einstecken auch bei gesperrter Wallbox erkannt.",
+                   "The car reports a plugged-in charge cable. Some wallboxes (e.g. Halo) only "
+                   "report the cable while enabled – this detects plugging in while locked."),
     "ovms_location": T("Standort des Autos (device_tracker …_location). Steckt das Auto "
                        "nicht zu Hause, zählt der Stecker nicht als Wallbox-Kabel.",
                        "Location of the car. Away from home the plug does not count as the "
@@ -141,7 +141,7 @@ OPTIONS = {
     "max_age_halo_power_s": T("Max. Alter Wallbox-Leistung (3 × Poll-Intervall)",
                               "Max age Wallbox power (3 × poll interval)"),
     "max_age_halo_energy_s": T("Max. Alter Wallbox-Zähler", "Max age Wallbox meter"),
-    "max_age_vehicle_charging_s": T("Max. Alter Ladezustand Fahrzeug",
+    "max_age_vehicle_charging_s": T("Max. Alter „Fahrzeug lädt“",
                                     "Max age vehicle charging state"),
     "max_age_soc_s": T("Max. Alter SOC beim Laden", "Max age SOC while charging"),
     "max_age_odometer_s": T("Max. Alter Kilometerstand", "Max age odometer"),
@@ -183,8 +183,8 @@ OPTIONS = {
                              "Create the monthly PDF report on the 1st"),
     "notify_report": T("Push: Monatsbericht erstellt", "Push: monthly report created"),
     "notify_weekly": T("Push: Wochenrückblick am Sonntagabend", "Push: weekly summary on Sunday"),
-    "ovms_wakeup_command": T("OVMS-Wakeup-Befehl (Standard: wakeup)",
-                             "OVMS wakeup command (empty = locked)"),
+    "ovms_wakeup_command": T("OVMS-Wakeup-Befehl („auto“ = xsq wakeup beim smart 453)",
+                             "OVMS wakeup command (\"auto\" = xsq wakeup on a smart 453)"),
     "ovms_climate_command": T("OVMS-Klimabefehl ({level} = 1/2/3, {minutes})",
                               "OVMS climate command ({level} = 1/2/3, {minutes})"),
     "ovms_climate_stop_command": T("OVMS-Klima-Stopp-Befehl", "OVMS climate stop command"),
@@ -226,19 +226,21 @@ OPTION_STEPS = {
 }
 
 STEP_DESC = {
-    "charging": T("Vorläufige Werte bis zur Messphase (Phase 0). Live schaltet erst nach dem "
-                  "Gate von v0.1.", "Provisional values until phase 0 measured them."),
+    "charging": T("Vorläufige Werte – erst nach der Messphase (docs/messungen.md) anpassen.",
+                  "Provisional values until phase 0 measured them."),
     "wakeup": T("Der CP-Wakeup bleibt gesperrt, bis die Checkliste §3.6 abgehakt ist. "
                 "Das Auto wird nie nur zur Datenauffrischung geweckt.",
                 "The CP wakeup stays locked until checklist §3.6 is completed."),
-    "ovms_commands": T("Nur Befehle eintragen, die am Fahrzeug getestet sind (§1.2). "
+    "ovms_commands": T("Vorbelegt – gesendet wird erst mit „Fahrzeug: Lesen & Schreiben“. "
                        "Leer = Funktion gesperrt.",
-                       "Only enter commands tested on the car (§1.2). Empty = locked."),
+                       "Prefilled – only sent with vehicle access \"read & write\". "
+                       "Empty = locked."),
     "monitor": T("Festpreis: Ein neuer Preis mit Gültigkeitsdatum ändert keine alten Monate. "
                  "Er gilt auch als Rückfall, wenn die dynamische Preisquelle ausfällt.",
                  "Fixed price; also the fallback when the dynamic source fails."),
-    "prices": T("Tibber: offizielle Tibber-Integration einrichten. Entität: jeder Sensor mit "
-                "Preisliste in den Attributen (raw_today/raw_tomorrow, data, today/tomorrow). "
+    "prices": T("Tibber: offizielle Tibber-Integration einrichten. Preis-Entität: jeder Sensor mit "
+                "einer Preisliste in den Attributen (Nordpool, EPEX, ENTSO-e, Paare …) – "
+                "„Preisquelle prüfen“ im Einstellungen-Reiter zeigt, ob sie lesbar ist. "
                 "Ohne SOC oder ohne Preise für die ganze Nacht wird wie bisher geladen.",
                 "Tibber: set up the official Tibber integration. Entity: any sensor with a "
                 "price list in its attributes."),
@@ -261,7 +263,7 @@ STATES = {
     },
     "desired_reason": {
         "safety_lock": T("Sicherheitssperre", "Safety lock"), "override": T("Override", "Override"),
-        "rfid": T("RFID", "RFID"), "one_shot": T("Heute Nacht", "Tonight"),
+        "rfid": T("RFID", "RFID"), "one_shot": T("Einmalige Abfahrt", "One-off departure"),
         "target_soc_reached": T("Ziel-SOC erreicht", "Target SOC reached"),
         "climate": T("Vorklimatisierung", "Pre-climatisation"),
         "schedule": T("Wochenplan", "Weekly plan"), "default_off": T("Standard aus", "Default off"),
@@ -272,7 +274,7 @@ STATES = {
 }
 
 SENSORS = {
-    "executor_state": T("Ladezustand", "Executor state"),
+    "executor_state": T("Ladeablauf", "Charging sequence"),
     "desired_reason": T("Soll-Grund", "Desired reason"),
     "system_health": T("System-Health", "System health"),
     "last_event": T("Letztes Ereignis", "Last event"),
@@ -314,7 +316,8 @@ BINARY = {
     "manual_override": T("Manueller Override", "Manual override"),
     "hvcycle_warning": T("HV-Zyklen-Warnung", "HV cycle warning"),
 }
-SWITCHES = {"automation": T("Automatik", "Automation"), "dry_run": T("Dry-Run", "Dry run")}
+SWITCHES = {"automation": T("Automatik", "Automation"),
+            "dry_run": T("Probebetrieb (Dry-Run)", "Dry run")}
 BUTTONS = {
     "start_charge": T("Jetzt laden", "Start charging"),
     "stop_charge": T("Laden stoppen", "Stop charging"),
@@ -347,7 +350,7 @@ SERVICES = {
     "start_one_shot": (T("Einmalige Abfahrt", "One-off departure"),
                        T("Heute Nacht laden – oder eine einmalige Abfahrt mit Datum und Ziel.",
                          "Charge tonight – or a one-off departure with date and target.")),
-    "cancel_one_shot": (T("One-Shot löschen", "Cancel one-shot"), T("", "")),
+    "cancel_one_shot": (T("Einmalige Abfahrt löschen", "Cancel one-off departure"), T("", "")),
     "vehicle_wakeup": (T("Fahrzeug wecken", "Wake vehicle"),
                        T("Software-Wakeup über OVMS (gleiche Sperren wie die Kaskade).",
                          "OVMS software wakeup (same guards as the cascade).")),
@@ -427,7 +430,7 @@ SERVICE_FIELDS = {
     "set_external_price": ["id", "price"],
     "send_report_mail": ["year", "month", "test"],
     "start_climate": ["minutes"],
-    "add_external_charge": ["date", "energy_kwh", "source", "cost_eur", "price_eur_kwh",
+    "add_external_charge": ["id", "date", "energy_kwh", "source", "cost_eur", "price_eur_kwh",
                             "odometer_km", "soc_before", "soc_after", "provider", "note"],
     "delete_external_charge": ["id"],
     "add_manual_odometer": ["odometer_km", "at"],
@@ -462,7 +465,7 @@ def build(lang: str) -> dict:
                   "**{found}**\n\nOptional – OVMS can be added later via reconfigure."),
     }
     titles = {"user": T("EV Charging Pilot", "EV Charging Pilot"),
-              "halo": T("Wallbox", "Charger"), "shelly": T("CP-Unterbrechung (optional)",
+              "halo": T("Wallbox", "Wallbox"), "shelly": T("CP-Unterbrechung (optional)",
                                                           "CP interruption (optional)"),
               "notify": T("Benachrichtigungen", "Notifications"), "ovms": T("Fahrzeug",
                                                                            "Vehicle")}
@@ -547,7 +550,8 @@ def build(lang: str) -> dict:
                                   "The Tibber integration is not set up.")),
         }},
         "selector": {
-            "mode": {"options": {"dry_run": t(T("Dry-Run (nur protokollieren)", "Dry run")),
+            "mode": {"options": {"dry_run": t(T("Probebetrieb (Dry-Run, nur protokollieren)",
+                                                "Dry run")),
                                  "live": t(T("Live (schaltet Hardware)", "Live")),
                                  "replay": t(T("Replay (keine Hardware)", "Replay"))}},
             "climate_after_target_soc": {"options": {
@@ -562,7 +566,7 @@ def build(lang: str) -> dict:
             "external_source": {"options": {
                 "public": t(T("Öffentlich", "Public")),
                 "workplace": t(T("Arbeitgeber", "Workplace")),
-                "other_home": t(T("Andere Wallbox", "Other home"))}},
+                "other_home": t(T("Andere Wallbox", "Other wallbox"))}},
             "price_source": {"options": {
                 "fixed": t(T("Festpreis", "Fixed price")),
                 "entity": t(T("Preis-Entität", "Price entity")),

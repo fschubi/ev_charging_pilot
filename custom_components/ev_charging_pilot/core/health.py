@@ -91,3 +91,23 @@ def evaluate(inputs: HealthInputs) -> Health:
     if degraded:
         return Health(HealthStatus.DEGRADED, tuple(degraded))
     return Health(HealthStatus.HEALTHY)
+
+
+# Plain German for pushes, events and the PDF (the panel has its own longer texts).
+REASON_TEXT = {
+    "CP_STATE_UNKNOWN": "Shelly (CP-Relais) nicht erreichbar",
+    "CP_OPEN": "CP-Leitung offen",
+    "CP_NOT_RESTORED": "CP-Relais nach dem Puls nicht zurückgestellt",
+    "CHARGER_UNAVAILABLE": "Wallbox nicht erreichbar",
+    "REPEATED_START_FAILURE": "mehrere Ladestarts fehlgeschlagen",
+    "HALO_SCHEDULE_ON": "interner Zeitplan der Wallbox ist an",
+    "SHELLY_CONFIG_DRIFT": "Shelly-Konfiguration weicht ab",
+    "OVMS_OFFLINE": "Fahrzeugdaten (OVMS) fehlen",
+    "SOC_STALE": "Ladestand veraltet",
+    "TEMPERATURE_MISSING": "keine Außentemperatur",
+}
+STATUS_TEXT = {"HEALTHY": "in Ordnung", "DEGRADED": "eingeschränkt", "ERROR": "Fehler"}
+
+
+def reasons_text(reasons) -> str:
+    return ", ".join(REASON_TEXT.get(r, r) for r in reasons) or "keine Auffälligkeiten"

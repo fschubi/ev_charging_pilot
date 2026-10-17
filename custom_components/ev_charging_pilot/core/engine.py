@@ -20,7 +20,14 @@ from .climate import climate_blocker, climate_request, climate_wish, planned_dur
 from .costs import FixedPriceHistory
 from .executor import ExecState, Executor, ExecutorConfig, Snapshot, StepResult
 from .external import ExternalChargeDetector
-from .health import Health, HealthInputs, HealthStatus, evaluate
+from .health import (
+    STATUS_TEXT,
+    Health,
+    HealthInputs,
+    HealthStatus,
+    evaluate,
+    reasons_text,
+)
 from .inputs import Inp, RawState, to_value
 from .learning import LearnedCharging, learn
 from .model import Category, ClimateRequest, Desired, Event, Quality, Reason, Severity, Value
@@ -62,6 +69,13 @@ def external_price_url(charge_id: str) -> str:
     """Panel page with the price dialog (numeric keypad) for one external charge."""
     return f"/ev-pilot?external_price={charge_id}"
 
+OVERRIDE_TEXT = {
+    OverrideMode.UNTIL_UNPLUGGED: "Laden bis Kabel ab",
+    OverrideMode.DURATION: "Laden für eine Dauer",
+    OverrideMode.UNTIL_TIME: "Laden bis Uhrzeit",
+    OverrideMode.UNTIL_SOC: "Laden bis Ladestand",
+    OverrideMode.STOP: "Laden gestoppt",
+}
 # Wallbox status texts meaning "connector locked – cable state not reported" (Halo).
 BLIND_WHEN_LOCKED = frozenset({"unavailable", "disabled"})
 # Charging only makes a vehicle value STALE if it went on this long after it.
@@ -786,8 +800,8 @@ class Engine:
                     result.notifications.append(Notification(
                         "external", "normal", "Fremdladung erkannt",
                         f"Ca. {charge.energy_kwh:.1f} kWh außer Haus geladen (geschätzt). "
-                        "Was hast du pro kWh bezahlt? Antippen zum Eintippen oder lange "
-                        "drücken für die Preis-Knöpfe.",
+                        "Was hast du pro kWh bezahlt? Antippen öffnet die Preiseingabe, "
+                        "lange drücken zeigt die Preis-Knöpfe.",
                         actions=(f"ext_price:{charge.id}",),
                         url=external_price_url(charge.id)))
 
@@ -836,8 +850,10 @@ class Engine:
         cp_alarm = any(r in CP_REASONS for r in self.health.reasons)
         if cp_alarm and not self._cp_alarm and n.cp and \
                 "CP_NOT_RESTORED" not in self.health.reasons:
-            out.append(Notification("cp", "critical", "CP-Zustand unbekannt",
-                                    f"CP-Zustand: {', '.join(self.health.reasons)}"))
+            cp_reasons = [r for r in self.health.reasons if r in CP_REASONS]
+            out.append(Notification("cp", "critical", "CP-Leitung prüfen",
+                                    f"{reasons_text(cp_reasons)} – die Automatik schaltet aus "
+                                    "Sicherheitsgründen nichts."))
         self._cp_alarm = cp_alarm
         self._health_push(now, result)
 
@@ -877,15 +893,16 @@ class Engine:
             return
         self._health_notified = status
         self._health_candidate = None
-        reasons = ", ".join(self.health.reasons) or "ok"
+        reasons = reasons_text(self.health.reasons)
+        label = STATUS_TEXT.get(str(status), str(status))
         result.events.append(Event(
             now, Category.HEALTH,
             Severity.INFO if status is HealthStatus.HEALTHY else Severity.WARNING,
-            f"HEALTH_{status}", f"System-Health: {status} ({reasons})"))
+            f"HEALTH_{status}", f"Systemzustand: {label} ({reasons})"))
         if status is not HealthStatus.HEALTHY and self.settings.notify.health:
             result.notifications.append(Notification(
                 "health", "high" if status is HealthStatus.ERROR else "normal",
-                f"System-Health {status}", reasons))
+                f"Systemzustand: {label}", reasons))
 
     # ======================================================== user actions
 
@@ -898,13 +915,14 @@ class Engine:
                      source: Reason = Reason.OVERRIDE) -> TickResult:
         """Manual override (§5.3); never bypasses health locks or the cooldown."""
         if mode is OverrideMode.DURATION and expires_at is None:
-            raise ValueError("duration override needs expires_at")
+            raise ValueError("Für „Für eine Dauer“ bitte duration_min oder until angeben")
         if mode is OverrideMode.UNTIL_TIME and expires_at is None:
-            raise ValueError("until_time override needs expires_at")
+            raise ValueError("Für „Bis Uhrzeit“ bitte until angeben")
         if mode is OverrideMode.UNTIL_SOC and target_soc is None:
-            raise ValueError("until_soc override needs target_soc")
+            raise ValueError("Für „Bis Ladestand“ bitte target_soc angeben")
         self.override = ManualOverride(mode, now, expires_at, target_soc, source)
-        return self._user_event(now, "OVERRIDE_SET", f"Override {mode}", mode=str(mode),
+        return self._user_event(now, "OVERRIDE_SET", f"Manuell: {OVERRIDE_TEXT.get(mode, mode)}",
+                                mode=str(mode),
                                 source=str(source))
 
     def charge_now(self, now: datetime) -> TickResult:
@@ -988,7 +1006,7 @@ class Engine:
 
     def cancel_one_shot(self, now: datetime) -> TickResult:
         self.one_shot = None
-        return self._user_event(now, "ONE_SHOT_CANCELLED", "One-Shot gelöscht")
+        return self._user_event(now, "ONE_SHOT_CANCELLED", "Einmalige Abfahrt gelöscht")
 
     def start_climate(self, now: datetime, minutes: int) -> TickResult:
         self.manual_climate = ClimateRequest(minutes, now, now + timedelta(minutes=minutes))
@@ -1032,7 +1050,7 @@ class Engine:
     def set_plans(self, now: datetime, plans: list[WeeklySchedule]) -> TickResult:
         ids = [p.id for p in plans]
         if len(ids) != len(set(ids)):
-            raise ValueError("plan ids must be unique")
+            raise ValueError("Plan-IDs müssen eindeutig sein")
         self.plans = list(plans)
         return self._user_event(now, "PLANS_CHANGED", f"{len(plans)} Ladepläne gespeichert")
 

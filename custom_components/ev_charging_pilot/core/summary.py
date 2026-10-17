@@ -130,7 +130,7 @@ def _de(value: float, digits: int) -> str:
 
 def weekly_text(week: dict[str, Any]) -> str:
     """One line for the Sunday push."""
-    parts = [f"{_de(week['home_kwh'], 1)} kWh zuhause für {_de(week['cost_eur'], 2)} €",
+    parts = [f"{_de(week['home_kwh'], 1)} kWh zu Hause für {_de(week['cost_eur'], 2)} €",
              f"{week['charges']} {'Ladung' if week['charges'] == 1 else 'Ladungen'}"]
     if week["failed"]:
         parts.append(f"{week['failed']} fehlgeschlagen")

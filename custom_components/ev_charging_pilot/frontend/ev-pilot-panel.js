@@ -2,7 +2,7 @@
  * EV Charging Pilot – Sidebar-Panel (Masterplan §12.5).
  *
  * Keine Steuerlogik: Das Panel liest über die WebSocket-API und löst jede
- * Aktion über einen Service der Integration aus. Fünf Ansichten:
+ * Aktion über einen Service der Integration aus. Sechs Ansichten:
  * Cockpit · Ladeplan · Hausstrom · Drive & Energy · Diagnose.
  */
 
@@ -14,7 +14,7 @@ const WEEKDAYS = [
 const MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 const STATE_LABELS = {
   DISCONNECTED: "Nicht gesteckt", IDLE: "Bereit", ENABLING: "Freigabe läuft",
-  WAITING_FOR_CHARGE: "Warte auf Ladung", CHARGE_STABILIZING: "Ladung stabilisiert",
+  WAITING_FOR_CHARGE: "Warte auf Ladung", CHARGE_STABILIZING: "Ladung stabilisiert sich",
   WAKEUP_OVMS: "Wakeup OVMS", WAKEUP_CP: "Wakeup CP", CHARGING: "Lädt",
   CHARGE_ENDED: "Ladung beendet", INTERRUPTED: "Unterbrochen", DISABLING: "Abschaltung läuft",
   COOLDOWN: "Pause", START_FAILED: "Start fehlgeschlagen",
@@ -97,6 +97,13 @@ const EVENT_FILTERS = [["important", "Wichtiges"], ["", "alle"], ["charging", "L
   ["wakeup", "Wecken"], ["cp", "CP"], ["climate", "Klima"], ["health", "System"],
   ["config", "Konfiguration"], ["user", "Bedienung"]];
 const SEASON_LABELS = { winter: "Winter", spring: "Frühling", summer: "Sommer", autumn: "Herbst" };
+const BAND_LABELS = { "<0": "unter 0 °C", "0-5": "0–5 °C", "5-10": "5–10 °C", "10-15": "10–15 °C",
+  "15-20": "15–20 °C", ">=20": "ab 20 °C" };
+const QUALITY_TEXT = { GOOD: "gut", ESTIMATED: "geschätzt", PARTIAL: "unvollständig",
+  LAST_KNOWN_VALID: "letzter Wert", STALE: "veraltet", UNAVAILABLE: "fehlt", INVALID: "ungültig",
+  CONFLICT: "Widerspruch" };
+const OVERRIDE_TEXT = { until_unplugged: "bis Kabel ab", duration: "für eine Dauer",
+  until_time: "bis Uhrzeit", until_soc: "bis Ladestand", stop: "gestoppt" };
 
 const socColor = (soc) =>
   soc === null ? "var(--disabled-text-color, #888)"
@@ -1229,7 +1236,7 @@ class EvPilotPanel extends HTMLElement {
             <div class="chips">
               <span class="pill ${plugged ? "info" : "muted"}">${plugged ? "eingesteckt" : "nicht eingesteckt"}</span>
               <span class="pill ${healthClass}">${esc(HEALTH_LABELS[health] || health)}</span>
-              ${s.override ? `<span class="pill info">Override: ${esc(s.override.mode)}</span>` : ""}
+              ${s.override ? `<span class="pill info">Manuell: ${esc(OVERRIDE_TEXT[s.override.mode] || s.override.mode)}</span>` : ""}
               ${s.one_shot ? `<span class="pill info">Einmalig: Abfahrt ${dateTime(s.one_shot.departure_at)}</span>` : ""}
               ${!s.automation_enabled ? `<span class="pill warn">Automatik aus</span>` : ""}
               ${ex.failure_code ? `<span class="pill bad">${esc(FAILURE_LABELS[ex.failure_code] || ex.failure_code)}</span>` : ""}
@@ -1293,7 +1300,7 @@ class EvPilotPanel extends HTMLElement {
           <button class="act" data-service="stop_charging" data-label="Laden gestoppt">Laden stoppen</button>
           <button class="act" data-service="start_one_shot" data-label="Heute Nacht laden">Heute Nacht laden</button>
           <button class="act" data-service="clear_override" ${s.override ? "" : "disabled"}>Override aufheben</button>
-          <button class="act" data-service="cancel_one_shot" ${s.one_shot ? "" : "disabled"}>One-Shot löschen</button>
+          <button class="act" data-service="cancel_one_shot" ${s.one_shot ? "" : "disabled"}>Einmalige Abfahrt löschen</button>
           ${has("ovms_soc") ? `<button class="act" data-service="start_climate" data-payload='{"minutes":10}'>Klima 10 min</button>
           <button class="act" data-service="stop_climate">Klima stopp</button>
           <button class="act" data-service="vehicle_wakeup" data-confirm="Fahrzeug wirklich wecken? Jeder Wakeup kostet HV-Zyklen.">Fahrzeug wecken</button>` : ""}
@@ -1325,7 +1332,7 @@ class EvPilotPanel extends HTMLElement {
     const path = { ovms_service: "OVMS-Integration", mqtt: "MQTT-Topic", script: "Script" }[v.command_path];
     return `<div class="row"><span>Fahrzeugdaten</span>${!v.data_configured
         ? `<span class="pill muted">nicht eingerichtet</span>`
-        : `<span class="pill ${dataOk ? "ok" : "warn"}">${dataOk ? "verbunden" : esc(v.data_quality || "–")}</span>`}</div>
+        : `<span class="pill ${dataOk ? "ok" : "warn"}">${dataOk ? "verbunden" : esc(QUALITY_TEXT[v.data_quality] || v.data_quality || "–")}</span>`}</div>
       ${v.data_configured && v.data_updated_at ? `<div class="hint">zuletzt ${dateTime(v.data_updated_at)}</div>` : ""}
       <div class="row"><span>Zugriff</span>${v.read_write
         ? `<span class="pill ${v.commands_ready ? "ok" : "warn"}">Lesen & Schreiben</span>`
@@ -1452,7 +1459,7 @@ class EvPilotPanel extends HTMLElement {
         <button class="act" data-action="month-prev">‹</button>
         <b>${MONTHS[this._month - 1]} ${this._year}</b>
         <button class="act" data-action="month-next">›</button>
-        <span class="sub">${m.complete ? "vollständig" : "unvollständig"} · ${esc(m.quality || "")}</span>
+        <span class="sub">${m.complete ? "vollständig" : "unvollständig"} · ${esc(QUALITY_TEXT[m.quality] || m.quality || "")}</span>
         <span style="flex:1"></span>
         <button class="act" data-action="report" data-month="${this._month}">PDF Monat</button>
         <button class="act" data-action="report">PDF Jahr</button>
@@ -1485,12 +1492,12 @@ class EvPilotPanel extends HTMLElement {
     const external = (c.external && c.external.items) || [];
     const group = (title, entries) => `<div class="card wide"><h2>${title}</h2><div class="scroll"><table>
       <tr><th></th><th class="n">km</th><th class="n">Fahrzeug kWh/100</th><th class="n">Netz kWh/100*</th><th class="n">Rekup. %</th><th class="n">Neben kWh</th><th class="n">€*</th></tr>
-      ${Object.entries(entries).map(([k, g]) => `<tr><td>${esc(SEASON_LABELS[k] || (k + " °C"))}</td><td class="n">${num(g.distance_km, 0)}</td><td class="n">${num(g.vehicle_kwh_100km, 1)}</td>
+      ${Object.entries(entries).map(([k, g]) => `<tr><td>${esc(SEASON_LABELS[k] || BAND_LABELS[k] || k)}</td><td class="n">${num(g.distance_km, 0)}</td><td class="n">${num(g.vehicle_kwh_100km, 1)}</td>
         <td class="n">${num(g.grid_kwh_100km, 1)}</td><td class="n">${num(g.recuperation_share_pct, 0)}</td><td class="n">${num(g.auxiliary_kwh, 1)}</td><td class="n">${num(g.cost_eur, 2)}</td></tr>`).join("")}
       </table></div><p class="sub">Fahrzeugverbrauch netto (verbraucht minus Rekuperation), nur Fahrten ab 1 km mit Energiedaten. * Netz geschätzt mit dem gemessenen Ladeverlust, Kosten mit deinem tatsächlichen Heimstrompreis.</p></div>`;
     return `<div class="grid">
       <div class="card"><h2>${this._year}: Strecke</h2><div class="big">${num(y.distance_km, 0, "km")}</div>
-        <div class="sub">${y.trips ?? 0} Fahrten · Qualität ${esc(y.quality || "–")}</div></div>
+        <div class="sub">${y.trips ?? 0} Fahrten · Qualität ${esc(QUALITY_TEXT[y.quality] || y.quality || "–")}</div></div>
       <div class="card"><h2>Netzverbrauch</h2><div class="big">${num(y.grid_consumption_kwh_100km, 1, "kWh/100 km")}</div>
         <div class="sub">inkl. Ladeverlust, mit SOC-Ausgleich</div></div>
       <div class="card"><h2>Kosten</h2><div class="big">${num(y.cost_per_100km_eur, 2, "€/100 km")}</div>
@@ -1503,7 +1510,7 @@ class EvPilotPanel extends HTMLElement {
         <tr><th>Start</th><th class="n">km</th><th class="n">min</th><th class="n">kWh/100</th><th class="n">°C</th><th class="n">SOC</th><th>Qualität</th></tr>
         ${trips.slice(0, 50).map((t) => `<tr><td>${dateTime(t.started_at)}</td><td class="n">${num(t.distance_km, 1)}</td><td class="n">${num(t.duration_min, 0)}</td>
           <td class="n">${num(t.consumption_kwh_100km, 1)}</td><td class="n">${num(t.outside_temp_avg_c, 0)}</td>
-          <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(t.quality)}</span></td></tr>`).join("") || `<tr><td colspan="7" class="sub">Noch keine Fahrten.</td></tr>`}
+          <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(QUALITY_TEXT[t.quality] || t.quality)}</span></td></tr>`).join("") || `<tr><td colspan="7" class="sub">Noch keine Fahrten.</td></tr>`}
       </table></div></div>
       <div class="card wide"><h2>Fremdladungen</h2>
         <p class="sub">Ladungen außer Haus erkennt der Pilot automatisch über OVMS (Auto lädt, ist aber nicht an der eigenen Wallbox). Den bezahlten Preis fragt er per Push ab, oder du ergänzt ihn hier.</p>

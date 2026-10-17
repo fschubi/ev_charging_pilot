@@ -83,6 +83,26 @@ das Gate selbst ist erst nach Messung bzw. Feldtest erfüllt.
       Rückfall über SOC-Sprung, den der Halo-Zähler nicht erklärt; Ergebnis ist eine
       geschätzte Fremdladung zum Ergänzen
 
+## v0.7 – v0.19 (Oktober 2026)
+
+Ausführlich im [CHANGELOG](../CHANGELOG.md). Die wichtigsten Schritte:
+
+- [x] Umbenennung in EV Charging Pilot, generische Wallbox-Erkennung, Einstellungen-Reiter
+- [x] OVMS-Befehle automatisch (`ovms.send_command`), gesendet nur mit „Lesen & Schreiben“
+- [x] Einstecken über OVMS-Stecker + Standort (Halo meldet das Kabel nur bei Freigabe)
+- [x] Lernendes Lade-Modell, Taper ab 80 %, voller Akku höchstens 2 h vor Abfahrt
+- [x] Weiterladen nach Blockende, verpasste Preisblöcke neu planen
+- [x] Ladestrom je Plan/Einmal-Abfahrt/„Jetzt laden“
+- [x] Test-Center: Systemtest, Ladetest, Push-Test Preisabfrage, Test-Mail
+- [x] Fremdladen: Preis per Push (Knöpfe, Ziffernblock-Dialog)
+- [x] Monatsbericht per E-Mail, Betrag per Push an weitere Handys
+- [x] Weitere Preisformate, „Preisquelle prüfen“
+- [x] Gesamtprüfung 2026-10-18 ([Prüfbericht](pruefbericht-2026-10-18.md)), alle Stufen
+      behoben in v0.19.1–v0.19.8
+
+Noch offen sind die realen Gates (§15): Messungen M1–M8 in [messungen.md](messungen.md),
+Dry-Run-Nächte, Feldtests.
+
 ## Offene Fragen (§16)
 
 Fragen 1–6 beantwortet Phase 0, 7–8 die OVMS-Einrichtung, 9 (OCPP) und

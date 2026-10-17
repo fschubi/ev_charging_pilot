@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.19.8 – 2026-10-18
+
+Texte und Doku aus dem Prüfbericht vom 18.10.:
+- **Push-Nachrichten auf Deutsch statt Codes:** „Systemzustand: eingeschränkt
+  (Ladestand veraltet)“ statt „System-Health DEGRADED (SOC_STALE)“. Die CP-Warnung nennt
+  den Grund, und „Ladestart fehlgeschlagen – das Auto ließ sich nicht wecken“ ersetzt den
+  Fachbegriff „Kaskade“.
+- **PDF-Bericht:** Ort („Öffentlich“ statt „public“), Ergebnis („Start fehlgeschlagen“),
+  Qualität („gut“/„geschätzt“) und die Gründe stehen auf Deutsch. Die Fußzeile nennt den
+  Fahrzeugnamen.
+- **Panel:** „Manuell: bis Kabel ab“ statt „Override: until_unplugged“, Qualität und
+  Temperaturbereiche auf Deutsch, „Einmalige Abfahrt löschen“ statt „One-Shot löschen“.
+- **Einheitliche Begriffe:** „Einmalige Abfahrt“ (statt „Heute Nacht“/„One-Shot“),
+  „Probebetrieb (Dry-Run)“, „Preis-Entität“. Der Sensor `executor_state` heißt jetzt
+  „Ladeablauf“, weil „Ladezustand“ den SOC meint.
+- **Fehlermeldungen der Dienste** auf Deutsch; Mailtext „(unterwegs bezahlt, nicht Teil
+  des Hausstroms)“.
+- Der Dienst „Jetzt laden“ hat keinen vorbelegten Modus mehr und nutzt damit wie der Knopf
+  das manuelle Ladeziel.
+- Der Einstellungsdialog erlaubt eine Akkukapazität bis 150 kWh, wie das Panel.
+- **Doku:** README (OVMS-Befehle, Taper 80 %, Entitäten, alle 26 Dienste, Mail,
+  Ladestrom, Test-Center), ROADMAP bis v0.19, Projektnotizen, Prüfbericht mit Status.
+
 ## 0.19.7 – 2026-10-18
 
 Korrekturen aus dem Prüfbericht vom 18.10., Stufe 3 (Randfälle):

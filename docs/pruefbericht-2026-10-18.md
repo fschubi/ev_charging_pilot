@@ -5,6 +5,16 @@ Panel, Texte/Doku). Die schweren Funde wurden mit Simulationen (Testwelt `tests/
 bzw. Brute-Force-Vergleichen **nachgestellt und bestätigt** („bestätigt“). „plausibel“ =
 aus dem Code eindeutig ablesbar, aber nicht end-to-end nachgestellt.
 
+> **Stand 2026-10-18 abends: behoben** in v0.19.1 (K1, K7), v0.19.2 (K2–K6, K8, K10),
+> v0.19.3 (H1, H2), v0.19.4 (K9, K11–K13, P1–P5), v0.19.5 (S1–S8, H3–H6), v0.19.6 (Panel),
+> v0.19.7 (Stufe 3) und v0.19.8 (Texte/Doku). Jeder Fund hat einen Regressionstest
+> (`tests/core/test_review_fixes.py` u. a.), der mit dem alten Code fehlschlägt.
+> Bewusst nicht geändert (gering, eigene Abwägung): naive Zeitangaben am Tag der
+> Zeitumstellung (Tibber/Nordpool liefern Zeitzonen), Push-Test meldet die Zustellung
+> nicht zurück (HA-Notify ist „fire and forget“), Wochenfenster der Fremdladungen nach
+> Datum, Temperaturstatistik je Jahr mit Gesamt-Durchschnittspreis, Begriff „SOC“ in
+> Experten-Einstellungen.
+
 Betrifft Frank = tritt in der aktuellen Einrichtung (Halo + Shelly + OVMS mit Stecker,
 Tibber, 1 Preisblock) realistisch auf.
 

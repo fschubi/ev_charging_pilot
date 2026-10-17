@@ -1,4 +1,7 @@
-"""Settings as a schema for the panel's "Einstellungen" tab (same groups as the options flow).
+"""Settings as a schema for the panel's "Einstellungen" tab.
+
+It covers the options flow and more: some options (mail, charging current, learning,
+quick-pick prices …) exist only here.
 
 The panel renders a form from this list and writes changes through the
 ``set_settings`` WebSocket command, which stores them as config-entry options
@@ -47,7 +50,7 @@ GROUPS: list[dict[str, Any]] = [
      "fields": [
         _f("vehicle_name", "Name deines Fahrzeugs", "text",
            help="Erscheint als „<Name> Charging Pilot“ in Seitenleiste, Panel, Push und PDF."),
-        _s("mode", "Betriebsmodus", {RunMode.DRY_RUN: "Probebetrieb (nur protokollieren)",
+        _s("mode", "Betriebsmodus", {RunMode.DRY_RUN: "Probebetrieb (Dry-Run, nur protokollieren)",
                                      RunMode.LIVE: "Live (schaltet die Wallbox)",
                                      RunMode.REPLAY: "Replay (keine Hardware)"},
            help="Im Probebetrieb siehst du im Ereignisprotokoll, was die Integration tun würde."),
@@ -60,7 +63,7 @@ GROUPS: list[dict[str, Any]] = [
      "fields": [
         _s("price_source", "Preisquelle", {PriceSource.FIXED: "Festpreis",
                                            PriceSource.TIBBER: "Tibber",
-                                           PriceSource.ENTITY: "Preis-Sensor (Nordpool, EPEX …)"}),
+                                           PriceSource.ENTITY: "Preis-Entität (Nordpool, EPEX …)"}),
         _n(PRICE_FIELD, "Arbeitspreis", 0, 2, 0.001, "€/kWh",
            help="Festpreis; bei dynamischem Tarif der Rückfall, falls keine Preise kommen."),
         _f(PRICE_VALID_FROM, "Gültig ab", "date",

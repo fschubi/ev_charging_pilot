@@ -14,7 +14,7 @@
         }
       },
       "halo": {
-        "title": "Charger",
+        "title": "Wallbox",
         "description": "**{found}**\n\nEntities of your wallbox integration (e.g. Chargeamps, go-e, Easee, Wallbox, Zaptec, KEBA …). Only the first four fields are required.",
         "data": {
           "charger_enable": "Wallbox charging enable (switch)",
@@ -85,7 +85,7 @@
           "ovms_command_script": "Or: script for OVMS commands (variable command)"
         },
         "data_description": {
-          "ovms_plug": "The car reports a plugged-in charge cable. The Halo only reports the cable while enabled – this detects plugging in while it is locked.",
+          "ovms_plug": "The car reports a plugged-in charge cable. Some wallboxes (e.g. Halo) only report the cable while enabled – this detects plugging in while locked.",
           "ovms_location": "Location of the car. Away from home the plug does not count as the wallbox cable.",
           "outside_temp": "Outside temperature sensor for climate profiles. Optional.",
           "weather": "Weather entity as fallback for the outside temperature. Optional.",
@@ -264,11 +264,11 @@
       "ovms_commands": {
         "title": "OVMS commands",
         "data": {
-          "ovms_wakeup_command": "OVMS wakeup command (empty = locked)",
+          "ovms_wakeup_command": "OVMS wakeup command (\"auto\" = xsq wakeup on a smart 453)",
           "ovms_climate_command": "OVMS climate command ({level} = 1/2/3, {minutes})",
           "ovms_climate_stop_command": "OVMS climate stop command"
         },
-        "description": "Only enter commands tested on the car (§1.2). Empty = locked."
+        "description": "Prefilled – only sent with vehicle access \"read & write\". Empty = locked."
       }
     },
     "error": {
@@ -311,7 +311,7 @@
       "options": {
         "public": "Public",
         "workplace": "Workplace",
-        "other_home": "Other home"
+        "other_home": "Other wallbox"
       }
     },
     "price_source": {
@@ -339,7 +339,7 @@
   "entity": {
     "sensor": {
       "executor_state": {
-        "name": "Executor state",
+        "name": "Charging sequence",
         "state": {
           "disconnected": "Disconnected",
           "idle": "Idle",
@@ -362,7 +362,7 @@
           "safety_lock": "Safety lock",
           "override": "Override",
           "rfid": "RFID",
-          "one_shot": "Tonight",
+          "one_shot": "One-off departure",
           "target_soc_reached": "Target SOC reached",
           "climate": "Pre-climatisation",
           "schedule": "Weekly plan",
@@ -647,8 +647,8 @@
       }
     },
     "cancel_one_shot": {
-      "name": "Cancel one-shot",
-      "description": "Cancel one-shot"
+      "name": "Cancel one-off departure",
+      "description": "Cancel one-off departure"
     },
     "vehicle_wakeup": {
       "name": "Wake vehicle",
@@ -720,6 +720,10 @@
       "name": "Add external charge",
       "description": "Charge away from home; not part of the home bill.",
       "fields": {
+        "id": {
+          "name": "ID",
+          "description": "ID"
+        },
         "date": {
           "name": "Date",
           "description": "Date"

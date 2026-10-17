@@ -19,10 +19,15 @@ from .settings import Settings
 
 MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
           "September", "Oktober", "November", "Dezember"]
-REASONS = {"schedule": "Wochenplan", "one_shot": "Einmalig", "override": "Override",
-           "rfid": "RFID", "climate": "Klima", "target_soc_reached": "Ziel-SOC",
+REASONS = {"schedule": "Wochenplan", "one_shot": "Einmalige Abfahrt", "override": "Manuell",
+           "rfid": "RFID", "climate": "Klima", "target_soc_reached": "Ziel erreicht",
            "default_off": "–", "automation_off": "–", "safety_lock": "–"}
 WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+SOURCES = {"public": "Öffentlich", "workplace": "Arbeitgeber", "other_home": "Andere Wallbox"}
+QUALITY = {"GOOD": "gut", "ESTIMATED": "geschätzt", "PARTIAL": "unvollständig"}
+FAILURES = {"CHARGE_START_FAILED": "Start fehlgeschlagen", "CHARGE_INTERRUPTED": "Abgebrochen",
+            "CHARGER_NOT_CONFIRMED": "Wallbox reagierte nicht",
+            "CP_NOT_RESTORED": "CP nicht geschlossen"}
 ACCENT = (0.0, 0.53, 0.82)
 GREY = (0.42, 0.42, 0.42)
 LIGHT = (0.95, 0.96, 0.98)
@@ -39,9 +44,11 @@ def _n(value: Any, digits: int = 1, unit: str = "") -> str:
 class _Writer:
     """Keeps the cursor and adds pages when a block does not fit."""
 
-    def __init__(self, title: str, subtitle: str, generated: str) -> None:
+    def __init__(self, title: str, subtitle: str, generated: str,
+                 footer: str = "EV Charging Pilot") -> None:
         self.doc = PdfDocument(title=title)
         self.title, self.subtitle, self.generated = title, subtitle, generated
+        self.footer = footer
         self.y = 0.0
         self._header()
 
@@ -51,7 +58,7 @@ class _Writer:
         d.text(MARGIN, d.height - 48, self.title, 20, bold=True, color=(1, 1, 1))
         d.text(MARGIN, d.height - 70, self.subtitle, 11, color=(1, 1, 1))
         d.text(d.width - MARGIN, 28, f"Seite {d.page_count}", 8, color=GREY, align="right")
-        d.text(MARGIN, 28, f"EV Charging Pilot · erstellt {self.generated}", 8, color=GREY)
+        d.text(MARGIN, 28, f"{self.footer} · erstellt {self.generated}", 8, color=GREY)
         self.y = d.height - 120
 
     def ensure(self, height: float) -> None:
@@ -156,7 +163,7 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
     days = calendar.monthrange(year, month)[1]
     end = start + timedelta(days=days)
     w = _Writer(f"{title_name} – Monatsbericht", f"{MONTHS[month - 1]} {year}",
-                now.astimezone(tz).strftime("%d.%m.%Y %H:%M"))
+                now.astimezone(tz).strftime("%d.%m.%Y %H:%M"), footer=title_name)
 
     w.heading("Hausabrechnung")
     w.figures([
@@ -216,19 +223,20 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
         rows.append([f"{WEEKDAYS[begin.weekday()]} {begin:%d.%m.}", begin.strftime("%H:%M"),
                      finish.strftime("%H:%M") if finish else "–", _n(kwh, 2),
                      _n(cost, 2), _n(avg, 3), REASONS.get(s.reason, s.reason), wake,
-                     "ok" if s.success else (s.failure_code or "Fehler")])
+                     "ok" if s.success else FAILURES.get(s.failure_code or "", "Fehler")])
     w.table(["Tag", "Start", "Ende", "kWh", "€", "€/kWh", "Grund", "Wakeup", "Ergebnis"], rows,
             [48, 32, 32, 38, 38, 40, 55, 40, 112], right=(3, 4, 5))
 
     external = [e for e in monitor.data.external if start.date() <= e.date < end.date()]
     w.heading(f"Fremdladungen ({len(external)})")
     w.table(["Datum", "Ort", "kWh", "€", "Anbieter", "Hinweis"],
-            [[e.date.strftime("%d.%m."), e.source, _n(e.energy_kwh, 2), _n(e.total_cost, 2),
+            [[e.date.strftime("%d.%m."), SOURCES.get(e.source, e.source), _n(e.energy_kwh, 2),
+              _n(e.total_cost, 2),
               e.provider or "–", "geschätzt" if e.detected else ""] for e in external],
             [45, 70, 45, 45, 110, 70], right=(2, 3))
 
     w.heading("Hinweise")
-    w.note(f"Qualität der Bilanz: {summary['quality']}"
+    w.note(f"Qualität der Bilanz: {QUALITY.get(summary['quality'], summary['quality'])}"
            f"{' · Datenlücken im Monat' if not summary['complete'] else ''}.")
     w.note("Heim-kWh stammen aus dem internen Zähler der Wallbox – für die private Aufteilung im "
            "Haushalt geeignet.")
@@ -246,7 +254,7 @@ def year_report(monitor: Monitor, settings: Settings, year: int, now: datetime,
     summary = monitor.year(year, settings, today)
     months = summary["months"]
     w = _Writer(f"{title_name} – Jahresbericht", str(year),
-                now.astimezone(tz).strftime("%d.%m.%Y %H:%M"))
+                now.astimezone(tz).strftime("%d.%m.%Y %H:%M"), footer=title_name)
     w.heading("Jahresbilanz")
     w.figures([
         ("Heimladen", _n(summary["home_energy_kwh"], 1, "kWh")),
@@ -264,7 +272,8 @@ def year_report(monitor: Monitor, settings: Settings, year: int, now: datetime,
             [[MONTHS[i], _n(m["home_energy_kwh"], 1), _n(m["home_cost_eur"], 2),
               _n(m["external_energy_kwh"], 1), _n(m["distance_km"], 0),
               _n(m["grid_consumption_kwh_100km"], 1), _n(m["cost_per_100km_eur"], 2),
-              m["quality"]] if date(year, i + 1, 1) <= today else [MONTHS[i]] + ["–"] * 7
+              QUALITY.get(m["quality"], m["quality"])]
+             if date(year, i + 1, 1) <= today else [MONTHS[i]] + ["–"] * 7
              for i, m in enumerate(months)],
             [70, 55, 55, 55, 45, 60, 55, 70], right=(1, 2, 3, 4, 5, 6))
     temps = monitor.temperatures(settings, year)

@@ -110,7 +110,7 @@ async def test_weekly_summary_is_pushed(hass, entry, halo):
     await _setup(hass, entry)
     text = await entry.runtime_data.async_weekly_summary(dt_util.utcnow())
     await hass.async_block_till_done()
-    assert "kWh zuhause" in text
+    assert "kWh zu Hause" in text
     assert any("Wochenrückblick" in p.data["title"] for p in pushes)
 
 

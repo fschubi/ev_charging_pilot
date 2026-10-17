@@ -44,7 +44,7 @@ smart EQ fortwo 453 als **einziges** Steuerungssystem übernimmt.
 6. Abschaltung nur mit SOC-Qualität `GOOD`; im Zweifel weiterladen.
 7. Keine hart codierten Entity-IDs – alles per Config-Flow-Selector.
 8. **Keine produktive Automatik vor Messphase, Dry-Run und Einzeltest.**
-   Default-Modus `dry_run`; OVMS-Befehle leer = gesperrt.
+   Default-Modus `dry_run`; OVMS-Befehle vorbelegt, gesendet nur mit `ovms_enabled`.
 9. Was HA kann (`utility_meter`, LTS, Energy Dashboard, Notify), wird genutzt.
 
 ## Aufbau
@@ -66,6 +66,7 @@ custom_components/ev_charging_pilot/
     mail.py            Monatsbericht-Mail: Text, Anbieter-Presets, SMTP mit PDF-Anhang
     prices.py          Preis-Parser (Tibber/Nordpool/EPEX/ENTSO-e/Paare, €/MWh), PriceSchedule, cheapest_blocks
     external.py        Automatische Fremdladeerkennung (OVMS live + SOC-Sprung)
+    charge_test.py     Ladetest (Schritte, Ergebnis); learning.py Lernmodell; summary.py Texte
     pdf.py / report.py Eigener PDF-Writer (cp1252, Helvetica), Monats-/Jahresbericht
   coordinator.py       ChargingCenter: Tick 5 s + bei Zustandswechsel; live → HaPorts,
                        sonst nur Log „WOULD …“; Stores (state, events, monitor)
@@ -73,7 +74,8 @@ custom_components/ev_charging_pilot/
   notifications.py     Push + Actionable Notification (mobile_app_notification_action)
   price_source.py      PriceFetcher: Tibber-Service alle 30 min oder Preis-Entität
   reports.py           PDF erzeugen/listen, ReportView (/api/ev_charging_pilot/report, Login nötig)
-  services.py (26), websocket_api.py, export.py, diagnostics.py, config_flow.py
+  services.py (26), websocket_api.py, export.py, diagnostics.py, config_flow.py,
+  system_check.py (Systemtest ohne Schalten)
   sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs ev_pilot_* (§12)
   frontend/ev-pilot-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
   settings_schema.py   Optionen als Formular-Schema für den Einstellungen-Reiter (get/set_settings)
@@ -101,7 +103,7 @@ Wichtige Details:
 
 ```bash
 uv venv -p 3.13 .venv && uv pip install -p .venv/bin/python -r requirements-test.txt
-.venv/bin/python -m pytest                       # ~100 Tests, < 2 s
+.venv/bin/python -m pytest                       # ~240 Tests, < 1 min
 uvx ruff check custom_components tests tools
 node --check custom_components/ev_charging_pilot/frontend/ev-pilot-panel.js
 python3 tools/gen_translations.py custom_components/ev_charging_pilot
@@ -135,9 +137,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.3 Prüfbericht Stufe 1 HA.** `statistics_month_start` (last_reset aus
-  der berechneten Periode, Refresh bei Periodenwechsel vor `_handle`); `COMMAND_TIMEOUT_S` = 30 um
-  `ports.execute`. Stufe 1 damit komplett.
 - **2026-10-18 – v0.19.4 Prüfbericht Stufe 2 Kern/Preise.** `_vehicle_finished` nur ≥ 95 %
   oder Ziel − 3; CHARGE_ENDED bedient neuen Wunsch; `_off_after_override`; Lernen mit
   Intervalllänge; Fahrzeugtemperatur LKV als Rückfall; Zwei-Block-Suche auf 5-min-Raster mit
@@ -152,3 +151,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-18 – v0.19.7 Prüfbericht Stufe 3.** `MISSING_STATES` case-sensitiv (Halo
   „Unavailable“), `BLIND_WHEN_LOCKED`, kein Wecken bei unbekanntem Kabel, alte Leistung ≠ fließt,
   `OFF_RETRY_AFTER`, MWh-Schwelle 70, Gleichstand → spät, Verlust ≤ 40 %, Privatsphäre, `plug_discovery_done`.
+- **2026-10-18 – v0.19.8 Prüfbericht Texte/Doku.** `health.REASON_TEXT/STATUS_TEXT`,
+  `OVERRIDE_TEXT`, `STATE_TEXT`, PDF-Labels, Panel-Labels, einheitliche Begriffe, README/ROADMAP.
+  Prüfbericht vollständig abgearbeitet (Status oben im Bericht).

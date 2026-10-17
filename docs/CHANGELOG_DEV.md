@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.17.1 Preis-Fenster.** Overlay deckend (Hintergrundfarbe), `.pform`/`.pbar`
+  statt `.form`/`.bar` (Konflikt mit Grid bzw. 8-px-Fortschrittsbalken), Knöpfe 2×2.
+  Frank: Knöpfe und Ziffernblock auf dem iPhone funktionieren.
 - **2026-10-17 – v0.17.0 Preis per Knopf/Ziffernblock.** Push-Aktionen
   `EV_PILOT_EXT_PRICE|<id>|<preis>` aus Option `external_price_buttons` (`prices.parse_price_list`),
   Push-`url` `/ev-pilot?external_price=<id>` → Panel-Dialog (`inputmode=decimal`) → Dienst

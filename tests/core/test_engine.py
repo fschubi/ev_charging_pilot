@@ -296,3 +296,18 @@ def test_restart_before_the_ovms_plug_is_known_is_no_plug_in():
     assert world.engine.values[I.CABLE_CONNECTED].normalized is True
     assert "PLUGGED_IN" not in world.events
     assert "CABLE_CONNECTED" not in world.events
+
+
+def test_one_off_departure_stops_at_its_own_target():
+    world = World(local(2026, 10, 20, 12, 0), configured=WITH_OVMS)
+    world.engine.plans = []
+    world.set(Inp.OVMS_SOC, "50")
+    world.tick()
+    world.apply(world.engine.start_one_shot(world.now, departure_at=world.now + timedelta(hours=3),
+                                            target_soc=70))
+    world.tick()
+    world.now = world.engine.next_window.start
+    world.run(60)
+    world.set(Inp.OVMS_SOC, "70")
+    world.run(60)
+    assert world.engine.desired.charger_enabled is False

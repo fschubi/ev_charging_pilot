@@ -62,6 +62,8 @@ def external_price_url(charge_id: str) -> str:
     """Panel page with the price dialog (numeric keypad) for one external charge."""
     return f"/ev-pilot?external_price={charge_id}"
 
+# Charging only makes a vehicle value STALE if it went on this long after it.
+CHARGING_ACTIVITY_GRACE = timedelta(minutes=15)
 # A current command the wallbox has not taken over yet is repeated after this.
 CURRENT_RETRY_S = 120
 ENFORCE_TARGET_MARGIN_PCT = 1
@@ -179,6 +181,8 @@ class Engine:
         self.climate_blocked: str | None = None
         self.data_conflict = False
         self.last_activity_at: datetime | None = None
+        # Last moment the wallbox delivered power – charging changes the SOC only slowly.
+        self._charging_at: datetime | None = None
         self.last_result: dict[str, Any] | None = None
 
         self._latched: dict[str, ChargeWindow] = {}
@@ -293,7 +297,7 @@ class Engine:
         power = values[Inp.CHARGE_POWER]
         if power.available and power.normalized is not None \
                 and float(power.normalized) > s.power_threshold_w:
-            self.last_activity_at = now
+            self._charging_at = now
         vehicle_on = values[Inp.OVMS_VEHICLE_ON]
         if vehicle_on.available and vehicle_on.normalized:
             self.last_activity_at = now
@@ -318,7 +322,7 @@ class Engine:
             (Inp.OVMS_AUX_CONSUMPTION, rule(ages.odometer_s)),
             (Inp.OVMS_12V, rule(ages.temperature_s)),
         ):
-            values[key] = classify(values[key], now, r, self.last_activity_at)
+            values[key] = classify(values[key], now, r, self._activity_for_quality())
         for key, r in (
             (Inp.OUTSIDE_TEMP, rule(ages.temperature_s)),
             (Inp.WEATHER, rule(ages.temperature_s * 4)),
@@ -352,6 +356,19 @@ class Engine:
             values[Inp.OVMS_OUTSIDE_TEMP], values[Inp.OUTSIDE_TEMP], values[Inp.WEATHER])
         self._vehicle_charging = vehicle_charging(
             values[Inp.OVMS_CHARGING], values[Inp.CHARGE_POWER], s.power_threshold_w)
+
+    def _activity_for_quality(self) -> datetime | None:
+        """Activity that makes an older vehicle value STALE.
+
+        Driving and (un)plugging count at once. Charging counts only when it went on
+        well after a value was recorded: the wallbox (cloud polling) reports its last
+        power a few minutes after the car's last SOC, and the car then sleeps – that
+        SOC is right, not stale (it would otherwise block climate and SOC functions
+        after every charge).
+        """
+        charging = self._charging_at - CHARGING_ACTIVITY_GRACE if self._charging_at else None
+        candidates = [t for t in (self.last_activity_at, charging) if t is not None]
+        return max(candidates) if candidates else None
 
     def _vehicle_finished(self, now: datetime) -> bool:
         """The car ended the charge itself (§6.3 step 1).
@@ -576,7 +593,6 @@ class Engine:
             wishes.append(climate_wish(climate_req, now, plugged_in, "manual"))
         if self.automation_enabled:
             one_shot = next((w for w in self.windows if w.reason is Reason.ONE_SHOT), None)
-            wishes.append(window_wish(one_shot, now))
             window = self.active_window
             target = window.preferred_soc_pct if window else None
             soc = None if self.health.blocks_soc_functions else self.soc
@@ -595,6 +611,10 @@ class Engine:
                     reached = Desired(False, Reason.TARGET_SOC_REACHED,
                                       source_id=f"held>={target}")
             wishes.append(reached)
+            # The one-off departure ranks above "target reached" (§4.2) – so it only
+            # wishes to charge while its own target is not reached (like a weekly plan).
+            if not (reached is not None and window is not None and window is one_shot):
+                wishes.append(window_wish(one_shot, now))
             if self.manual_climate is None:
                 wishes.append(climate_wish(climate_req, now, plugged_in, "plan"))
             wishes += [window_wish(w, now) for w in self.windows if w.reason is Reason.SCHEDULE]

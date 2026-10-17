@@ -135,9 +135,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.17.1 Preis-Fenster.** Overlay deckend (Hintergrundfarbe), `.pform`/`.pbar`
-  statt `.form`/`.bar` (Konflikt mit Grid bzw. 8-px-Fortschrittsbalken), Knöpfe 2×2.
-  Frank: Knöpfe und Ziffernblock auf dem iPhone funktionieren.
 - **2026-10-17 – v0.17.2 Test-Center.** Diagnose: System-, Lade- und Push-Test in
   `<details data-details="tests">` am Ende; offen bei laufendem Ladetest bzw. Push-Test < 10 min.
 - **2026-10-17 – v0.17.3 Start im Cockpit.** `localStorage` `ev-pilot-view` entfernt;
@@ -151,3 +148,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   (s/ms), ENTSO-e, mehr Schlüssel, €/MWh per Einheit, Fallback auf beliebige Liste;
   `describe_prices`; WS `check_prices` → `PriceFetcher.async_check`; Einstellungszeile
   „Preisquelle prüfen“. Frank nutzt Tibber-Dienst (nicht `sensor.tibber_preisprognose`).
+- **2026-10-18 – v0.19.1 Prüfbericht Stufe 1 (Teil 1).** K1: `_charging_at` +
+  `CHARGING_ACTIVITY_GRACE` (15 min) für die Qualität; K7: One-Shot-Wunsch entfällt bei
+  erreichtem Ziel. Offen laut `docs/pruefbericht-2026-10-18.md`: K2–K6, K8, H1, H2, Stufe 2/3, Texte.

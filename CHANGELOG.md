@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.19.1 – 2026-10-18
+
+Erste Korrekturen aus dem Prüfbericht vom 18.10. (Stufe 1):
+- **K1 – Ladestand gilt nach dem Laden nicht mehr als „veraltet“:** Die Wallbox meldet ihre
+  letzte Leistung oft ein paar Minuten nach der letzten Ladestand-Meldung des Autos. Das
+  machte den Ladestand nach jeder Ladung „veraltet“. Folgen waren „System eingeschränkt“,
+  eine nächtliche Push und eine blockierte Vorklimatisierung. Laden zählt jetzt erst als
+  neue Aktivität, wenn es mehr als 15 Minuten nach der letzten Meldung weiterlief.
+- **K7 – Ziel der einmaligen Abfahrt wird eingehalten:** Bisher lud sie über ihr eigenes
+  Ziel hinaus, z. B. bis ~95 % statt 70 %. Sie stoppt jetzt wie ein Wochenplan am Ziel.
+
 ## 0.19.0 – 2026-10-18
 
 - **Mehr Preis-Sensoren werden verstanden.** Bei der Preisquelle „Preis-Entität“ liest

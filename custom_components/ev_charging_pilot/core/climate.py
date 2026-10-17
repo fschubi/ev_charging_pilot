@@ -69,4 +69,8 @@ def climate_wish(request: ClimateRequest | None, now: datetime, plugged_in: bool
         source_id=source_id,
         valid_until=request.until,
         climate=request,
+        # The OVMS climate command wakes the car itself; the wallbox only supplies
+        # grid power. Never run the wakeup cascade (OVMS/CP) for climate – otherwise
+        # a failed night would get a second wakeup budget right before departure.
+        wake_allowed=False,
     )

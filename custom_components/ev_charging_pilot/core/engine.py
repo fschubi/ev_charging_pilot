@@ -242,7 +242,9 @@ class Engine:
                     self.last_unplug_at = now
             self._cable = cable_flag
 
-        self._expire(now, cable_flag)
+        # During a CP pulse the wallbox briefly sees "no vehicle" (§3.4): that must not
+        # end a "Jetzt laden" override or the charge test that caused the pulse.
+        self._expire(now, None if self.executor.cp_masked(now) else cable_flag)
         self._plan(now)
         result.events += self._pending_events
         self._pending_events.clear()

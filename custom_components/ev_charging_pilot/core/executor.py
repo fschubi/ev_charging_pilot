@@ -146,6 +146,8 @@ class Executor:
         self.session_id: str | None = None
         self._attempts: dict[str, WindowAttempts] = {}
         self._failed_window: str | None = None
+        # Window in which the car finished charging by itself (survives a restart).
+        self._ended_window: str | None = None
         self._last_switch_at: datetime | None = None
         self._last_wakeup_at: datetime | None = None
         self._mask_until: datetime | None = None
@@ -280,6 +282,7 @@ class Executor:
                 for k, a in self._attempts.items()
             },
             "failed_window": self._failed_window,
+            "ended_window": self._ended_window,
             "failure_code": self.failure_code,
             "consecutive_start_failures": self.consecutive_start_failures,
             "cp_not_restored": self.cp_not_restored,
@@ -293,6 +296,7 @@ class Executor:
             for k, v in (data.get("attempts") or {}).items()
         }
         self._failed_window = data.get("failed_window")
+        self._ended_window = data.get("ended_window")
         self.failure_code = data.get("failure_code")
         self.consecutive_start_failures = int(data.get("consecutive_start_failures", 0))
         self.cp_not_restored = bool(data.get("cp_not_restored", False))
@@ -371,10 +375,17 @@ class Executor:
         now = snap.now
         cable = _flag(snap.cable_connected)
         on = _flag(snap.charger_on)
+        window = snap.desired.window_key
         if cable is False:
             state = ExecState.DISCONNECTED
         elif on and self._power_flowing():
             state = ExecState.CHARGING
+        elif self._failed_window is not None and self._failed_window == window:
+            # The start of this window already failed – a restart is no new attempt.
+            state = ExecState.START_FAILED
+        elif on and self._ended_window is not None and self._ended_window == window:
+            # The car finished charging in this window: never wake it again for it.
+            state = ExecState.CHARGE_ENDED
         elif on:
             state = ExecState.WAITING_FOR_CHARGE
         else:
@@ -389,6 +400,7 @@ class Executor:
         self.session_id = None
         self.failure_code = None
         self._failed_window = None
+        self._ended_window = None
         self._resume = None
         self._below_since = None
         self._go(ExecState.DISCONNECTED, now, "CABLE_DISCONNECTED", "Kabel gezogen")
@@ -411,11 +423,13 @@ class Executor:
         self._command(CommandKind.ENABLE_CHARGER if enabled else CommandKind.DISABLE_CHARGER)
         return True
 
-    def _start_disabling(self, snap: Snapshot) -> None:
+    def _start_disabling(self, snap: Snapshot) -> bool:
         if self._switch(snap, False):
             self._confirm_attempts = 1
             self._go(ExecState.DISABLING, snap.now, "CHARGER_DISABLE",
                      f"Wallbox aus ({snap.desired.reason})")
+            return True
+        return False
 
     def _start_enabling(self, snap: Snapshot) -> None:
         if self._switch(snap, True):
@@ -432,6 +446,10 @@ class Executor:
                      Category.CHARGING, Severity.WARNING)
             return
         self.consecutive_start_failures += 1
+        # Never leave the wallbox enabled after a failed start: a car waking up later
+        # would charge without any target stop (and a safety lock would freeze it on).
+        if _flag(snap.charger_on) is True:
+            self._switch(snap, False, retry=True)
         self._go(ExecState.START_FAILED, snap.now, code, message, Category.CHARGING,
                  Severity.ERROR)
 
@@ -572,6 +590,7 @@ class Executor:
     def _charging_started(self, snap: Snapshot) -> None:
         now = snap.now
         self.session_id = self.session_id or f"s-{now.strftime('%Y%m%d-%H%M%S')}"
+        self._ended_window = None
         self.consecutive_start_failures = 0
         self.failure_code = None
         self._below_since = None
@@ -645,7 +664,10 @@ class Executor:
         if snap.desired.charger_enabled is False:
             self._event(now, Category.CHARGING, Severity.INFO, "SESSION_END",
                         f"Ladesession beendet ({snap.desired.reason})")
-            self._start_disabling(snap)
+            if not self._start_disabling(snap):
+                # Minimum switch interval not over yet: wait in COOLDOWN (switching off
+                # follows from IDLE) instead of ending the session again every tick.
+                self._go(ExecState.COOLDOWN, now)
             return
         if self._power_flowing():
             self._below_since = None
@@ -660,8 +682,11 @@ class Executor:
             self._below_since = None
             why = "Leistung ist zum Schluss abgesunken" if tapered and not \
                 snap.vehicle_charge_finished else "Fahrzeug meldet Ladeende"
+            self._ended_window = snap.desired.window_key
             self._go(ExecState.CHARGE_ENDED, now, "CHARGE_ENDED",
                      f"Fahrzeug hat Ladung beendet ({why})")
+            # The session closes here; topping up later starts a new one.
+            self.session_id = None
             return
         if (now - self._below_since).total_seconds() >= self.config.charging_loss_timeout_s:
             self._below_since = None

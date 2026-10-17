@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.19.2 – 2026-10-18
+
+Korrekturen aus dem Prüfbericht vom 18.10., Stufe 1 (Lade-Kern):
+- **K2 – kein Wecken nach einem Neustart, wenn das Auto schon fertig geladen hat.** Bisher
+  hielt der Pilot nach einem HA-Neustart „Wallbox an, kein Strom“ für einen neuen
+  Ladestart und weckte das Auto per OVMS und CP-Puls. Jetzt merkt er sich, dass das Auto
+  in diesem Fenster fertig ist.
+- **K3 – nach einem fehlgeschlagenen Start wird die Wallbox gesperrt.** Vorher blieb sie
+  an, und das Auto hätte später unkontrolliert ohne Zielabschaltung geladen.
+- **K4 – kein zweiter Weckversuch durch die Vorklimatisierung.** Die Vorklimatisierung
+  weckt das Auto ohnehin über den OVMS-Befehl. Das Wecken durch die Wallbox läuft jetzt
+  nur noch einmal pro Fenster.
+- **K5 – ein Neustart nach einem fehlgeschlagenen Start zählt nicht als zweiter
+  Fehlschlag.** Keine doppelte Push-Nachricht, keine Sicherheitssperre.
+- **K6 – ein CP-Puls beendet „Jetzt laden“ und den Ladetest nicht mehr**, auch wenn die
+  Wallbox während des Pulses kurz „kein Fahrzeug“ meldet.
+- **K8 – jede Ladung ist eine eigene Sitzung.** Hat das Auto selbst fertig geladen, wird
+  die Sitzung geschlossen. Mehrere Nächte verschmelzen nicht mehr.
+- **K10 – keine Phantom-Sitzungen mehr**, wenn kurz nach dem Einschalten gestoppt wird,
+  z. B. am Ende des Ladetests.
+
 ## 0.19.1 – 2026-10-18
 
 Erste Korrekturen aus dem Prüfbericht vom 18.10. (Stufe 1):

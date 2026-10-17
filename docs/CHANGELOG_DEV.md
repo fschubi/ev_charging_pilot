@@ -1,5 +1,7 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.17.2 Test-Center.** Diagnose: System-, Lade- und Push-Test in
+  `<details data-details="tests">` am Ende; offen bei laufendem Ladetest bzw. Push-Test < 10 min.
 - **2026-10-17 – v0.17.1 Preis-Fenster.** Overlay deckend (Hintergrundfarbe), `.pform`/`.pbar`
   statt `.form`/`.bar` (Konflikt mit Grid bzw. 8-px-Fortschrittsbalken), Knöpfe 2×2.
   Frank: Knöpfe und Ziffernblock auf dem iPhone funktionieren.

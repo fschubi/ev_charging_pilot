@@ -135,7 +135,8 @@ class SessionTracker:
             self._pending_cp = True
         elif code in ("CHARGE_STABLE", "CHARGE_RESUMED") and self.open is None:
             self._start(now, event.session_id, total_energy, soc, reason)
-        elif code == "SESSION_END" or (code == "CABLE_DISCONNECTED" and self.open):
+        elif code in ("SESSION_END", "CHARGE_ENDED") or (code == "CABLE_DISCONNECTED"
+                                                          and self.open):
             if self.open is not None:
                 return [self._close(now, total_energy, soc, prices, True, None)]
         elif code in FAILURE_CODES and event.severity is Severity.ERROR:

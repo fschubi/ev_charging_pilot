@@ -248,9 +248,13 @@ def test_new_window_clears_start_failed():
     rig.tick(5)
     rig.tick(60)
     assert rig.state is ExecState.START_FAILED
+    # A failed start switches the wallbox off (no uncontrolled charge later).
+    assert rig.commands[-1] is CommandKind.DISABLE_CHARGER
     rig.desired = Desired(True, Reason.SCHEDULE, "plan", T0 + timedelta(days=1))
     rig.tick(1)
-    assert rig.state is ExecState.WAITING_FOR_CHARGE
+    assert rig.state is not ExecState.START_FAILED
+    rig.tick(130)  # after the minimum switch interval the new window starts afresh
+    assert rig.state in (ExecState.ENABLING, ExecState.WAITING_FOR_CHARGE)
 
 
 def test_unplug_clears_failure():

@@ -53,7 +53,16 @@ const ampsOptions = (selected, settings, standardLabel) => {
   return [`<option value="" ${selected ? "" : "selected"}>${std}</option>`,
     ...AMPS.map((a) => `<option value="${a}" ${Number(selected) === a ? "selected" : ""}>${a} A · ca. ${ampsKw(a, st.phases)}</option>`)].join("");
 };
-const dateOnly = (iso) => (iso ? new Date(iso).toLocaleDateString("de-DE") : "–");
+const FAILURE_LABELS = {
+  CHARGE_START_FAILED: "Ladestart fehlgeschlagen", CHARGE_INTERRUPTED: "Ladung abgebrochen",
+  CHARGER_NOT_CONFIRMED: "Wallbox reagiert nicht", CP_NOT_RESTORED: "CP-Leitung nicht geschlossen",
+};
+const dateOnly = (iso) => {
+  if (!iso) return "–";
+  // A bare date ("2026-10-31") is a local day – new Date() would read it as UTC midnight.
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return (m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso)).toLocaleDateString("de-DE");
+};
 
 // ------------------------------------------------------------------ graphics
 
@@ -166,7 +175,11 @@ function powerGauge(kw, max) {
 function timelineSvg(s) {
   const now = Date.now();
   const w = s.next_window;
-  const startT = w ? Math.min(now, new Date(w.start).getTime() - 3600e3) : now;
+  // A window days ahead (weekend plan, one-off departure) would squeeze everything:
+  // then the timeline starts shortly before the window instead of now.
+  const winStart = w ? new Date(w.start).getTime() : now;
+  const startT = w ? (winStart - now > 30 * 3600e3 ? winStart - 3 * 3600e3
+    : Math.min(now, winStart - 3600e3)) : now;
   const endT = w ? new Date(w.departure).getTime() + 1800e3 : now + 12 * 3600e3;
   const span = Math.max(3600e3, endT - startT);
   const W = 800, top = 18, bottom = 92, left = 6, right = 794;
@@ -329,7 +342,8 @@ const STYLE = `
   .notice .reason { margin: 4px 0 0; }
   svg text { fill: var(--secondary-text-color); font-size: 10px; }
   .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 16px;
-           border-radius: 8px; background: var(--primary-text-color); color: var(--card-background-color); z-index: 5; }
+           border-radius: 8px; background: var(--primary-text-color); color: var(--card-background-color); z-index: 200;
+           text-decoration: none; max-width: calc(100% - 32px); }
   .hero { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; align-items: center; }
   .hero .col { text-align: center; }
   .hero .label { font-size: 13px; color: var(--secondary-text-color); margin-top: 2px; }
@@ -479,6 +493,8 @@ class EvPilotPanel extends HTMLElement {
       this._cache = {};
       this._plans = null;
       this._signature = null;
+      this._year = new Date().getFullYear();
+      this._month = new Date().getMonth() + 1;
     }
     this._detached = false;
     if (this._hass) this._start();
@@ -500,7 +516,8 @@ class EvPilotPanel extends HTMLElement {
     try {
       await this._hass.callService(DOMAIN, service, data);
       this._toast(label || "Erledigt");
-      this._cache = {};
+      const check = this._cache.check;  // the system check result stays visible
+      this._cache = check ? { check } : {};
       await this._refresh();
       return true;
     } catch (err) {
@@ -519,12 +536,15 @@ class EvPilotPanel extends HTMLElement {
     }
   }
 
-  _toast(text) {
-    const el = document.createElement("div");
+  /** Toasts live outside the re-rendered region – a render must not wipe them. */
+  _toast(text, href = null) {
+    const host = this.shadowRoot.getElementById("toasts") || this.shadowRoot;
+    const el = document.createElement(href ? "a" : "div");
     el.className = "toast";
     el.textContent = text;
-    this.shadowRoot.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+    if (href) { el.href = href; el.target = "_blank"; el.rel = "noopener"; }
+    host.appendChild(el);
+    setTimeout(() => el.remove(), href ? 15000 : 3500);
   }
 
   /** A push about an external charge opens the panel with ?external_price=<id>. */
@@ -589,8 +609,9 @@ class EvPilotPanel extends HTMLElement {
     const signature = JSON.stringify([this._view, this._state, this._cache, this._plans, this._photoUrl, this._error, this._priceDialog],
       (key, value) => (key === "age_s" ? undefined : value));
     if (signature === this._signature) return;
-    this._signature = signature;
-    this._render();
+    // Remember the state only once it is really on screen – a render skipped while a
+    // field has focus must happen on the next poll, not be lost.
+    if (this._render()) this._signature = signature;
   }
 
   async _loadPhoto() {
@@ -662,7 +683,8 @@ class EvPilotPanel extends HTMLElement {
   }
 
   _setView(view) {
-    if (this._settingsDraft && view !== this._view
+    if (view === this._view) return;  // a click on the open tab must not discard anything
+    if (this._settingsDraft
         && !confirm("Geänderte Einstellungen sind noch nicht gespeichert. Verwerfen?")) return;
     this._settingsDraft = null;
     if (this._planSaveTimer) this._savePlans();  // flush a pending plan change
@@ -683,13 +705,17 @@ class EvPilotPanel extends HTMLElement {
       : { cockpit: () => this._cockpit(s), plan: () => this._planView(s), home: () => this._home(),
           drive: () => this._drive(), diag: () => this._diag(s), settings: () => this._settingsView(s) }[this._view]();
     const focused = this.shadowRoot.activeElement;
-    if (!force && focused && ["INPUT", "SELECT"].includes(focused.tagName)) {
+    if (!force && focused && ["INPUT", "SELECT", "TEXTAREA"].includes(focused.tagName)) {
       // Never re-render under the user's cursor while a form field is being edited.
-      return;
+      return false;
+    }
+    if (!this._app) {
+      // Style and toast host stay; only #app is replaced on every render.
+      this.shadowRoot.innerHTML = `<style>${STYLE}</style><div id="app"></div><div id="toasts"></div>`;
+      this._app = this.shadowRoot.getElementById("app");
     }
     const scrolls = [...this.shadowRoot.querySelectorAll(".scroll")].map((el) => [el.scrollTop, el.scrollLeft]);
-    this.shadowRoot.innerHTML = `
-      <style>${STYLE}</style>
+    this._app.innerHTML = `
       <header>
         <button class="menu" data-menu title="Menü">☰</button>
         <h1>${esc(s ? s.name : "EV Charging Pilot")}${this._version() ? `<span class="version">v${esc(this._version())}</span>` : ""}</h1>
@@ -706,6 +732,7 @@ class EvPilotPanel extends HTMLElement {
       if (draft && el.name in draft) el.value = draft[el.name];
     });
     this._bind();
+    return true;
   }
 
   _bind() {
@@ -719,7 +746,11 @@ class EvPilotPanel extends HTMLElement {
         this._call(b.dataset.service, b.dataset.payload ? JSON.parse(b.dataset.payload) : {}, b.dataset.label);
       }));
     root.querySelectorAll("[data-action]").forEach((el) =>
-      el.addEventListener(el.tagName === "BUTTON" ? "click" : "change", (ev) => this._action(el.dataset.action, el, ev)));
+      el.addEventListener(el.tagName === "BUTTON" ? "click" : "change", (ev) => {
+        this._action(el.dataset.action, el, ev);
+        // A focused select would block the re-render that shows the change.
+        if (el.tagName === "SELECT") el.blur();
+      }));
     root.querySelectorAll("details[data-details]").forEach((el) =>
       el.addEventListener("toggle", () => {
         this._openDetails = this._openDetails || new Set();
@@ -847,15 +878,29 @@ class EvPilotPanel extends HTMLElement {
           .then(() => { this._toast(`Manuelles Ladeziel ${el.value} %`); this._refresh(); })
           .catch((err) => this._toast(`Fehler: ${err.message || err}`));
         break;
-      case "setting":
-        this._settingsDraft = { ...(this._settingsDraft || {}), [el.dataset.key]:
-          el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value };
+      case "setting": {
+        const wasDirty = !!this._settingsDraft;
+        if (el.type === "number" && el.value === "") {
+          this._toast("Bitte eine Zahl eingeben");  // an empty field would be saved as 0
+          break;
+        }
+        let entered = el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value;
+        if (el.type === "time" && /^\d{2}:\d{2}$/.test(entered)) entered = `${entered}:00`;  // stored as HH:MM:SS
+        this._settingsDraft = { ...(this._settingsDraft || {}), [el.dataset.key]: entered };
         if (this._cache.settings && this._settingsDraft[el.dataset.key] === this._cache.settings.values[el.dataset.key]) {
           delete this._settingsDraft[el.dataset.key];  // changed back → no longer dirty
           if (!Object.keys(this._settingsDraft).length) this._settingsDraft = null;
         }
-        this._render(true);
+        if (wasDirty && this._settingsDraft) {
+          // The save bar is already there: only mark the row. A full render now would
+          // swallow the click on "Speichern" that caused this change event (blur).
+          const row = el.closest(".srow");
+          if (row) row.classList.toggle("changed", el.dataset.key in this._settingsDraft);
+        } else {
+          this._render(true);
+        }
         break;
+      }
       case "group-toggle": {
         const open = this._openGroups || new Set(["general"]);
         open.has(el.dataset.group) ? open.delete(el.dataset.group) : open.add(el.dataset.group);
@@ -1025,6 +1070,7 @@ class EvPilotPanel extends HTMLElement {
       this._settingsDraft = null;
       this._cache.settings = null;
       this._toast("Einstellungen gespeichert – Integration lädt neu");
+      this._render(true);  // the save bar goes away now, not with the next poll
       setTimeout(() => this._refresh(), 2500);
     } catch (err) {
       this._toast(`Fehler: ${err.message || err}`);
@@ -1050,8 +1096,12 @@ class EvPilotPanel extends HTMLElement {
 
   async _deletePhoto() {
     if (!confirm("Fahrzeugfoto entfernen?")) return;
-    await this._hass.fetchWithAuth("/api/ev_charging_pilot/vehicle_image", { method: "DELETE" });
-    this._toast("Foto entfernt");
+    try {
+      const response = await this._hass.fetchWithAuth("/api/ev_charging_pilot/vehicle_image", { method: "DELETE" });
+      this._toast(response.ok ? "Foto entfernt" : `Foto nicht entfernt (${response.status})`);
+    } catch (err) {
+      this._toast(`Foto nicht entfernt: ${err.message || err}`);
+    }
     await this._refresh();
   }
 
@@ -1069,37 +1119,58 @@ class EvPilotPanel extends HTMLElement {
   }
 
   async _createReport(month) {
+    // Open the window during the click – after awaiting the PDF a popup would be blocked.
+    const win = window.open("", "_blank");
     try {
       this._toast("Bericht wird erstellt …");
       const report = await this._ws("create_report", { year: this._year, ...(month ? { month } : {}) });
       this._cache.monthKey = null;
-      await this._openReport(report.url);
+      await this._openReport(report.url, win);
       await this._refresh();
     } catch (err) {
+      if (win) win.close();
       this._toast(`Fehler: ${err.message || err}`);
     }
   }
 
-  async _openReport(url) {
-    // Reports need a login: fetch with the user's token, open as blob.
-    const response = await this._hass.fetchWithAuth(url);
-    if (!response.ok) { this._toast(`Download fehlgeschlagen (${response.status})`); return; }
-    const blob = await response.blob();
-    window.open(URL.createObjectURL(blob), "_blank");
+  async _openReport(url, win = undefined) {
+    // Reports need a login. A signed path works in browsers and in the companion app
+    // (blob popups do not), and needs no token in the page.
+    const target = win === undefined ? window.open("", "_blank") : win;
+    try {
+      const signed = await this._hass.callWS({ type: "auth/sign_path", path: url, expires: 300 });
+      if (target) target.location.href = signed.path;
+      else this._toast("Bericht bereit – hier antippen zum Öffnen", signed.path);
+    } catch (err) {
+      if (target) target.close();
+      this._toast(`Bericht nicht geöffnet: ${err.message || err}`);
+    }
   }
 
   _completeExternal(id) {
     const item = ((this._cache.external && this._cache.external.items) || []).find((e) => e.id === id);
     if (!item) return;
-    const cost = prompt(`Kosten in € für ${item.energy_kwh} kWh am ${dateOnly(item.date)}:`, item.cost_eur ?? "");
+    const kwhText = num(item.energy_kwh, 2);
+    const cost = prompt(`Bezahlte Kosten in € für ${kwhText} kWh am ${dateOnly(item.date)} (leer = unverändert):`,
+      item.cost_eur != null ? num(item.cost_eur, 2) : "");
     if (cost === null) return;
-    const kwh = prompt("Geladene kWh (Schätzung korrigieren):", item.energy_kwh);
+    const kwh = prompt("Geladene kWh (Schätzung korrigieren):", kwhText);
     if (kwh === null) return;
     const provider = prompt("Anbieter (optional):", item.provider || "") || undefined;
+    const parsed = (text) => Number(String(text).replace(",", "."));
+    // Keep everything the detection knew (SOC, odometer, price) – only change what was typed.
     const data = { id: item.id, date: item.date, source: item.source,
-      energy_kwh: Number(String(kwh).replace(",", ".")), cost_eur: Number(String(cost).replace(",", ".")) };
+      energy_kwh: String(kwh).trim() ? parsed(kwh) : item.energy_kwh };
+    for (const key of ["price_eur_kwh", "odometer_km", "soc_before", "soc_after", "note"]) {
+      if (item[key] != null) data[key] = item[key];
+    }
+    if (String(cost).trim()) data.cost_eur = parsed(cost);
+    else if (item.cost_eur != null) data.cost_eur = item.cost_eur;
     if (provider) data.provider = provider;
-    if (item.note) data.note = item.note;
+    if (Number.isNaN(data.energy_kwh) || (data.cost_eur !== undefined && Number.isNaN(data.cost_eur))) {
+      this._toast("Bitte Zahlen eingeben, z. B. 12,5");
+      return;
+    }
     this._call("add_external_charge", data, "Fremdladung ergänzt");
   }
 
@@ -1161,7 +1232,8 @@ class EvPilotPanel extends HTMLElement {
               ${s.override ? `<span class="pill info">Override: ${esc(s.override.mode)}</span>` : ""}
               ${s.one_shot ? `<span class="pill info">Einmalig: Abfahrt ${dateTime(s.one_shot.departure_at)}</span>` : ""}
               ${!s.automation_enabled ? `<span class="pill warn">Automatik aus</span>` : ""}
-              ${ex.failure_code ? `<span class="pill bad">${esc(ex.failure_code)}</span>` : ""}
+              ${ex.failure_code ? `<span class="pill bad">${esc(FAILURE_LABELS[ex.failure_code] || ex.failure_code)}</span>` : ""}
+              ${ex.failure_hint ? `<div class="hint">${esc(ex.failure_hint)}</div>` : ""}
             </div>
             <div class="sub">Zustand: ${esc(STATE_LABELS[ex.state] || ex.state || "–")} · Soll: ${esc(REASON_LABELS[desired.reason] || desired.reason || "–")}
               (${desired.charger_enabled === true ? "Wallbox an" : desired.charger_enabled === false ? "Wallbox aus" : "nicht eingreifen"}) · seit ${time(ex.since)}</div>
@@ -1207,7 +1279,7 @@ class EvPilotPanel extends HTMLElement {
       </div>
       <div class="card">
         <h2>Letzte Ladung</h2>
-        ${s.last_result ? `<div class="big">${s.last_result.success ? num(s.last_result.energy_kwh, 2, "kWh") : `<span class="pill bad">${esc(s.last_result.failure_code)}</span>`}</div>
+        ${s.last_result ? `<div class="big">${s.last_result.success ? num(s.last_result.energy_kwh, 2, "kWh") : `<span class="pill bad">${esc(FAILURE_LABELS[s.last_result.failure_code] || s.last_result.failure_code || "Fehler")}</span>`}</div>
           <div class="sub">${dateTime(s.last_result.at)}</div>` : `<p class="sub">Noch keine Ladung aufgezeichnet.</p>`}
       </div>
       <div class="card wide">
@@ -1400,7 +1472,7 @@ class EvPilotPanel extends HTMLElement {
         ${sessions.map((x) => `<tr><td>${dateTime(x.started_at)}</td><td>${time(x.ended_at)}</td><td class="n">${num(x.grid_energy_kwh, 2)}</td>
           <td class="n">${num(x.cost_eur, 2)}</td><td class="n">${num(x.max_power_w / 1000, 1)}</td><td>${esc(REASON_LABELS[x.reason] || x.reason)}</td>
           <td>${x.ovms_wakeup_used ? "OVMS " : ""}${x.cp_wakeup_used ? "CP" : ""}</td>
-          <td>${x.success ? `<span class="pill ok">ok</span>` : `<span class="pill bad">${esc(x.failure_code)}</span>`}</td></tr>`).join("") || `<tr><td colspan="8" class="sub">Keine Sessions in diesem Monat.</td></tr>`}
+          <td>${x.success ? `<span class="pill ok">ok</span>` : `<span class="pill bad">${esc(FAILURE_LABELS[x.failure_code] || x.failure_code || "Fehler")}</span>`}</td></tr>`).join("") || `<tr><td colspan="8" class="sub">Keine Sessions in diesem Monat.</td></tr>`}
       </table></div></div>
     </div>`;
   }
@@ -1570,7 +1642,7 @@ class EvPilotPanel extends HTMLElement {
       <div class="card wide"><h2>Replay</h2>
         <p class="sub">Datensätze liegen in <code>/config/ev_charging_pilot/replay</code>; erstellen mit dem Service <code>create_replay_dataset</code>.</p>
         <div class="form">
-          <label>Datensatz<select name="replay_file">${(replay.files || []).map((f) => `<option>${esc(f)}</option>`).join("")}</select></label>
+          <label data-form="replay">Datensatz<select name="replay_file">${(replay.files || []).map((f) => `<option>${esc(f)}</option>`).join("")}</select></label>
           <button class="act primary" data-action="replay-run" ${(replay.files || []).length ? "" : "disabled"}>Replay starten</button>
         </div>
         ${last ? `<div class="row"><span>${esc(last.name)}</span><b>Übereinstimmung ${last.agreement === null ? "–" : num(last.agreement * 100, 0, "%")}</b></div>

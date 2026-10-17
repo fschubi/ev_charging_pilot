@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.19.6 – 2026-10-18
+
+Korrekturen aus dem Prüfbericht vom 18.10., Panel (Stufe 2 und 3):
+- **U1 – Meldungen bleiben sichtbar:** „Gespeichert“, „Preis gespeichert“ und
+  Fehlermeldungen verschwanden beim nächsten Neuzeichnen sofort wieder.
+- **U2 – Änderungen erscheinen sofort:** Nach einer Auswahl in einem Dropdown (Filter,
+  Ladestrom, Vorklimatisierung) blieb die Ansicht stehen, bis man woanders hinklickte.
+- **U3 – „Speichern“ in den Einstellungen klappt mit einem Klick.** Ein Klick auf den
+  bereits offenen Reiter verwirft keine ungespeicherten Änderungen mehr. Die Leiste
+  verschwindet sofort nach dem Speichern. Ein geleertes Zahlenfeld wird nicht als 0
+  gespeichert, und eine unveränderte Uhrzeit gilt nicht mehr als Änderung.
+- **U4 – PDF-Berichte öffnen sich über einen signierten Link**, auch in der iPhone-App.
+  Ist ein Pop-up blockiert, erscheint ein Link zum Antippen.
+- **U5 – „Ergänzen“ bei Fremdladungen:** Ein leeres Kostenfeld bedeutet „unverändert“
+  statt 0 €, und Ladestand, Kilometerstand und Preis der Erkennung bleiben erhalten.
+  „Foto entfernen“ meldet einen Fehler, wenn es nicht geklappt hat.
+- Bei einem fehlgeschlagenen Start steht im Cockpit der Hinweis, was zu prüfen ist.
+  Fehlercodes erscheinen als deutscher Text („Ladestart fehlgeschlagen“).
+- Die Zeitleiste bleibt lesbar, wenn das nächste Ladefenster Tage entfernt ist.
+- Kleinigkeiten: Die Replay-Auswahl springt nicht mehr zurück, das Systemtest-Ergebnis
+  bleibt nach anderen Aktionen sichtbar, Datumsangaben stimmen auch in anderen
+  Zeitzonen, und Jahr/Monat sind beim Wiederkommen aktuell.
+
 ## 0.19.5 – 2026-10-18
 
 Korrekturen aus dem Prüfbericht vom 18.10., Stufe 2 (Statistik und HA):

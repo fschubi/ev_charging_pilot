@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.19.1 Prüfbericht Stufe 1 (Teil 1).** K1: `_charging_at` +
+  `CHARGING_ACTIVITY_GRACE` (15 min) für die Qualität; K7: One-Shot-Wunsch entfällt bei
+  erreichtem Ziel. Offen laut `docs/pruefbericht-2026-10-18.md`: K2–K6, K8, H1, H2, Stufe 2/3, Texte.
 - **2026-10-18 – v0.19.0 Preisformate + Prüfung.** `prices.py`: Paare `[ts, preis]`
   (s/ms), ENTSO-e, mehr Schlüssel, €/MWh per Einheit, Fallback auf beliebige Liste;
   `describe_prices`; WS `check_prices` → `PriceFetcher.async_check`; Einstellungszeile

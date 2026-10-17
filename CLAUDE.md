@@ -135,9 +135,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.1 Prüfbericht Stufe 1 (Teil 1).** K1: `_charging_at` +
-  `CHARGING_ACTIVITY_GRACE` (15 min) für die Qualität; K7: One-Shot-Wunsch entfällt bei
-  erreichtem Ziel. Offen laut `docs/pruefbericht-2026-10-18.md`: K2–K6, K8, H1, H2, Stufe 2/3, Texte.
 - **2026-10-18 – v0.19.2 Prüfbericht Stufe 1 Kern.** Executor: `_ended_window` (persistiert)
   + `_failed_window` im `_initial_state`, `_fail` sperrt Halo, Disable im Cooldown → COOLDOWN;
   Sessions schließen bei CHARGE_ENDED; Klima `wake_allowed=False`; `_expire` CP-maskiert.
@@ -153,3 +150,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Fahrten mit `*_acc` bei Zählerreset und Odometer beim Schließen; `_report_due`/Catch-up/
   `_monthly_report_safe`; `_odometer_at` interpoliert; PDF-Monatsanteil; SOC-Sprung nur ohne
   Kabel; €/100 km SOC-korrigiert; `_unrecorded_attributes`; `_closed`; Admin-Dienste.
+- **2026-10-18 – v0.19.6 Prüfbericht Panel.** Render in `#app`, Toasts in `#toasts`;
+  Signatur erst nach echtem Render; Select-Blur; Settings ohne Render bei offener Leiste;
+  Berichte per `auth/sign_path`; `FAILURE_LABELS`/`failure_hint`; `dateOnly` lokal; Zeitleiste.

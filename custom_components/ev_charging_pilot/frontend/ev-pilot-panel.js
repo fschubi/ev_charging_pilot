@@ -453,7 +453,8 @@ class EvPilotPanel extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._view = localStorage.getItem("ev-pilot-view") || "cockpit";
+    // Every visit starts in the cockpit; switching tabs only lasts while the panel is open.
+    this._view = "cockpit";
     this._state = null;
     this._cache = {};
     this._plans = null;
@@ -471,9 +472,19 @@ class EvPilotPanel extends HTMLElement {
   set narrow(value) { this._narrow = value; }
   set panel(value) { this._panel = value; }
 
-  connectedCallback() { if (this._hass) this._start(); }
+  connectedCallback() {
+    if (this._detached && !this._settingsDraft) {
+      // Back from another HA page: start in the cockpit again (unsaved settings stay).
+      this._view = "cockpit";
+      this._cache = {};
+      this._plans = null;
+      this._signature = null;
+    }
+    this._detached = false;
+    if (this._hass) this._start();
+  }
 
-  disconnectedCallback() { clearInterval(this._timer); this._timer = null; }
+  disconnectedCallback() { clearInterval(this._timer); this._timer = null; this._detached = true; }
 
   _start() {
     if (this._timer) return;
@@ -656,7 +667,6 @@ class EvPilotPanel extends HTMLElement {
     this._settingsDraft = null;
     if (this._planSaveTimer) this._savePlans();  // flush a pending plan change
     this._view = view;
-    localStorage.setItem("ev-pilot-view", view);
     this._cache = {};
     this._plans = null;
     this._refresh();

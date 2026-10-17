@@ -134,9 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.16.0 Fremdladen-Preis per Push.** Notification-Aktion `ext_price:<id>` →
-  `textInput`-Button `EV_PILOT_EXT_PRICE|<id>`; `reply_text` → `parse_price_input` (ct > 5) →
-  `Coordinator._set_external_price`. Panel: `<details data-details>` mit `_openDetails`.
 - **2026-10-17 – v0.16.1 Push-Test Preisabfrage.** Dienst `test_price_push` →
   `Coordinator.async_test_price_push` (Aktion `ext_price:test-…`), Antwort in
   `price_push_test` (WS-State), Diagnose-Karte; Test-IDs ändern keine Fremdladung.
@@ -149,3 +146,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Frank: Knöpfe und Ziffernblock auf dem iPhone funktionieren.
 - **2026-10-17 – v0.17.2 Test-Center.** Diagnose: System-, Lade- und Push-Test in
   `<details data-details="tests">` am Ende; offen bei laufendem Ladetest bzw. Push-Test < 10 min.
+- **2026-10-17 – v0.17.3 Start im Cockpit.** `localStorage` `ev-pilot-view` entfernt;
+  `connectedCallback` nach `disconnectedCallback` setzt den Reiter auf Cockpit (außer bei
+  offenem `_settingsDraft`). Frank wollte nach HA-Seitenwechsel nicht im alten Reiter landen.

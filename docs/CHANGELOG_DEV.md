@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.16.0 Fremdladen-Preis per Push.** Notification-Aktion `ext_price:<id>` →
+  `textInput`-Button `EV_PILOT_EXT_PRICE|<id>`; `reply_text` → `parse_price_input` (ct > 5) →
+  `Coordinator._set_external_price`. Panel: `<details data-details>` mit `_openDetails`.
 - **2026-10-17 – v0.15.1 Statistik-Korrekturen.** `OdometerSource.AUTO` (Default; OVMS wenn
   gemappt, `Monitor.ovms_odometer`), `trips.net_energy` (used − recd, None bei recd > used),
   kWh/100 km erst ab 1 km, Temperaturstatistik nur Fahrten mit Strecke+Energie, Preis =

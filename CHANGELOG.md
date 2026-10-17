@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.3 – 2026-10-17
+
+- **Panel startet immer im Cockpit:** Bisher merkte sich das Panel den zuletzt offenen
+  Reiter dauerhaft im Browser. Wer z. B. im Ladeplan war, eine andere HA-Seite öffnete und
+  zurückkam, landete wieder im Ladeplan. Jetzt beginnt jeder Besuch im Cockpit. Nur wenn
+  in den Einstellungen noch ungespeicherte Änderungen offen sind, bleibt dieser Reiter
+  geöffnet, damit nichts verloren geht.
+
 ## 0.17.2 – 2026-10-17
 
 - **Test-Center im Diagnose-Reiter:** Systemtest, Ladetest und Push-Test der Preisabfrage

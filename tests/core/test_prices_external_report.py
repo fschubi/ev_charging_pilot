@@ -18,6 +18,7 @@ from custom_components.ev_charging_pilot.core.prices import (
     parse_price_attributes,
     parse_tibber_response,
 )
+from custom_components.ev_charging_pilot.core.executor import ExecState
 from custom_components.ev_charging_pilot.core.report import month_report, year_report
 from custom_components.ev_charging_pilot.core.sessions import ChargeSession
 from custom_components.ev_charging_pilot.core.settings import Settings
@@ -123,6 +124,49 @@ def test_engine_charges_only_in_cheap_block():
     world.set(Inp.OVMS_SOC, "85")
     world.run(30)
     assert world.engine.next_window.blocks == window.blocks
+
+
+def test_charge_runs_past_the_block_until_the_target():
+    world = World(local(2026, 10, 13, 22, 0), configured=WITH_OVMS, price_source="tibber")
+    world.engine.set_prices(night_prices().slots)
+    world.set(Inp.OVMS_SOC, "70")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.tick()
+    window = world.engine.next_window
+    start, end = window.blocks[-1]
+    world.now = start
+    world.run(120)
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.run(60)
+    assert world.engine.executor.state is ExecState.CHARGING
+    # Waking up took long / cold battery: the block ends below the target.
+    world.now = end - timedelta(seconds=10)
+    world.run(60)
+    engine = world.engine
+    assert engine.active_window is not None and engine.active_window.overrun
+    assert engine.desired.charger_enabled is True
+    assert engine.desired.wake_allowed is False
+    assert "BLOCK_EXTENDED" in world.events
+    # Target reached → off; the overrun ends with it.
+    world.set(Inp.OVMS_SOC, "90")
+    world.run(60)
+    assert engine.desired.charger_enabled is False
+    assert not (engine.active_window and engine.active_window.overrun)
+
+
+def test_block_is_not_extended_when_nothing_charges():
+    world = World(local(2026, 10, 13, 22, 0), configured=WITH_OVMS, price_source="tibber")
+    world.engine.set_prices(night_prices().slots)
+    world.set(Inp.OVMS_SOC, "70")
+    world.tick()
+    start, end = world.engine.next_window.blocks[-1]
+    world.car_charges_when_enabled = False
+    world.now = start
+    world.run(60)
+    world.now = end - timedelta(seconds=10)
+    world.run(60)
+    assert not any(w.overrun for w in world.engine.windows)
+    assert "BLOCK_EXTENDED" not in world.events
 
 
 def test_cheap_block_while_away_is_planned_again():

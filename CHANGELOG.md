@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.9 – 2026-10-17
+
+- **Weiterladen nach Blockende:** Bisher endete die Ladung hart mit dem gewählten günstigen
+  Block, auch wenn das Ziel noch nicht erreicht war, z. B. weil das Wecken ein paar
+  Minuten gedauert hat oder der kalte Akku im Winter langsamer lädt. Bis zur Abfahrt wurde
+  dann nicht mehr nachgeladen. Jetzt lädt der Pilot weiter, bis das Ziel erreicht ist, das
+  Auto selbst beendet oder „Fertig vor Abfahrt“ erreicht ist. Das gilt nur, wenn zum
+  Blockende tatsächlich geladen wird; das Auto wird dafür nie zusätzlich geweckt. Im
+  Ereignisprotokoll steht dann „Ladeziel zum Blockende noch nicht erreicht – lade weiter
+  bis zum Ziel“.
+
 ## 0.13.8 – 2026-10-17
 
 - **Voller Akku steht nicht mehr stundenlang:** Mit Preisoptimierung suchte der Plan in den

@@ -290,6 +290,8 @@ class ChargeWindow:
     name: str = ""
     # Price-optimised charging: only these blocks charge (§11 "günstigste Intervalle").
     blocks: tuple[tuple[datetime, datetime], ...] = ()
+    # The last block was stretched to "ready": the charge ran past its end.
+    overrun: bool = False
 
     @property
     def key(self) -> str:

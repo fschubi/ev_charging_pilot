@@ -134,10 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.13.4 Einstecken per OVMS.** Halo meldet Kabel nur bei freigegebenem
-  Ladepunkt (Status `Unavailable` = gesperrt). Neue Inputs `ovms_plug`, `ovms_location`;
-  `source_policy.plugged_in` verschmilzt sie mit `cable_connected` (unterwegs = nicht
-  gesteckt). `async_discover_plug` ergänzt sie beim Start aus dem Entity-Registry.
 - **2026-10-17 – v0.13.5 Latch nur eingesteckt.** `Engine._latch` friert Start/Blöcke nur
   ein, wenn `_cable is not False`; ein verpasster Block (Auto unterwegs) wird ab jetzt neu
   geplant. Frank: Büroplan Mo–Mi 05:20, Tagespreise liegen sonst im Bürozeitraum.
@@ -150,3 +146,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-17 – v0.13.8 Voller Akku nicht lange stehen.** Optionen `full_soc_pct` (90) und
   `full_hold_max_h` (2 h) → `VehicleParams`; `_window` begrenzt die Preissuche bei Ziel >
   `full_soc_pct` auf ≥ ready − needed − hold. Frank: Büroplan 100 % im Winter.
+- **2026-10-17 – v0.13.9 Weiterladen nach Blockende.** `Engine._overrun`: letzter Block eines
+  verriegelten Fensters wird bis `ready_at` gestreckt, solange der Executor CHARGING/
+  CHARGE_STABILIZING ist und kein Target-Hold greift; `ChargeWindow.overrun`, Desired mit
+  `wake_allowed=False`, Event `BLOCK_EXTENDED`.

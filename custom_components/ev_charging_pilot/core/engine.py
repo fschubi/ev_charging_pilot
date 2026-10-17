@@ -167,6 +167,8 @@ class Engine:
         self._latched: dict[str, ChargeWindow] = {}
         self._latched_raw: dict[str, Any] = {}
         self._cable: bool | None = None
+        self._overrun_key: str | None = None
+        self._pending_events: list[Event] = []
         self._reminder_day: date | None = None
         self._health_candidate: tuple[HealthStatus, datetime] | None = None
         self._health_notified = HealthStatus.HEALTHY
@@ -214,6 +216,8 @@ class Engine:
 
         self._expire(now, cable_flag)
         self._plan(now)
+        result.events += self._pending_events
+        self._pending_events.clear()
 
         self.health = evaluate(self._health_inputs(now))
         self._climate(now)
@@ -410,7 +414,7 @@ class Engine:
             windows.insert(0, self._latch(
                 one_shot_window(self.one_shot, now, self.tz, self.soc, params, prices, blocks),
                 now))
-        self.windows = [w for w in windows if w is not None]
+        self.windows = [self._overrun(w, now) for w in windows if w is not None]
         self.active_window = next((w for w in self.windows if w.contains(now)), None)
         upcoming = sorted(self.windows, key=lambda w: w.start)
         self.next_window = self.active_window or (upcoming[0] if upcoming else None)
@@ -419,6 +423,29 @@ class Engine:
         if self._target_hold not in keep:
             self._target_hold = None
         self.executor.prune_expired(now)
+
+    def _overrun(self, window: ChargeWindow, now: datetime) -> ChargeWindow:
+        """A price block that ends while the car is still charging keeps going.
+
+        Waking up or a cold battery can eat the reserve; stopping at the block's end
+        would leave the car below its target although there is time until "ready".
+        The charge continues until the target, the car stops it, or "ready" – the car
+        is awake, so nothing is woken for it.
+        """
+        if not window.blocks or window.key not in self._latched \
+                or self._target_hold == window.key:
+            return window
+        start, end = window.blocks[-1]
+        if not end <= now < window.ready_at or self.executor.state not in (
+                ExecState.CHARGING, ExecState.CHARGE_STABILIZING):
+            return window
+        if self._overrun_key != window.key:
+            self._overrun_key = window.key
+            self._pending_events.append(Event(
+                now, Category.CHARGING, Severity.INFO, "BLOCK_EXTENDED",
+                "Ladeziel zum Blockende noch nicht erreicht – lade weiter bis zum Ziel"))
+        return replace(window, blocks=(*window.blocks[:-1], (start, window.ready_at)),
+                       overrun=True)
 
     @property
     def target_held(self) -> bool:
@@ -509,6 +536,9 @@ class Engine:
             safety_lock=self.health.blocks_automation,
             default=DEFAULT_OFF if self.automation_enabled else HANDS_OFF,
         )
+        if self.active_window is not None and self.active_window.overrun \
+                and desired.charger_enabled and desired.source_id == self.active_window.source_id:
+            desired = replace(desired, wake_allowed=False)
         if self.active_window is not None and self._target_hold == self.active_window.key \
                 and desired.charger_enabled and desired.reason in (
                     Reason.SCHEDULE, Reason.ONE_SHOT, Reason.CLIMATE):

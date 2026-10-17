@@ -147,3 +147,28 @@ def test_target_soc_needs_good_quality_and_respects_climate_topup():
 def test_utc_input_is_handled():
     now = datetime(2026, 10, 13, 20, 0, tzinfo=UTC)
     assert next_departure(WORKDAYS, now, TZ) == local(2026, 10, 14, 5, 30)
+
+
+def test_high_target_is_not_reached_hours_before_departure():
+    from custom_components.ev_charging_pilot.core.prices import PriceSchedule, PriceSlot
+
+    start = local(2026, 10, 18, 18)
+    # Very cheap in the late evening, expensive in the morning.
+    prices = PriceSchedule(
+        PriceSlot(start + timedelta(hours=h), start + timedelta(hours=h + 1),
+                  0.10 if h in (5, 6) else 0.30) for h in range(14))
+    now = local(2026, 10, 18, 18)
+    departure = local(2026, 10, 19, 5, 20)
+
+    def window(target):
+        shot = OneShot(departure_at=departure, preferred_departure_soc_pct=target,
+                       minimum_departure_soc_pct=80)
+        return one_shot_window(shot, now, TZ, soc(69), PARAMS, prices)
+
+    ready = departure - timedelta(minutes=30)
+    # 90 % is not "full": the cheap 23:00 block is used.
+    assert window(90).blocks[0][0] == local(2026, 10, 18, 23)
+    # 100 %: finished at most two hours before "ready", even though it costs more.
+    full = window(100)
+    assert full.blocks[-1][1] >= ready - timedelta(hours=2)
+    assert full.estimate.expected_soc_at_departure == 100

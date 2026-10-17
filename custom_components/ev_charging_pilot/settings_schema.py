@@ -73,6 +73,14 @@ GROUPS: list[dict[str, Any]] = [
         _n("price_blocks", "Max. Ladeblöcke pro Nacht", 1, 2, advanced=True,
            help="Jeder zusätzliche Block kann das Auto erneut wecken.",
            show_if={"price_source": [PriceSource.TIBBER, PriceSource.ENTITY]}),
+        _n("full_soc_pct", "Hoher Ladestand ab", 50, 100, 5, "%",
+           help="Ladeziele über diesem Wert werden erst kurz vor der Abfahrt erreicht – "
+                "auch wenn der Strom früher billiger wäre. Ein voller Akku soll nicht "
+                "stundenlang stehen.",
+           show_if={"price_source": [PriceSource.TIBBER, PriceSource.ENTITY]}),
+        _n("full_hold_max_h", "… höchstens so lange vor Abfahrt voll", 0, 12, 0.5, "h",
+           help="Gerechnet ab „Fertig vor Abfahrt“. 0 = keine Begrenzung.",
+           show_if={"price_source": [PriceSource.TIBBER, PriceSource.ENTITY]}),
     ]},
     {"id": "notifications", "title": "Benachrichtigungen", "icon": "mdi:bell-outline",
      "description": "Wann du eine Push-Nachricht aufs Handy bekommst.",

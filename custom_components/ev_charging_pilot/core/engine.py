@@ -349,6 +349,8 @@ class Engine:
             vehicle_charger_kw=s.vehicle_charger_kw,
             grid_limit_kw=s.grid_limit_kw,
             taper_from_pct=s.taper_from_pct,
+            full_soc_pct=s.full_soc_pct,
+            full_hold_max_h=s.full_hold_max_h,
         )
         learned = self._learn(nominal)
         if not s.learn_charging or not learned.active:

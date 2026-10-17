@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.8 – 2026-10-17
+
+- **Voller Akku steht nicht mehr stundenlang:** Mit Preisoptimierung suchte der Plan in den
+  24 Stunden vor der Abfahrt einfach die günstigste Zeit. Bei Ziel 100 % konnte das Auto so
+  z. B. schon um 23 Uhr voll sein und bis zum Morgen bei 100 % stehen. Neu: Ladeziele über
+  „Hoher Ladestand ab“ (Standard 90 %) werden höchstens „… so lange vor Abfahrt voll“
+  (Standard 2 h) vor „Fertig vor Abfahrt“ erreicht. Innerhalb dieses Rahmens wird weiter
+  die günstigste Zeit genommen. Einstellbar unter Einstellungen → Preise, 0 h schaltet
+  die Begrenzung ab.
+
 ## 0.13.7 – 2026-10-17
 
 - **Eingaben bleiben stehen:** Das Panel zeichnet sich bei neuen Live-Werten (SOC,

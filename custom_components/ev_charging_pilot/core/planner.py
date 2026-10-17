@@ -61,6 +61,11 @@ class VehicleParams:
     # assumes ``taper_factor`` of the normal power (conservative: starts earlier).
     taper_from_pct: float = 80.0
     taper_factor: float = 0.6
+    # A target above ``full_soc_pct`` must not be reached earlier than
+    # ``full_hold_max_h`` before "ready" – cheap prices do not justify a battery
+    # standing full for hours. 0 switches the limit off.
+    full_soc_pct: float = 90.0
+    full_hold_max_h: float = 2.0
 
     @property
     def wallbox_limit_kw(self) -> float:
@@ -406,7 +411,11 @@ def _window(
         if prices and price_blocks > 0 and duration > timedelta(0):
             # Without full price coverage (tomorrow's prices come around 13:00)
             # the plan simply stays "as late as possible".
-            best = cheapest_blocks(prices, max(now, ready_at - timedelta(hours=24)), ready_at,
+            earliest = max(now, ready_at - timedelta(hours=24))
+            if preferred_pct > params.full_soc_pct and params.full_hold_max_h > 0:
+                earliest = max(earliest, ready_at - needed
+                               - timedelta(hours=params.full_hold_max_h))
+            best = cheapest_blocks(prices, earliest, ready_at,
                                    needed, params.expected_power_kw, price_blocks)
             if best is not None and best[0]:
                 blocks = tuple(best[0])

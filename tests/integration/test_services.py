@@ -135,3 +135,31 @@ async def test_charge_test_service(hass, entry, halo):
     await hass.async_block_till_done()
     assert entry.runtime_data.engine.charge_test.running
     assert switch_on
+
+
+async def test_price_typed_into_the_push_completes_the_external_charge(hass, entry, halo):
+    from custom_components.ev_charging_pilot.const import ACTION_EXT_PRICE
+    from custom_components.ev_charging_pilot.core.statistics import ExternalCharge
+    from custom_components.ev_charging_pilot.notifications import _action
+
+    button = _action("ext_price:auto-202610171200")
+    assert button["behavior"] == "textInput"
+    assert button["action"] == f"{ACTION_EXT_PRICE}|auto-202610171200"
+
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    center.monitor.add_external(ExternalCharge(
+        "auto-202610171200", dt_util.now().date(), "public", 10.0, price_eur_kwh=0.59,
+        detected=True, quality="ESTIMATED"))
+    hass.bus.async_fire("mobile_app_notification_action", {
+        "action": f"{ACTION_EXT_PRICE}|auto-202610171200", "reply_text": "0,49 €"})
+    await hass.async_block_till_done()
+    charge = center.monitor.data.external[0]
+    assert charge.price_eur_kwh == 0.49
+    assert charge.total_cost == 4.9
+    assert any(e["code"] == "EXTERNAL_PRICE_SET" for e in center.events)
+    hass.bus.async_fire("mobile_app_notification_action", {
+        "action": f"{ACTION_EXT_PRICE}|auto-202610171200", "reply_text": "keine Ahnung"})
+    await hass.async_block_till_done()
+    assert center.monitor.data.external[0].price_eur_kwh == 0.49
+    assert any(e["code"] == "EXTERNAL_PRICE_INVALID" for e in center.events)

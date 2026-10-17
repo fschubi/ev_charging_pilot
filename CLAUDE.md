@@ -134,10 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.13.9 Weiterladen nach Blockende.** `Engine._overrun`: letzter Block eines
-  verriegelten Fensters wird bis `ready_at` gestreckt, solange der Executor CHARGING/
-  CHARGE_STABILIZING ist und kein Target-Hold greift; `ChargeWindow.overrun`, Desired mit
-  `wake_allowed=False`, Event `BLOCK_EXTENDED`.
 - **2026-10-17 – v0.14.0 Ladetest.** `core/charge_test.py` (ChargeTest: Schritte aus
   Executor-Events, Ende 60 s nach CHARGE_STABLE, max. 8 min, dann Halo-aus-Prüfung);
   `Engine.start_charge_test` = DURATION-Override, nur live/eingesteckt; Dienst `charge_test`,
@@ -153,3 +149,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   gemappt, `Monitor.ovms_odometer`), `trips.net_energy` (used − recd, None bei recd > used),
   kWh/100 km erst ab 1 km, Temperaturstatistik nur Fahrten mit Strecke+Energie, Preis =
   Ø echter Heimstrompreis.
+- **2026-10-17 – v0.16.0 Fremdladen-Preis per Push.** Notification-Aktion `ext_price:<id>` →
+  `textInput`-Button `EV_PILOT_EXT_PRICE|<id>`; `reply_text` → `parse_price_input` (ct > 5) →
+  `Coordinator._set_external_price`. Panel: `<details data-details>` mit `_openDetails`.

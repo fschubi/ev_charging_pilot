@@ -711,8 +711,10 @@ class Engine:
                 if self.settings.notify.external:
                     result.notifications.append(Notification(
                         "external", "normal", "Fremdladung erkannt",
-                        f"Ca. {charge.energy_kwh:.1f} kWh außer Haus geladen "
-                        "(geschätzt). Kosten bitte im Panel ergänzen."))
+                        f"Ca. {charge.energy_kwh:.1f} kWh außer Haus geladen (geschätzt). "
+                        "Was hast du pro kWh bezahlt? Lange drücken bzw. aufziehen und "
+                        "„Preis eingeben“ wählen.",
+                        actions=(f"ext_price:{charge.id}",)))
 
         if self.soc.quality is Quality.GOOD:
             self.monitor.record_soc(now, float(self.soc.normalized))

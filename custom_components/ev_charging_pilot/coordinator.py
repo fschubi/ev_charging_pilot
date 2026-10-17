@@ -13,6 +13,7 @@ import json
 import logging
 from collections import deque
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ACTION_EXT_PRICE,
     ACTION_NOW,
     ACTION_PLAN,
     ACTION_RETRY,
@@ -61,6 +63,7 @@ from .core.ports import CommandRecorder
 from .core.prices import PriceSlot
 from .core.replay import ReplayDataset, run_replay
 from .core.settings import OPT_MODE, RunMode, Settings
+from .core.statistics import parse_price_input
 from .core.summary import weekly_text
 from .ha_ports import HaPorts, PortError, shelly_deviations
 from .notifications import Notifier
@@ -453,8 +456,11 @@ class ChargingCenter:
 
     # ------------------------------------------------- notification actions
 
-    async def _on_notification_action(self, action: str) -> None:
+    async def _on_notification_action(self, action: str, reply: str | None = None) -> None:
         now = dt_util.utcnow()
+        if action.startswith(f"{ACTION_EXT_PRICE}|"):
+            await self._set_external_price(now, action.split("|", 1)[1], reply)
+            return
         if action == ACTION_RETRY:
             await self.async_run(self.engine.retry)
             return
@@ -472,6 +478,32 @@ class ChargingCenter:
             await self._handle(TickResult(events=[Event(
                 dt_util.utcnow(), Category.USER, Severity.INFO, "PLAN_CONFIRMED",
                 "Normaler Plan bestätigt")]))
+
+    async def _set_external_price(self, now: datetime, charge_id: str,
+                                  reply: str | None) -> None:
+        """Price per kWh typed into the push of a detected external charge."""
+        charge = next((e for e in self.monitor.data.external if e.id == charge_id), None)
+        price = parse_price_input(reply)
+        if charge is None or price is None:
+            what = "Fremdladung nicht mehr vorhanden" if charge is None \
+                else f"Preis nicht erkannt: „{reply or ''}“"
+            await self._handle(TickResult(
+                events=[Event(now, Category.USER, Severity.WARNING, "EXTERNAL_PRICE_INVALID",
+                              f"{what} – bitte im Panel ergänzen")],
+                notifications=[Notification(
+                    "external", "normal", "Preis nicht gespeichert",
+                    f"{what}. Bitte unter Drive & Energy → Fremdladen ergänzen.")]))
+            return
+        self.monitor.add_external(replace(charge, price_eur_kwh=price, cost_eur=None))
+        self.monitor_changed()
+        def de(value: float) -> str:
+            return f"{value:.2f}".replace(".", ",")
+
+        await self._handle(TickResult(events=[Event(
+            now, Category.USER, Severity.INFO, "EXTERNAL_PRICE_SET",
+            f"Fremdladung {charge.date:%d.%m.}: {de(price)} €/kWh, "
+            f"ca. {de(charge.energy_kwh * price)} €",
+            data={"id": charge.id, "price_eur_kwh": price})]))
 
     # --------------------------------------------------------------- replay
 

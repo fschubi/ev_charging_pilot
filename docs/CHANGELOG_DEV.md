@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.13.9 Weiterladen nach Blockende.** `Engine._overrun`: letzter Block eines
+  verriegelten Fensters wird bis `ready_at` gestreckt, solange der Executor CHARGING/
+  CHARGE_STABILIZING ist und kein Target-Hold greift; `ChargeWindow.overrun`, Desired mit
+  `wake_allowed=False`, Event `BLOCK_EXTENDED`.
 - **2026-10-17 – v0.13.8 Voller Akku nicht lange stehen.** Optionen `full_soc_pct` (90) und
   `full_hold_max_h` (2 h) → `VehicleParams`; `_window` begrenzt die Preissuche bei Ziel >
   `full_soc_pct` auf ≥ ready − needed − hold. Frank: Büroplan 100 % im Winter.

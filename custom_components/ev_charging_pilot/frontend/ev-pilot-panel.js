@@ -255,6 +255,8 @@ async function shrinkImage(file, maxWidth) {
 }
 
 const STYLE = `
+  details > summary { cursor: pointer; font-weight: 500; padding: 6px 0; color: var(--primary-color); }
+  details[open] > summary { margin-bottom: 8px; }
   :host { display: block; background: var(--primary-background-color); min-height: 100vh;
           color: var(--primary-text-color); font-family: var(--paper-font-body1_-_font-family, inherit); }
   header { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 56px;
@@ -642,6 +644,11 @@ class EvPilotPanel extends HTMLElement {
       }));
     root.querySelectorAll("[data-action]").forEach((el) =>
       el.addEventListener(el.tagName === "BUTTON" ? "click" : "change", (ev) => this._action(el.dataset.action, el, ev)));
+    root.querySelectorAll("details[data-details]").forEach((el) =>
+      el.addEventListener("toggle", () => {
+        this._openDetails = this._openDetails || new Set();
+        el.open ? this._openDetails.add(el.dataset.details) : this._openDetails.delete(el.dataset.details);
+      }));
     root.querySelectorAll("[data-form] [name]").forEach((el) =>
       ["input", "change"].forEach((type) => el.addEventListener(type, () => {
         const form = el.closest("[data-form]").dataset.form;
@@ -1325,7 +1332,9 @@ class EvPilotPanel extends HTMLElement {
           <td class="n">${num(t.consumption_kwh_100km, 1)}</td><td class="n">${num(t.outside_temp_avg_c, 0)}</td>
           <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(t.quality)}</span></td></tr>`).join("") || `<tr><td colspan="7" class="sub">Noch keine Fahrten.</td></tr>`}
       </table></div></div>
-      <div class="card wide"><h2>Fremdladen erfassen</h2>
+      <div class="card wide"><h2>Fremdladungen</h2>
+        <p class="sub">Ladungen außer Haus erkennt der Pilot automatisch über OVMS (Auto lädt, ist aber nicht an der eigenen Wallbox). Den bezahlten Preis fragt er per Push ab, oder du ergänzt ihn hier.</p>
+        <details data-details="external" ${this._open("external")}><summary>Fremdladung manuell erfassen</summary>
         <div class="form" data-form="external">
           <label>Datum<input type="date" name="date"></label>
           <label>kWh<input type="number" step="0.01" min="0" name="energy_kwh"></label>
@@ -1335,19 +1344,25 @@ class EvPilotPanel extends HTMLElement {
           <label>Anbieter<input name="provider"></label>
           <label>Kilometerstand<input type="number" min="0" name="odometer_km"></label>
           <button class="act primary" data-action="external-add">Speichern</button>
-        </div>
+        </div></details>
         <div class="scroll"><table><tr><th>Datum</th><th>Ort</th><th class="n">kWh</th><th class="n">€</th><th>Anbieter</th><th></th></tr>
           ${external.map((e) => `<tr><td>${dateOnly(e.date)}</td><td>${esc(e.source)}</td><td class="n">${num(e.energy_kwh, 2)}</td>
             <td class="n">${num(e.cost_eur ?? (e.price_eur_kwh ? e.price_eur_kwh * e.energy_kwh : null), 2)}</td>
             <td>${esc(e.provider || "")} ${e.detected ? `<span class="pill warn">erkannt · geschätzt</span>` : ""}</td>
             <td>${e.detected ? `<button class="act" data-action="external-cost" data-id="${esc(e.id)}">Ergänzen</button> ` : ""}<button class="act danger" data-service="delete_external_charge" data-payload='${esc(JSON.stringify({ id: e.id }))}' data-confirm="Fremdladung löschen?">×</button></td></tr>`).join("") || `<tr><td colspan="6" class="sub">Keine Fremdladungen.</td></tr>`}
         </table></div></div>
-      <div class="card wide"><h2>Kilometerstand manuell</h2>
+      <div class="card wide"><details data-details="odometer" ${this._open("odometer")}><summary>Kilometerstand manuell eintragen</summary>
+        <p class="sub">Nur nötig ohne OVMS bzw. mit Kilometerquelle „manuell“ – mit OVMS kommen die Kilometer automatisch. Stand am Monatsanfang und -ende reicht.</p>
         <div class="form" data-form="odometer">
           <label>km<input type="number" min="0" name="odometer_km"></label>
           <button class="act" data-action="odometer-add">Erfassen</button>
-        </div><p class="sub">Für den Modus „Manuell“ (ohne OVMS): Stand am Monatsanfang und -ende reicht.</p></div>
+        </div></details></div>
     </div>`;
+  }
+
+  /** Collapsible sections keep their state across the frequent re-renders. */
+  _open(id) {
+    return this._openDetails && this._openDetails.has(id) ? "open" : "";
   }
 
   _chargeTestCard(s) {

@@ -337,3 +337,15 @@ def test_month_and_year_report():
     year = year_report(monitor, settings, 2026, now)
     assert month.startswith(b"%PDF") and len(month) > 1500
     assert year.startswith(b"%PDF")
+
+
+def test_typed_price_answers():
+    from custom_components.ev_charging_pilot.core.statistics import parse_price_input
+
+    assert parse_price_input("0,59") == 0.59
+    assert parse_price_input("0.49 €/kWh") == 0.49
+    assert parse_price_input("59 ct") == 0.59
+    assert parse_price_input("79") == 0.79
+    assert parse_price_input("") is None
+    assert parse_price_input("weiß nicht") is None
+    assert parse_price_input("450") is None  # 4,50 €/kWh is no plausible price

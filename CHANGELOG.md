@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.16.0 – 2026-10-17
+
+- **Preis per Push nach erkannter Fremdladung:** Erkennt der Pilot eine Ladung außer Haus,
+  hat die Push-Nachricht jetzt den Knopf **„Preis eingeben“** mit Textfeld. Auf dem
+  iPhone die Mitteilung lange drücken bzw. aufziehen, den Preis pro kWh eintippen (z. B.
+  „0,49“, „0.49 €“ oder „49 ct“) und „Speichern“ tippen. Der Preis wird bei der
+  Fremdladung hinterlegt und fließt in Kosten und Statistik ein. Kann der Pilot die
+  Eingabe nicht lesen, meldet er das per Push.
+- **Formulare einklappbar:** „Fremdladung manuell erfassen“ und „Kilometerstand manuell
+  eintragen“ sind standardmäßig zugeklappt und bleiben offen, solange man sie braucht.
+  Die Karte erklärt kurz, wie die automatische Erkennung arbeitet.
+
 ## 0.15.1 – 2026-10-17
 
 - **Kilometer kommen automatisch aus OVMS:** Die Kilometerquelle stand bisher

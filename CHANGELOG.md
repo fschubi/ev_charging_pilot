@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.1 – 2026-10-17
+
+- **Kilometer kommen automatisch aus OVMS:** Die Kilometerquelle stand bisher
+  standardmäßig auf „manuell“. Ohne manuelle Einträge blieben Strecke, kWh/100 km und
+  €/100 km in den Monats- und Jahreswerten leer, obwohl OVMS den Kilometerstand liefert.
+  Neue Voreinstellung „automatisch“: Fahrzeugdaten, wenn ein OVMS-Kilometerstand
+  zugeordnet ist, sonst manuell. Eine bewusst gewählte Einstellung bleibt erhalten.
+- **Verbrauch netto statt brutto:** OVMS zählt entnommene und rekuperierte Energie
+  getrennt. Der Verbrauch je Fahrt und in Temperaturgruppen/Jahreszeiten rechnet jetzt
+  mit „verbraucht minus Rekuperation“; vorher war er um die Rekuperation zu hoch.
+- **Rangierfahrten verfälschen nichts mehr:** Fahrten unter 1 km zeigen keinen
+  kWh/100-km-Wert mehr (z. B. 138 kWh/100 km für 60 m), und Fahrten ohne Strecke oder mit
+  unstimmigen Zählern fließen nicht in die Gruppenstatistik ein.
+- **Kosten in Temperaturgruppen/Jahreszeiten** rechnen mit deinem tatsächlichen
+  Heimstrompreis aus den Ladungen (dynamischer Tarif inklusive) statt mit dem Festpreis.
+
 ## 0.15.0 – 2026-10-17
 
 - **Neu: Ladestrom einstellbar.** Jeder Wochenplan, die einmalige Abfahrt und „Jetzt laden“

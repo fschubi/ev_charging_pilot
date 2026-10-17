@@ -538,7 +538,8 @@ def build(lang: str) -> dict:
                 "allow_topup": t(T("Nachladen erlauben", "Allow top-up")),
                 "battery_only": t(T("Nur aus dem Akku", "Battery only")),
                 "enforce_target": t(T("Ziel-SOC durchsetzen", "Enforce target"))}},
-            "odometer_source": {"options": {"manual": t(T("Manuell", "Manual")),
+            "odometer_source": {"options": {"auto": t(T("Automatisch", "Automatic")),
+                                            "manual": t(T("Manuell", "Manual")),
                                             "ovms": t(T("OVMS", "OVMS"))}},
             "override_mode": {"options": {k: t(v) for k, v in OVERRIDE_MODES.items()
                                           if k != "none"}},

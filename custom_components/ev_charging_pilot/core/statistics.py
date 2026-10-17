@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 from .costs import FixedPriceHistory
 from .sessions import ChargeSession
-from .trips import Trip
+from .trips import Trip, net_energy
 
 TEMPERATURE_BANDS: tuple[tuple[str, float | None, float | None], ...] = (
     ("<0", None, 0.0),
@@ -257,18 +257,24 @@ def temperature_statistics(
     loss = (loss_pct or 0.0) / 100
 
     def empty() -> dict[str, float]:
-        return {"distance_km": 0.0, "vehicle_kwh": 0.0, "recovered_kwh": 0.0,
+        return {"distance_km": 0.0, "vehicle_kwh": 0.0, "used_kwh": 0.0, "recovered_kwh": 0.0,
                 "auxiliary_kwh": 0.0, "trips": 0}
 
     bands = {name: empty() for name, _, _ in TEMPERATURE_BANDS}
     seasons = {name: empty() for name in SEASONS}
     for trip in trips:
+        net = net_energy(trip.vehicle_energy_used_kwh, trip.recovered_energy_kwh)
+        if net is None or not trip.distance_km:
+            # Without energy or distance a trip only distorts kWh/100 km.
+            continue
         groups = [seasons[trip.season]]
         if trip.outside_temp_avg_c is not None:
             groups.append(bands[_band(trip.outside_temp_avg_c)])
         for group in groups:
-            group["distance_km"] += trip.distance_km or 0
-            group["vehicle_kwh"] += trip.vehicle_energy_used_kwh or 0
+            group["distance_km"] += trip.distance_km
+            # Consumption is net: drawn minus recuperated energy.
+            group["vehicle_kwh"] += net
+            group["used_kwh"] += trip.vehicle_energy_used_kwh or 0
             group["recovered_kwh"] += trip.recovered_energy_kwh or 0
             group["auxiliary_kwh"] += trip.auxiliary_energy_kwh or 0
             group["trips"] += 1
@@ -282,9 +288,9 @@ def temperature_statistics(
             "vehicle_kwh_100km": round(vehicle / km * 100, 2) if km else None,
             "grid_kwh_100km": round(grid / km * 100, 2) if km else None,
             "grid_kwh_estimated": round(grid, 3),
-            # Recuperation share relative to gross consumption.
-            "recuperation_share_pct": round(group["recovered_kwh"] / vehicle * 100, 1)
-            if vehicle else None,
+            # Recuperation share relative to the energy drawn from the battery.
+            "recuperation_share_pct": round(group["recovered_kwh"] / group["used_kwh"] * 100, 1)
+            if group["used_kwh"] else None,
             "cost_eur": round(grid * price_eur_kwh, 2),
             "quality": "ESTIMATED",
         }

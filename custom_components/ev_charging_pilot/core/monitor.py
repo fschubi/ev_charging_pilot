@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from .costs import FixedPriceHistory
 from .sessions import ChargeSession
-from .settings import Settings
+from .settings import OdometerSource, Settings
 from .statistics import (
     ExternalCharge,
     MonitorData,
@@ -31,6 +31,8 @@ class Monitor:
     def __init__(self, tz: ZoneInfo) -> None:
         self.tz = tz
         self.data = MonitorData([], [], [], [], [], set())
+        # Set by the engine: an OVMS odometer is mapped (odometer source "auto").
+        self.ovms_odometer = False
 
     # ------------------------------------------------------------- records
 
@@ -84,9 +86,14 @@ class Monitor:
             "prices": FixedPriceHistory(settings.price_history, self.tz),
             "capacity_kwh": settings.usable_capacity_kwh,
             "efficiency": settings.charge_efficiency,
-            "odometer_source": str(settings.odometer_source),
+            "odometer_source": "ovms" if self.odometer_from_ovms(settings) else "manual",
             "today": today,
         }
+
+    def odometer_from_ovms(self, settings: Settings) -> bool:
+        source = settings.odometer_source
+        return source is OdometerSource.OVMS or (
+            source is OdometerSource.AUTO and self.ovms_odometer)
 
     def month(self, year: int, month: int, settings: Settings,
               today: date | None = None) -> dict[str, Any]:
@@ -120,7 +127,11 @@ class Monitor:
         grid = sum(s.grid_energy_kwh for s in measured)
         loss_pct = (grid - sum(s.vehicle_charge_energy_kwh for s in measured)) / grid * 100 \
             if grid else None
-        price = settings.price_history[-1].eur_per_kwh
+        # What home charging really cost (dynamic tariff included); fixed price otherwise.
+        home = [s for s in self.data.sessions if s.success and s.grid_energy_kwh]
+        home_kwh = sum(s.grid_energy_kwh for s in home)
+        price = sum(s.cost_eur for s in home) / home_kwh if home_kwh >= 1 \
+            else settings.price_history[-1].eur_per_kwh
         return temperature_statistics(trips, loss_pct=loss_pct, price_eur_kwh=price)
 
     # -------------------------------------------------------------- storage

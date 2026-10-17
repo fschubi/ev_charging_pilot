@@ -16,6 +16,17 @@ from zoneinfo import ZoneInfo
 from .model import Quality, Value
 
 MIN_RECONSTRUCT_KM = 0.5
+# Below this distance (manoeuvring, moving the car) kWh/100 km means nothing.
+MIN_CONSUMPTION_KM = 1.0
+
+
+def net_energy(used: float | None, recovered: float | None) -> float | None:
+    """What the battery really lost: OVMS counts drawn and recuperated energy separately."""
+    if used is None:
+        return None
+    net = used - (recovered or 0.0)
+    # Recuperated more than drawn = the counters do not belong together (reset mid-trip).
+    return round(net, 4) if net >= 0 else None
 
 
 def season_of(moment: datetime, tz: ZoneInfo) -> str:
@@ -177,6 +188,8 @@ class TripTracker:
             self.last_odometer = t["odometer_end"]
             self.last_odometer_at = ended
         used = _counter_delta(t["used_start"], t["used_end"])
+        recovered = _counter_delta(t["recd_start"], t["recd_end"])
+        net = net_energy(used, recovered)
         duration_min = round((ended - t["started_at"]).total_seconds() / 60, 1)
         quality = "GOOD"
         if partial or distance is None:
@@ -194,10 +207,10 @@ class TripTracker:
             average_speed_kmh=round(distance / (duration_min / 60), 1)
             if distance and duration_min > 0 else None,
             vehicle_energy_used_kwh=used,
-            recovered_energy_kwh=_counter_delta(t["recd_start"], t["recd_end"]),
+            recovered_energy_kwh=recovered,
             auxiliary_energy_kwh=_counter_delta(t["aux_start"], t["aux_end"]),
-            consumption_kwh_100km=round(used / distance * 100, 2)
-            if used is not None and distance else None,
+            consumption_kwh_100km=round(net / distance * 100, 2)
+            if net is not None and distance and distance >= MIN_CONSUMPTION_KM else None,
             outside_temp_avg_c=round(t["temp_sum"] / t["temp_n"], 1) if t["temp_n"] else None,
             season=season_of(t["started_at"], self.tz),
             soc_start_pct=t["soc_start"],

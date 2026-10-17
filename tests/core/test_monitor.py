@@ -73,7 +73,8 @@ def test_trip_closes_after_merge_gap_and_short_stops_merge():
     trip = trips[0]
     assert trip.distance_km == pytest.approx(18)
     assert trip.vehicle_energy_used_kwh == pytest.approx(3.0)
-    assert trip.consumption_kwh_100km == pytest.approx(3.0 / 18 * 100, rel=1e-3)
+    # Net: drawn minus recuperated energy (OVMS counts both separately).
+    assert trip.consumption_kwh_100km == pytest.approx((3.0 - 0.3) / 18 * 100, rel=1e-3)
     assert trip.quality == "GOOD"
     assert trip.season == "autumn"
 
@@ -165,10 +166,36 @@ def test_temperature_groups():
     stats = temperature_statistics(
         [trip(local(2026, 1, 6, 7), 20, 4.0, -3.0), trip(local(2026, 7, 7, 7), 20, 2.4, 22.0)],
         loss_pct=10, price_eur_kwh=0.3)
-    assert stats["bands"]["<0"]["vehicle_kwh_100km"] == pytest.approx(20)
+    assert stats["bands"]["<0"]["vehicle_kwh_100km"] == pytest.approx((4.0 - 0.4) / 20 * 100)
     assert stats["bands"][">=20"]["distance_km"] == 20
     assert stats["bands"]["<0"]["recuperation_share_pct"] == pytest.approx(10)
     assert stats["bands"]["<0"]["quality"] == "ESTIMATED"
+
+
+def test_short_and_inconsistent_trips_do_not_distort_consumption():
+    from custom_components.ev_charging_pilot.core.trips import net_energy
+
+    assert net_energy(0.077, 0.155) is None  # counters reset mid-trip
+    assert net_energy(1.0, None) == 1.0
+    from dataclasses import replace
+
+    real = trip(local(2026, 10, 16, 15), 20, 3.0, 20.0)
+    parked = replace(real, trip_id="parked", distance_km=0, vehicle_energy_used_kwh=0.04)
+    stats = temperature_statistics([parked, real], loss_pct=None, price_eur_kwh=0.3)
+    assert stats["bands"][">=20"]["trips"] == 1
+    assert stats["bands"][">=20"]["vehicle_kwh_100km"] == pytest.approx((3.0 - 0.3) / 20 * 100)
+
+
+def test_odometer_source_auto_uses_ovms_when_mapped():
+    from custom_components.ev_charging_pilot.core.settings import OdometerSource
+
+    monitor = Monitor(TZ)
+    auto = Settings.from_options({})
+    assert auto.odometer_source is OdometerSource.AUTO
+    assert not monitor.odometer_from_ovms(auto)
+    monitor.ovms_odometer = True
+    assert monitor.odometer_from_ovms(auto)
+    assert not monitor.odometer_from_ovms(Settings.from_options({"odometer_source": "manual"}))
 
 
 def test_monitor_round_trip():

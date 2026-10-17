@@ -44,7 +44,7 @@ from .ports import Command, CommandKind
 from .prices import PriceSchedule, PriceSlot
 from .quality import QualityRule, charging_conflict, classify, non_negative, soc_plausible
 from .sessions import ChargeSession, SessionTracker
-from .settings import ClimateAfterTarget, OdometerSource, PriceSource, Settings
+from .settings import ClimateAfterTarget, PriceSource, Settings
 from .source_policy import (
     HvCycleMonitor,
     mark_conflict,
@@ -138,6 +138,7 @@ class Engine:
             config.settings, cp_available=config.cp_configured and config.cp_pulse_available,
             ovms_port=config.ovms_command_available))
         self.monitor = monitor or Monitor(config.tz)
+        self.monitor.ovms_odometer = Inp.OVMS_ODOMETER in config.configured
         self.sessions = SessionTracker(config.settings.interval_min)
         self.trips = TripTracker(config.settings.trip_merge_gap_min, config.tz)
         self.hv = HvCycleMonitor(config.settings.hv_cycles_warn_per_day)
@@ -716,8 +717,7 @@ class Engine:
         if self.soc.quality is Quality.GOOD:
             self.monitor.record_soc(now, float(self.soc.normalized))
         odometer = v[Inp.OVMS_ODOMETER]
-        if odometer.quality is Quality.GOOD and \
-                self.settings.odometer_source is OdometerSource.OVMS:
+        if odometer.quality is Quality.GOOD and self.monitor.odometer_from_ovms(self.settings):
             readings = self.monitor.data.odometer_readings
             if not readings or readings[-1].at.astimezone(self.tz).date() != local_day \
                     or float(odometer.normalized) - readings[-1].value >= 1:

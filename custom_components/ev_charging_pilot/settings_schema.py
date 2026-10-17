@@ -167,8 +167,10 @@ GROUPS: list[dict[str, Any]] = [
     {"id": "monitor", "title": "Statistik", "icon": "mdi:chart-line",
      "description": "Woher die Kilometer kommen und wie lange Daten aufbewahrt werden.",
      "fields": [
-        _s("odometer_source", "Kilometerstand", {OdometerSource.OVMS: "aus den Fahrzeugdaten",
-                                                 OdometerSource.MANUAL: "manuell eintragen"}),
+        _s("odometer_source", "Kilometerstand", {
+            OdometerSource.AUTO: "automatisch (Fahrzeugdaten, sonst manuell)",
+            OdometerSource.OVMS: "aus den Fahrzeugdaten",
+            OdometerSource.MANUAL: "manuell eintragen"}),
         _n("trip_merge_gap_min", "Kurze Stopps zu einer Fahrt zusammenfassen bis", 1, 120, 1,
            "min", advanced=True),
         _n("event_retention_days", "Ereignisse aufbewahren", 7, 730, 1, "Tage", advanced=True),

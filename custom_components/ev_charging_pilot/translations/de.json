@@ -293,6 +293,7 @@
     },
     "odometer_source": {
       "options": {
+        "auto": "Automatisch",
         "manual": "Manuell",
         "ovms": "OVMS"
       }

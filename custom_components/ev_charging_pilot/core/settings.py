@@ -34,6 +34,8 @@ class PriceSource(StrEnum):
 
 
 class OdometerSource(StrEnum):
+    # From the vehicle data when an OVMS odometer is mapped, else manual readings.
+    AUTO = "auto"
     MANUAL = "manual"
     OVMS = "ovms"
 
@@ -168,7 +170,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_NOTIFY_HEALTH: True,
     OPT_NOTIFY_HV_CYCLES: True,
     OPT_NOTIFY_PLUG_IN: True,
-    OPT_ODOMETER_SOURCE: OdometerSource.MANUAL.value,
+    OPT_ODOMETER_SOURCE: OdometerSource.AUTO.value,
     OPT_TRIP_MERGE_GAP_MIN: 10,
     OPT_EVENT_RETENTION_DAYS: 90,
     OPT_HV_CYCLES_WARN_PER_DAY: 10,
@@ -291,7 +293,7 @@ class Settings:
     max_ages: MaxAges = field(default_factory=MaxAges)
     plug_reminder_time: time = time(21, 0)
     notify: NotifyCategories = field(default_factory=NotifyCategories)
-    odometer_source: OdometerSource = OdometerSource.MANUAL
+    odometer_source: OdometerSource = OdometerSource.AUTO
     trip_merge_gap_min: int = 10
     event_retention_days: int = 90
     hv_cycles_warn_per_day: int = 10

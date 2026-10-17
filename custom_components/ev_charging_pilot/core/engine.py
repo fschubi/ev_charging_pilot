@@ -62,6 +62,8 @@ def external_price_url(charge_id: str) -> str:
     """Panel page with the price dialog (numeric keypad) for one external charge."""
     return f"/ev-pilot?external_price={charge_id}"
 
+# Wallbox status texts meaning "connector locked – cable state not reported" (Halo).
+BLIND_WHEN_LOCKED = frozenset({"unavailable", "disabled"})
 # Charging only makes a vehicle value STALE if it went on this long after it.
 CHARGING_ACTIVITY_GRACE = timedelta(minutes=15)
 # A current command the wallbox has not taken over yet is repeated after this.
@@ -232,7 +234,16 @@ class Engine:
 
         cable = values[Inp.CABLE_CONNECTED]
         cable_flag = bool(cable.normalized) if cable.available else None
-        if cable_flag is False and Inp.OVMS_PLUG in self.config.configured \
+        status = values[Inp.CHARGER_STATUS]
+        locked_blind = cable_flag is False and Inp.OVMS_PLUG not in self.config.configured \
+            and values[Inp.CHARGER_ENABLE].normalized is False and status.available \
+            and str(status.normalized).strip().lower() in BLIND_WHEN_LOCKED
+        if locked_blind:
+            # A locked Halo reports status "Unavailable" and never sees the cable: without
+            # the car's own plug signal "no cable" is unknown, not "unplugged".
+            cable_flag = None
+            cable = cable.with_quality(Quality.UNAVAILABLE)
+        elif cable_flag is False and Inp.OVMS_PLUG in self.config.configured \
                 and not values[Inp.OVMS_PLUG].available:
             # Right after a restart the OVMS plug may not be there yet: "no cable" from
             # the locked Halo alone says nothing – otherwise the car seems plugged in anew.

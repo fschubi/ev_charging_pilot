@@ -211,3 +211,16 @@ async def test_admin_only_services_refuse_normal_users(hass, entry, halo, hass_r
     # Everyday services stay open for everyone.
     await hass.services.async_call(DOMAIN, "cancel_one_shot", {}, blocking=True,
                                    context=Context(user_id=hass_read_only_user.id))
+
+
+async def test_mail_addresses_are_hidden_from_non_admins(hass, entry, halo, hass_ws_client,
+                                                         hass_read_only_access_token):
+    entry = MockConfigEntry(domain=DOMAIN, version=2, data=dict(entry.data),
+                            options={"mode": "dry_run", "mail_to_1": "melanie@example.org",
+                                     "mail_password": "geheim"})
+    await _setup(hass, entry)
+    client = await hass_ws_client(hass, hass_read_only_access_token)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/get_settings"})
+    values = (await client.receive_json())["result"]["values"]
+    assert values["mail_to_1"] == "•••"
+    assert values["mail_password"] == ""

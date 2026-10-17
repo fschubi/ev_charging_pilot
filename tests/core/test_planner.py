@@ -166,8 +166,9 @@ def test_high_target_is_not_reached_hours_before_departure():
         return one_shot_window(shot, now, TZ, soc(69), PARAMS, prices)
 
     ready = departure - timedelta(minutes=30)
-    # 90 % is not "full": the cheap 23:00 block is used.
-    assert window(90).blocks[0][0] == local(2026, 10, 18, 23)
+    # 90 % is not "full": the cheap 23:00–01:00 slot is used (on a tie the later start).
+    block = window(90).blocks[0]
+    assert local(2026, 10, 18, 23) <= block[0] and block[1] <= local(2026, 10, 19, 1)
     # 100 %: finished at most two hours before "ready", even though it costs more.
     full = window(100)
     assert full.blocks[-1][1] >= ready - timedelta(hours=2)

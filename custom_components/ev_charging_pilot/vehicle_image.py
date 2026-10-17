@@ -64,7 +64,7 @@ class VehicleImageView(HomeAssistantView):
         upload = form.get("file")
         if upload is None or not hasattr(upload, "file"):
             return web.json_response({"error": "Keine Datei"}, status=HTTPStatus.BAD_REQUEST)
-        data = upload.file.read(MAX_BYTES + 1)
+        data = await hass.async_add_executor_job(upload.file.read, MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
             return web.json_response({"error": "Datei größer als 8 MB"},
                                      status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)

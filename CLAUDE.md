@@ -135,10 +135,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.2 Prüfbericht Stufe 1 Kern.** Executor: `_ended_window` (persistiert)
-  + `_failed_window` im `_initial_state`, `_fail` sperrt Halo, Disable im Cooldown → COOLDOWN;
-  Sessions schließen bei CHARGE_ENDED; Klima `wake_allowed=False`; `_expire` CP-maskiert.
-  Regressionstests `tests/core/test_review_fixes.py`.
 - **2026-10-18 – v0.19.3 Prüfbericht Stufe 1 HA.** `statistics_month_start` (last_reset aus
   der berechneten Periode, Refresh bei Periodenwechsel vor `_handle`); `COMMAND_TIMEOUT_S` = 30 um
   `ports.execute`. Stufe 1 damit komplett.
@@ -153,3 +149,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-18 – v0.19.6 Prüfbericht Panel.** Render in `#app`, Toasts in `#toasts`;
   Signatur erst nach echtem Render; Select-Blur; Settings ohne Render bei offener Leiste;
   Berichte per `auth/sign_path`; `FAILURE_LABELS`/`failure_hint`; `dateOnly` lokal; Zeitleiste.
+- **2026-10-18 – v0.19.7 Prüfbericht Stufe 3.** `MISSING_STATES` case-sensitiv (Halo
+  „Unavailable“), `BLIND_WHEN_LOCKED`, kein Wecken bei unbekanntem Kabel, alte Leistung ≠ fließt,
+  `OFF_RETRY_AFTER`, MWh-Schwelle 70, Gleichstand → spät, Verlust ≤ 40 %, Privatsphäre, `plug_discovery_done`.

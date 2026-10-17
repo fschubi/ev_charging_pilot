@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import smtplib
 import ssl
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from typing import Any
@@ -33,7 +33,7 @@ class MailConfig:
     port: int
     security: str  # "starttls" | "ssl" | "none"
     user: str
-    password: str
+    password: str = field(repr=False)  # never in logs or tracebacks
     sender: str
     recipients: tuple[str, ...]
 
@@ -133,6 +133,12 @@ def friendly_error(err: Exception) -> str:
                 "nicht das normale Passwort")
     if isinstance(err, smtplib.SMTPRecipientsRefused):
         return "Empfängeradresse abgelehnt"
+    if isinstance(err, smtplib.SMTPSenderRefused):
+        return "Absenderadresse abgelehnt – Absender muss zum Konto passen"
+    if isinstance(err, smtplib.SMTPResponseException):
+        return f"Mailserver meldet {err.smtp_code}: {err.smtp_error.decode(errors='ignore')}"
+    if isinstance(err, smtplib.SMTPException):  # subclass of OSError – check it first
+        return str(err) or err.__class__.__name__
     if isinstance(err, (TimeoutError, ConnectionError, OSError)):
         return f"Mailserver nicht erreichbar ({err})"
     return str(err) or err.__class__.__name__

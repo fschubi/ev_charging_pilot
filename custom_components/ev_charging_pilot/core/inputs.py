@@ -89,7 +89,7 @@ KINDS: dict[Inp, Kind] = {
 SOURCES: dict[str, str] = {"cp_relay": "shelly", "outside_temp": "ha", "weather": "weather"}
 
 TRUE_STATES = {"on", "true", "1", "yes", "charging", "locked", "home"}
-MISSING_STATES = {None, "unavailable", "unknown", "none", ""}
+MISSING_STATES = {None, "unavailable", "unknown", "none", "None", ""}
 
 
 def source_of(key: Inp) -> str:
@@ -164,9 +164,12 @@ def to_value(key: Inp, raw: RawState | None) -> Value:
             return Value.unavailable(source)
         return Value(raw.attributes.get("temperature"), temperature, source, stamp, unit="°C")
 
-    state = raw.state.strip().lower() if isinstance(raw.state, str) else raw.state
-    if state in MISSING_STATES:
+    # HA's own "unavailable"/"unknown" are always lower case. A device state such as the
+    # Halo's "Unavailable" (connector locked) is a real value and must not vanish.
+    original = raw.state.strip() if isinstance(raw.state, str) else raw.state
+    if original in MISSING_STATES:
         return Value.unavailable(source)
+    state = original.lower() if isinstance(original, str) else original
     if kind is Kind.BOOL:
         return Value(raw.state, state in TRUE_STATES, source, stamp)
     if kind is Kind.TEXT:

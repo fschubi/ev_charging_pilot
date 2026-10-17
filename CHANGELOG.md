@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.19.7 – 2026-10-18
+
+Korrekturen aus dem Prüfbericht vom 18.10., Stufe 3 (Randfälle):
+- **Halo-Status „Unavailable“ wird erkannt.** Der Pilot hielt den echten Halo-Status
+  „Unavailable“ (Ladepunkt gesperrt) für das HA-interne „nicht verfügbar“. Ohne
+  OVMS-Stecker gilt „kein Kabel“ der gesperrten Halo jetzt als unbekannt, und der
+  Ladeplan startet trotzdem.
+- **Kein Weckversuch bei unbekanntem Kabel**, z. B. direkt nach einem Neustart.
+- **Eingefrorener Leistungswert:** Meldet die Wallbox-Cloud keine neuen Werte mehr, gilt
+  das nicht mehr als „Strom fließt“, und ein Abbruch wird erkannt.
+- **Keine Endlosschleife**, wenn die Wallbox „aus“ nie bestätigt. Neuer Versuch nach
+  30 Minuten.
+- **Preise:** €/MWh ohne Einheit werden erkannt, Zeitstempel als Text gelesen. Bei
+  gleichem Preis startet die Ladung so spät wie möglich statt sofort.
+- **Statistik:** Wochenrückblick und Monat zählen abgebrochene Ladungen gleich.
+  Erkannte Fremdladungen markieren den Monat als „geschätzt“. Ein unplausibler
+  Ladeverlust wird verworfen.
+- **Mail:** verständlichere Fehlermeldungen (z. B. „Mailserver meldet 552 …“). Das
+  Passwort erscheint nie in Logs.
+- **Datenschutz:** Mail-Adressen erscheinen nicht mehr im Ereignisprotokoll, und
+  Nicht-Admins sehen sie in den Einstellungen nur maskiert.
+- Ein absichtlich geleertes OVMS-Stecker-Feld wird beim Start nicht wieder befüllt.
+  Eine Fehler-Push zum Bericht ersetzt nicht mehr die „Bericht fertig“-Push. Der
+  Foto-Upload blockiert HA nicht mehr.
+
 ## 0.19.6 – 2026-10-18
 
 Korrekturen aus dem Prüfbericht vom 18.10., Panel (Stufe 2 und 3):

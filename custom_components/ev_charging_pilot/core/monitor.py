@@ -76,7 +76,8 @@ class Monitor:
 
     def prune(self, today: date) -> None:
         cutoff = today - timedelta(days=KEEP_DAYS)
-        self.data.soc_log = [r for r in self.data.soc_log if r.at.date() >= cutoff]
+        self.data.soc_log = [r for r in self.data.soc_log
+                             if r.at.astimezone(self.tz).date() >= cutoff]
         self.data.days_seen = {d for d in self.data.days_seen if d >= cutoff}
 
     # --------------------------------------------------------- statistics
@@ -106,15 +107,16 @@ class Monitor:
         """The last seven days for the Sunday push."""
         since = now - timedelta(days=7)
         sessions = [s for s in self.data.sessions if s.started_at >= since]
-        home = [s for s in sessions if s.success]
+        # Energy counts whether the session ended well or was interrupted (as in the month).
+        home = [s for s in sessions if s.grid_energy_kwh]
         trips = [t for t in self.data.trips if t.started_at >= since and t.distance_km]
         external = [e for e in self.data.external
                     if e.date >= since.astimezone(self.tz).date()]
         return {
             "home_kwh": round(sum(s.grid_energy_kwh for s in home), 1),
             "cost_eur": round(sum(s.cost_eur for s in home), 2),
-            "charges": len(home),
-            "failed": len(sessions) - len(home),
+            "charges": sum(1 for s in sessions if s.success),
+            "failed": sum(1 for s in sessions if not s.success),
             "wakeups": sum(int(s.ovms_wakeup_used) + int(s.cp_wakeup_used) for s in sessions),
             "external_kwh": round(sum(e.energy_kwh for e in external), 1),
             "km": round(sum(t.distance_km for t in trips)) if trips else None,
@@ -127,6 +129,8 @@ class Monitor:
         grid = sum(s.grid_energy_kwh for s in measured)
         loss_pct = (grid - sum(s.vehicle_charge_energy_kwh for s in measured)) / grid * 100 \
             if grid else None
+        if loss_pct is not None and not 0 <= loss_pct <= 40:
+            loss_pct = None  # measuring artefact (see statistics.MAX_PLAUSIBLE_LOSS_PCT)
         # What home charging really cost (dynamic tariff included); fixed price otherwise.
         home = [s for s in self.data.sessions if s.success and s.grid_energy_kwh]
         home_kwh = sum(s.grid_energy_kwh for s in home)

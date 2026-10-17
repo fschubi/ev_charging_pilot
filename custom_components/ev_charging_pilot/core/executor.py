@@ -39,6 +39,8 @@ class ExecState(StrEnum):
 # States in which the executor is still trying to get energy flowing.
 _STARTING = (ExecState.WAITING_FOR_CHARGE, ExecState.WAKEUP_OVMS, ExecState.WAKEUP_CP)
 
+# After the wallbox refused to confirm "off" several times, wait this long.
+OFF_RETRY_AFTER = timedelta(minutes=30)
 # How often a "close the CP" command is repeated while the relay stays open.
 CP_CLOSE_RETRY_S = 30.0
 # A charge whose last power sample fell below this share of its peak tapered off:
@@ -148,6 +150,8 @@ class Executor:
         self._failed_window: str | None = None
         # Window in which the car finished charging by itself (survives a restart).
         self._ended_window: str | None = None
+        # The wallbox refused to switch off – wait before the next attempt.
+        self._off_given_up_at: datetime | None = None
         self._last_switch_at: datetime | None = None
         self._last_wakeup_at: datetime | None = None
         self._mask_until: datetime | None = None
@@ -348,7 +352,10 @@ class Executor:
         Stability is measured in samples, not seconds, because the Halo is
         polled from the cloud (§6.2). A sample is identified by its timestamp.
         """
-        if not power.available or power.updated_at is None:
+        if not power.available or power.updated_at is None or power.quality in (
+                Quality.STALE, Quality.LAST_KNOWN_VALID):
+            # A frozen power value (entity available, but no new report for longer than
+            # max_age halo_power) must not keep "power flowing" – that hid charge loss.
             self._run_count = 0
             self._run_start = None
             return
@@ -516,6 +523,16 @@ class Executor:
         if not snap.desired.wake_allowed:
             self._topup_not_started(snap)
             return
+        if _flag(snap.cable_connected) is not True:
+            # Cable unknown (e.g. right after a restart): never wake a car that may not
+            # even be plugged in.
+            self._failed_window = snap.desired.window_key
+            self._event(snap.now, Category.WAKEUP, Severity.INFO, "WAKEUP_SKIPPED",
+                        "Kein Weckversuch – ob das Auto eingesteckt ist, ist unbekannt")
+            if _flag(snap.charger_on) is True:
+                self._switch(snap, False, retry=True)
+            self._go(ExecState.IDLE, snap.now)
+            return
         attempts = self.attempts_for(snap.desired)
         ovms_left = cfg.ovms_available and attempts.ovms < cfg.max_ovms_attempts_per_window
         cp_left = self._cp_wakeup_allowed(snap) and attempts.cp < cfg.max_cp_attempts_per_window
@@ -567,6 +584,9 @@ class Executor:
     def _reconcile_off(self, snap: Snapshot) -> bool:
         """Halo on although it should be off → switch it off. True if handled."""
         if snap.desired.charger_enabled is False and _flag(snap.charger_on) is True:
+            if self._off_given_up_at is not None and \
+                    snap.now - self._off_given_up_at < OFF_RETRY_AFTER:
+                return True  # it refused to switch off – no endless retry loop (§1.1)
             self._start_disabling(snap)
             return True
         return False
@@ -719,13 +739,16 @@ class Executor:
 
     def _in_disabling(self, snap: Snapshot) -> None:
         if _flag(snap.charger_on) is False:
+            self._off_given_up_at = None
             self._go(ExecState.COOLDOWN, snap.now, "CHARGER_OFF_CONFIRMED",
                      "Wallbox hat Abschaltung bestätigt")
             return
         if self._elapsed(snap.now) >= self.config.confirm_timeout_s:
             if self._confirm_attempts >= self.config.max_confirm_attempts:
                 self._event(snap.now, Category.CHARGING, Severity.ERROR, "CHARGER_NOT_CONFIRMED",
-                            "Wallbox bestätigt die Abschaltung nicht")
+                            "Wallbox bestätigt die Abschaltung nicht – neuer Versuch in "
+                            f"{int(OFF_RETRY_AFTER.total_seconds() // 60)} min")
+                self._off_given_up_at = snap.now
                 self._go(ExecState.COOLDOWN, snap.now)
                 return
             self._confirm_attempts += 1

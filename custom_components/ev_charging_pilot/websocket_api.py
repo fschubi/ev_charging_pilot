@@ -145,7 +145,8 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
         "one_shot": engine.one_shot.as_dict() if engine.one_shot else None,
         "charge_test": engine.charge_test.as_dict() if engine.charge_test else None,
         "price_push_test": center.price_push_test,
-        "mail_result": center.mail_result,
+        "mail_result": {**center.mail_result, "recipients": len(
+            center.mail_result.get("recipients") or [])} if center.mail_result else None,
         "mail_enabled": center.settings.mail_enabled,
         "climate": None if engine.climate_plan is None else {
             "duration_min": engine.climate_plan.duration_min,
@@ -373,13 +374,23 @@ async def ws_list_reports(hass, connection, msg) -> None:
     _send(connection, msg, {"items": await async_list_reports(center)})
 
 
+# Personal data in the settings: only admins see it (others get a placeholder).
+PRIVATE_FIELDS = ("mail_user", "mail_from", "mail_to_1", "mail_to_2", "report_push_targets")
+
+
+def _private(values: dict[str, Any], user) -> dict[str, Any]:
+    if user.is_admin:
+        return values
+    return {k: ("•••" if k in PRIVATE_FIELDS and v else v) for k, v in values.items()}
+
+
 @websocket_api.websocket_command({vol.Required("type"): f"{PREFIX}/get_settings"})
 @callback
 def ws_get_settings(hass, connection, msg) -> None:
     if center := _require(connection, msg, hass):
         _send(connection, msg, {
             "groups": GROUPS,
-            "values": current_values(dict(center.entry.options)),
+            "values": _private(current_values(dict(center.entry.options)), connection.user),
             "price_history": list(dict(center.entry.options).get("price_history")
                                   or DEFAULT_OPTIONS["price_history"]),
             "is_admin": connection.user.is_admin,

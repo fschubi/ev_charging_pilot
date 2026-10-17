@@ -382,13 +382,14 @@ class ChargingCenter:
                             f"Monatsbericht per Mail fehlgeschlagen: {text}"))
             if not test:
                 await self.notifier.async_send(Notification(
-                    "report", "high", "Bericht nicht versendet",
+                    "report_failed", "high", "Bericht nicht versendet",
                     f"Der Monatsbericht {month:02d}/{year} konnte nicht gemailt werden: {text}"))
         else:
             result.update(ok=True, subject=subject)
+            count = len(config.recipients)
             self._log(Event(now, Category.CONFIG, Severity.INFO, "REPORT_MAIL_SENT",
-                            f"Monatsbericht {month:02d}/{year} gemailt an "
-                            f"{', '.join(config.recipients)}"))
+                            f"Monatsbericht {month:02d}/{year} gemailt an {count} "
+                            f"Empfänger"))  # addresses stay out of the event log
         self.mail_result = result
         self._notify_listeners()
         return result

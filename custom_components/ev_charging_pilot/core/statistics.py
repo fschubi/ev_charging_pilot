@@ -28,6 +28,7 @@ TEMPERATURE_BANDS: tuple[tuple[str, float | None, float | None], ...] = (
     (">=20", 20.0, None),
 )
 SEASONS = ("winter", "spring", "summer", "autumn")
+MAX_PLAUSIBLE_LOSS_PCT = 40.0
 
 
 @dataclass(slots=True)
@@ -197,6 +198,10 @@ def period_summary(
     loss_kwh = round(grid_of_measured - vehicle_charged, 3) if measured else None
     loss_pct = round(loss_kwh / grid_of_measured * 100, 1) \
         if measured and grid_of_measured > 0 else None
+    if loss_pct is not None and not 0 <= loss_pct <= MAX_PLAUSIBLE_LOSS_PCT:
+        # Vehicle energy is integrated from sparse OVMS samples: a negative or huge
+        # loss is a measuring artefact and would distort every kWh/100 km.
+        loss_kwh = loss_pct = None
 
     grid_documented = round(home_kwh + external_kwh, 3)
     soc_term = (delta_soc or 0.0) * capacity_kwh
@@ -217,7 +222,8 @@ def period_summary(
     days = [first_day + timedelta(days=i) for i in range((last_day - first_day).days + 1)]
     complete = bool(days) and all(d in data.days_seen for d in days)
 
-    estimated = delta_soc is None or not distance_exact
+    # Detected external charges carry estimated energy and an assumed price.
+    estimated = delta_soc is None or not distance_exact or any(e.detected for e in external)
     return {
         "start": start.isoformat(),
         "end": end.isoformat(),

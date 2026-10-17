@@ -397,3 +397,76 @@ def test_s2_s3_merged_drives_and_restart_keep_energy_and_km():
     assert len(trips) == 1
     assert trips[0].vehicle_energy_used_kwh == 5.0
     assert trips[0].distance_km == 50.0
+
+
+def test_r1_frozen_power_value_is_detected_as_loss():
+    world = World(NIGHT, configured=WITH_CP)
+    world.run(1800)
+    assert world.engine.executor.state is ExecState.CHARGING
+    # The wallbox cloud stops reporting, the last value (2.3 kW) stays.
+    frozen = world.states[Inp.CHARGE_POWER]
+    for _ in range(int(900 / 5)):
+        world.now += timedelta(seconds=5)
+        world.apply(world.engine.tick(world.now, {**world.raw(), Inp.CHARGE_POWER:
+                                                  world.raw()[Inp.CHARGE_POWER]}))
+        world.states[Inp.CHARGE_POWER] = frozen
+    assert world.engine.executor.state is not ExecState.CHARGING
+
+
+def test_r2_unknown_cable_never_triggers_a_wakeup():
+    world = World(NIGHT, configured=WITH_CP | {Inp.OVMS_PLUG}, cp_pulse=True,
+                  cp_failsafe_verified=True)
+    world.car_charges_when_enabled = False
+    world.set(Inp.CABLE_CONNECTED, "off")  # locked Halo, OVMS plug not loaded yet
+    world.run(900)
+    assert CommandKind.CP_PULSE not in world.commands
+
+
+def test_r3_locked_halo_without_plug_signal_still_starts_the_plan():
+    world = World(NIGHT, configured=WITH_CP)
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.set(Inp.CHARGER_STATUS, "Unavailable")  # locked connector reports no cable
+    world.tick()
+    assert world.engine.executor.state is not ExecState.DISCONNECTED
+    world.run(600)  # the plan's window opens at 03:00
+    assert CommandKind.ENABLE_CHARGER in world.commands
+
+
+def test_r4_wallbox_that_never_confirms_off_is_not_retried_forever():
+    world = World(datetime(2026, 10, 20, 12, 0, tzinfo=TZ), configured=WITH_CP)
+    world.set(Inp.CHARGER_ENABLE, "on")  # stuck on, ignores every "off"
+    world.apply = lambda result: World.apply(world, result) or world.set(
+        Inp.CHARGER_ENABLE, "on")
+    world.run(3600)
+    assert world.commands.count(CommandKind.DISABLE_CHARGER) <= 6
+
+
+def test_r5_price_edge_cases():
+    from custom_components.ev_charging_pilot.core.prices import (
+        cheapest_blocks,
+        parse_price_attributes,
+    )
+
+    day = date(2026, 10, 20)
+    mwh = {"data": [{"start_time": f"2026-10-20T{h:02d}:00:00+02:00", "price": v}
+                    for h, v in enumerate([85.0, 120.0, 240.0])]}  # €/MWh, no unit
+    assert [s.eur_per_kwh for s in parse_price_attributes(mwh, TZ, day)] == [0.085, 0.12, 0.24]
+    start_ms = int(datetime(2026, 10, 20, 0, tzinfo=TZ).timestamp() * 1000)
+    text_epoch = {"forecast": [[str(start_ms + h * 3_600_000), 0.3] for h in range(4)]}
+    assert len(parse_price_attributes(text_epoch, TZ, day)) == 4
+    flat = _quarter_prices(datetime(2026, 10, 20, 18, 0, tzinfo=TZ), [0.3] * 40)
+    blocks, _ = cheapest_blocks(flat, datetime(2026, 10, 20, 18, 0, tzinfo=TZ),
+                                datetime(2026, 10, 21, 4, 0, tzinfo=TZ), timedelta(hours=1), 4.6)
+    # Flat price → as late as possible.
+    assert blocks[0][1] == datetime(2026, 10, 21, 4, 0, tzinfo=TZ)
+
+
+def test_r6_mail_errors_and_password_repr():
+    import smtplib
+
+    from custom_components.ev_charging_pilot.core.mail import friendly_error, mail_config
+
+    assert "552" in friendly_error(smtplib.SMTPDataError(552, b"too big"))
+    assert "nicht erreichbar" in friendly_error(ConnectionRefusedError("refused"))
+    config = mail_config("gmail", "", 0, "", "a@b.de", "geheim", "", ["c@d.de"])
+    assert "geheim" not in repr(config)

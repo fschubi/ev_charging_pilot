@@ -169,6 +169,9 @@ def suggest(candidates: list[Candidate]) -> dict[str, str]:
 
 
 PLUG_KEYS = (Inp.OVMS_PLUG.value, Inp.OVMS_LOCATION.value)
+# Set once the automatic plug/location lookup ran – a field the user cleared later
+# must not come back on the next start.
+PLUG_DISCOVERY_DONE = "plug_discovery_done"
 
 
 def async_discover_plug(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
@@ -177,7 +180,8 @@ def async_discover_plug(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, 
     Uses the entity registry, because at startup the OVMS entities may not
     have a state yet.
     """
-    if not data.get(Inp.OVMS_SOC.value) or any(k in data for k in PLUG_KEYS):
+    if not data.get(Inp.OVMS_SOC.value) or any(k in data for k in PLUG_KEYS) \
+            or data.get(PLUG_DISCOVERY_DONE):
         return {}
     taken = {v for v in data.values() if isinstance(v, str)}
     candidates = [

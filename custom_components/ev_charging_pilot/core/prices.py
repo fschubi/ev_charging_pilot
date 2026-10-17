@@ -28,6 +28,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 CENT_THRESHOLD = 5.0
+MWH_THRESHOLD = 70.0
 
 
 def parse_price_input(text: str | None) -> float | None:
@@ -63,6 +64,8 @@ class PriceSlot:
 def _time(value: Any, tz: ZoneInfo) -> datetime | None:
     if isinstance(value, datetime):
         moment = value
+    elif isinstance(value, str) and value.strip().isdigit():
+        return _time(int(value.strip()), tz)  # epoch sent as text
     elif isinstance(value, (int, float)) and not isinstance(value, bool):
         # Epoch seconds or milliseconds (JavaScript-style charts).
         seconds = value / 1000 if value > 1e11 else value
@@ -164,7 +167,11 @@ def _scaled(found: list[tuple], unit: str) -> list[tuple]:
         divisor = 100.0
     else:
         magnitudes = sorted(abs(f[2]) for f in found)
-        divisor = 100.0 if magnitudes[len(magnitudes) // 2] > CENT_THRESHOLD else 1.0
+        typical = magnitudes[len(magnitudes) // 2]
+        # €/MWh without a unit (typically 70–300) vs ct/kWh (typically 10–60). A unit
+        # attribute always wins over this guess.
+        divisor = 1000.0 if typical > MWH_THRESHOLD else \
+            100.0 if typical > CENT_THRESHOLD else 1.0
     return [(start, end, value / divisor) for start, end, value, _ in found]
 
 
@@ -305,7 +312,9 @@ def cheapest_blocks(schedule: PriceSchedule, earliest: datetime, latest: datetim
     best: tuple[list[Block], float] | None = None
     for start in candidates:
         cost = schedule.energy_cost(start, start + duration, kw)
-        if cost is not None and (best is None or cost < best[1] - 1e-9):
+        # On a tie the later start wins: less time standing charged, no needless
+        # immediate start when the price is flat.
+        if cost is not None and (best is None or cost <= best[1] + 1e-9):
             best = ([(start, start + duration)], cost)
 
     if max_blocks >= 2:

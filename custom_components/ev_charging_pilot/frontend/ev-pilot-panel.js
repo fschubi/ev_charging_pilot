@@ -1554,7 +1554,7 @@ class EvPilotPanel extends HTMLElement {
   _mailCard(s) {
     const r = s.mail_result;
     const result = !r ? "" : r.ok
-      ? `<span class="pill ok">gesendet</span> an ${esc(r.recipients.join(", "))}`
+      ? `<span class="pill ok">gesendet</span> an ${Array.isArray(r.recipients) ? esc(r.recipients.join(", ")) : `${Number(r.recipients) || 0} Empfänger`}`
       : `<span class="pill bad">fehlgeschlagen</span> ${esc(r.error || "")}`;
     return `<div class="card wide"><h2>Monatsbericht per E-Mail</h2>
       <p class="sub">Schickt den PDF-Bericht des Vormonats mit kWh und Kosten im Mailtext an die Empfänger aus den Einstellungen (Betreff mit „[Test]“). ${s.mail_enabled ? "Automatischer Versand am 1.: an." : "Automatischer Versand am 1.: aus (Einstellungen → Monatsbericht per E-Mail)."}</p>

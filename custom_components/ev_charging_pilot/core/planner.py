@@ -66,13 +66,18 @@ class VehicleParams:
     # standing full for hours. 0 switches the limit off.
     full_soc_pct: float = 90.0
     full_hold_max_h: float = 2.0
+    # Charging current set at the wallbox (None = unknown) and the phases it feeds.
+    current_a: float | None = None
+    phases: int = 3
 
     @property
     def wallbox_limit_kw(self) -> float:
-        """What the wallbox (and a §14a dimming) can deliver at most."""
+        """What the wallbox (at its current setting, and a §14a dimming) delivers at most."""
         limits = [self.halo_limit_kw]
         if self.grid_limit_kw is not None:
             limits.append(self.grid_limit_kw)
+        if self.current_a:
+            limits.append(current_kw(self.current_a, self.phases))
         return min(limits)
 
     @property
@@ -91,6 +96,20 @@ class VehicleParams:
         return self.usable_capacity_kwh / self.charge_efficiency / 100
 
 
+def current_kw(amps: float, phases: int = 3) -> float:
+    """Power of a charging current on 230 V phases."""
+    return amps * phases * 230 / 1000
+
+
+def _amps(value: Any) -> int | None:
+    """A plan's charging current; missing, 0 or invalid = keep the wallbox setting."""
+    try:
+        amps = int(value)
+    except (TypeError, ValueError):
+        return None
+    return amps if 6 <= amps <= 32 else None
+
+
 @dataclass(frozen=True, slots=True)
 class WeeklySchedule:
     """A recurring plan (§5.1). ``weekdays`` are the days of *departure*."""
@@ -106,6 +125,8 @@ class WeeklySchedule:
     preferred_departure_soc_pct: int = 90
     climate: str = "auto"
     name: str = ""
+    # Charging current for this plan (A); None = leave the wallbox as it is.
+    charge_current_a: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -120,6 +141,7 @@ class WeeklySchedule:
             "minimum_departure_soc_pct": self.minimum_departure_soc_pct,
             "preferred_departure_soc_pct": self.preferred_departure_soc_pct,
             "climate": self.climate,
+            "charge_current_a": self.charge_current_a,
         }
 
     @classmethod
@@ -139,6 +161,7 @@ class WeeklySchedule:
             minimum_departure_soc_pct=minimum,
             preferred_departure_soc_pct=preferred,
             climate=str(data.get("climate", "auto")),
+            charge_current_a=_amps(data.get("charge_current_a")),
         )
 
 
@@ -157,6 +180,7 @@ class OneShot:
     preferred_departure_soc_pct: int = 90
     id: str = "one-shot"
     climate: str = "auto"
+    charge_current_a: int | None = None
 
     def expired(self, now: datetime) -> bool:
         return now >= self.departure_at
@@ -170,6 +194,7 @@ class OneShot:
             "minimum_departure_soc_pct": self.minimum_departure_soc_pct,
             "preferred_departure_soc_pct": self.preferred_departure_soc_pct,
             "climate": self.climate,
+            "charge_current_a": self.charge_current_a,
         }
 
     @classmethod
@@ -182,12 +207,13 @@ class OneShot:
             minimum_departure_soc_pct=int(data["minimum_departure_soc_pct"]),
             preferred_departure_soc_pct=int(data["preferred_departure_soc_pct"]),
             climate=str(data.get("climate", "auto")),
+            charge_current_a=_amps(data.get("charge_current_a")),
         )
 
     @classmethod
     def for_next(cls, plan: WeeklySchedule, now: datetime, tz: ZoneInfo,
                  departure_time: time | None = None, *, departure_at: datetime | None = None,
-                 target_soc: int | None = None) -> OneShot:
+                 target_soc: int | None = None, current_a: int | None = None) -> OneShot:
         """"Charge tonight": the next occurrence of the plan's departure time, any weekday.
 
         ``departure_at`` sets a concrete date instead (e.g. Friday 07:00, holiday);
@@ -213,6 +239,8 @@ class OneShot:
             minimum_departure_soc_pct=min(plan.minimum_departure_soc_pct, preferred),
             preferred_departure_soc_pct=preferred,
             climate=plan.climate,
+            charge_current_a=_amps(current_a) if current_a is not None
+            else plan.charge_current_a,
         )
 
 
@@ -292,6 +320,8 @@ class ChargeWindow:
     blocks: tuple[tuple[datetime, datetime], ...] = ()
     # The last block was stretched to "ready": the charge ran past its end.
     overrun: bool = False
+    # Charging current to set at the wallbox (None = leave it).
+    current_a: int | None = None
 
     @property
     def key(self) -> str:
@@ -396,7 +426,10 @@ def _window(
     name: str = "",
     prices: PriceSchedule | None = None,
     price_blocks: int = 1,
+    current_a: int | None = None,
 ) -> ChargeWindow:
+    if current_a:
+        params = replace(params, current_a=current_a)
     ready_at = departure - timedelta(minutes=ready_buffer_min)
     soc_usable = soc is not None and soc.quality.usable_for_planning
     fallback = mode is ScheduleMode.DEPARTURE_BASED and not soc_usable
@@ -469,6 +502,7 @@ def _window(
         climate=climate,
         name=name or source_id,
         blocks=blocks,
+        current_a=current_a,
     )
 
 
@@ -502,6 +536,7 @@ def schedule_window(
         name=schedule.name,
         prices=prices,
         price_blocks=price_blocks,
+        current_a=schedule.charge_current_a,
     )
 
 
@@ -528,6 +563,7 @@ def one_shot_window(
         name="Einmalige Abfahrt",
         prices=prices,
         price_blocks=price_blocks,
+        current_a=one_shot.charge_current_a,
     )
 
 
@@ -540,6 +576,7 @@ def window_wish(window: ChargeWindow | None, now: datetime) -> Desired | None:
         reason=window.reason,
         source_id=window.source_id,
         valid_until=window.departure,
+        current_a=window.current_a,
     )
 
 

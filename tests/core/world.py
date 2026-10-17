@@ -22,12 +22,13 @@ WITH_OVMS = WITH_CP | {Inp.OVMS_SOC, Inp.OVMS_CHARGING, Inp.OVMS_ODOMETER,
 
 class World:
     def __init__(self, start: datetime, *, configured=HALO, cp_pulse=False, ovms_port=False,
-                 **options) -> None:
+                 current_settable=False, **options) -> None:
         self.now = start
         self.settings = Settings.from_options(options)
         self.engine = Engine(EngineConfig(self.settings, TZ, frozenset(configured),
                                           cp_pulse_available=cp_pulse,
-                                          ovms_command_available=ovms_port))
+                                          ovms_command_available=ovms_port,
+                                          current_settable=current_settable))
         self.states: dict[Inp, tuple[str, dict]] = {
             Inp.CHARGER_ENABLE: ("off", {}),
             Inp.CABLE_CONNECTED: ("on", {}),
@@ -35,6 +36,7 @@ class World:
             Inp.TOTAL_ENERGY: ("1000.0", {"unit_of_measurement": "kWh"}),
             Inp.CHARGER_STATUS: ("Available", {}),
             Inp.CP_RELAY: ("on", {}),
+            Inp.MAX_CURRENT: ("12", {}),
         }
         self.updated: dict[Inp, datetime] = {k: start for k in self.states}
         self.reported: dict[Inp, datetime] = dict(self.updated)
@@ -77,6 +79,8 @@ class World:
                 self.set(Inp.CHARGER_ENABLE, "on")
             elif command.kind is CommandKind.DISABLE_CHARGER:
                 self.set(Inp.CHARGER_ENABLE, "off")
+            elif command.kind is CommandKind.SET_CURRENT:
+                self.set(Inp.MAX_CURRENT, str(command.params["amps"]))
         self.events += [e.code for e in result.events]
         self.notifications += [n.category for n in result.notifications]
 

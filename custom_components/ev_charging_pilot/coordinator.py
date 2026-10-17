@@ -97,6 +97,7 @@ class ChargingCenter:
             ovms_topic=self.conf.get(CONF_OVMS_COMMAND_TOPIC),
             ovms_script=self.conf.get(CONF_OVMS_COMMAND_SCRIPT),
             ovms_entity=self.conf.get(Inp.OVMS_SOC.value),
+            max_current=self.conf.get(Inp.MAX_CURRENT.value),
         )
         self.monitor = Monitor(self.tz)
         self.engine = Engine(
@@ -106,6 +107,7 @@ class ChargingCenter:
                 configured=frozenset(self.entity_ids),
                 cp_pulse_available=self.ports.cp_pulse_available,
                 ovms_command_available=self.ports.ovms_command_available,
+                current_settable=self.ports.current_settable,
             ),
             self.monitor,
         )

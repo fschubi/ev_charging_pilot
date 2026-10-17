@@ -16,7 +16,12 @@ from .core.engine import FAILURE_HINTS
 from .core.inputs import Inp
 from .core.model import Value
 from .core.planner import ChargeWindow, WeeklySchedule
-from .core.settings import DEFAULT_OPTIONS, OPT_MANUAL_TARGET_SOC, RunMode
+from .core.settings import (
+    DEFAULT_OPTIONS,
+    OPT_MANUAL_CURRENT_A,
+    OPT_MANUAL_TARGET_SOC,
+    RunMode,
+)
 from .core.summary import summary
 from .reports import async_create_report, async_list_reports
 from .settings_schema import GROUPS, apply_changes, current_values
@@ -172,6 +177,10 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             "vehicle_charger_kw": center.settings.vehicle_charger_kw,
             "manual_target_soc": center.settings.manual_target_soc,
             "max_power_kw": center.settings.max_power_kw,
+            "manual_current_a": center.settings.manual_current_a,
+            "default_current_a": center.settings.default_current_a,
+            "phases": center.settings.phases,
+            "current_settable": center.ports.current_settable,
         },
         "history": [list(item) for item in center.history],
         "vehicle_link": vehicle_link(center),
@@ -405,6 +414,20 @@ def ws_set_manual_target(hass, connection, msg) -> None:
 
 
 @websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/set_manual_current",
+    vol.Required("value"): vol.All(vol.Coerce(int), vol.Range(min=0, max=32))})
+@callback
+def ws_set_manual_current(hass, connection, msg) -> None:
+    """Charging current of "Jetzt laden" (0 = standard) – applied live without a reload."""
+    if center := _require(connection, msg, hass):
+        value = int(msg["value"])
+        value = value if value >= 6 else 0
+        hass.config_entries.async_update_entry(
+            center.entry, options={**center.entry.options, OPT_MANUAL_CURRENT_A: value})
+        _send(connection, msg, {"value": value})
+
+
+@websocket_api.websocket_command({
     vol.Required("type"): f"{PREFIX}/run_system_check",
     vol.Optional("send_test_push", default=False): bool})
 @websocket_api.async_response
@@ -419,7 +442,8 @@ async def ws_run_system_check(hass, connection, msg) -> None:
     _send(connection, msg, {"results": results, "at": _iso(dt_util.utcnow())})
 
 
-COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_get_settings, ws_set_settings,
+COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_set_manual_current, ws_get_settings,
+            ws_set_settings,
             ws_create_report, ws_list_reports, ws_state,
             ws_health, ws_plan_preview, ws_sessions, ws_trips, ws_external, ws_month, ws_year,
             ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)

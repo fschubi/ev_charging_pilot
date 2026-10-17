@@ -44,6 +44,15 @@ const time = (iso) =>
   iso ? new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "–";
 const dateTime = (iso) =>
   iso ? new Date(iso).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "–";
+// Charging current choices: "" keeps the wallbox setting (or the default from the settings).
+const AMPS = [6, 8, 10, 12, 14, 16];
+const ampsKw = (a, phases) => `${(a * (phases || 3) * 0.23).toLocaleString("de-DE", { maximumFractionDigits: 1 })} kW`;
+const ampsOptions = (selected, settings, standardLabel) => {
+  const st = settings || {};
+  const std = standardLabel || (st.default_current_a ? `Standard (${st.default_current_a} A)` : "Standard (Wallbox-Einstellung)");
+  return [`<option value="" ${selected ? "" : "selected"}>${std}</option>`,
+    ...AMPS.map((a) => `<option value="${a}" ${Number(selected) === a ? "selected" : ""}>${a} A · ca. ${ampsKw(a, st.phases)}</option>`)].join("");
+};
 const dateOnly = (iso) => (iso ? new Date(iso).toLocaleDateString("de-DE") : "–");
 
 // ------------------------------------------------------------------ graphics
@@ -716,6 +725,9 @@ class EvPilotPanel extends HTMLElement {
       case "oneshot-add": {
         const data = this._form("oneshot");
         if (!data.departure_at) { this._toast("Bitte Datum und Uhrzeit wählen"); break; }
+        // "Standard" is an explicit choice here (0), not "take the plan's current".
+        const amps = this.shadowRoot.querySelector('[data-form="oneshot"] [name=charge_current_a]');
+        if (amps) data.charge_current_a = Number(amps.value || 0);
         this._submit("oneshot", "start_one_shot", data, "Einmalige Abfahrt geplant");
         break;
       }
@@ -727,6 +739,11 @@ class EvPilotPanel extends HTMLElement {
         this._createReport(el.dataset.month ? Number(el.dataset.month) : null); break;
       case "open-report":
         this._openReport(el.dataset.url); break;
+      case "manual-current":
+        this._ws("set_manual_current", { value: Number(el.value || 0) })
+          .then((r) => { this._toast(r.value ? `Ladestrom „Jetzt laden“: ${r.value} A` : "Ladestrom „Jetzt laden“: Standard"); this._refresh(); })
+          .catch((err) => this._toast(`Fehler: ${err.message || err}`));
+        break;
       case "manual-target":
         this._ws("set_manual_target", { value: Number(el.value) })
           .then(() => { this._toast(`Manuelles Ladeziel ${el.value} %`); this._refresh(); })
@@ -1173,6 +1190,7 @@ class EvPilotPanel extends HTMLElement {
           <label>Vorklimatisierung<select ${field("climate")}>
             ${[["off", "aus"], ["auto", "automatisch (nach Temperatur)"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"]]
               .map(([v, l]) => `<option value="${v}" ${p.climate === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          ${s.settings.current_settable ? `<label>Ladestrom<select ${field("charge_current_a")}>${ampsOptions(p.charge_current_a, s.settings)}</select></label>` : ""}
         </div>
         <div class="psec"><span class="plabel">Wann laden?</span>
           <div class="seg">
@@ -1198,6 +1216,7 @@ class EvPilotPanel extends HTMLElement {
         <h2>Manuelles Laden <span class="sub">· „Jetzt laden“ ohne Zeitplan</span></h2>
         <div class="slider"><label>Laden bis: <b class="val">${manual >= 100 ? "voll (100 %)" : manual + " %"}</b>
           <input type="range" min="20" max="100" step="5" value="${manual}" data-action="manual-target"></label></div>
+        ${s.settings.current_settable ? `<label class="inline">Ladestrom <select data-action="manual-current">${ampsOptions(s.settings.manual_current_a, s.settings)}</select></label>` : ""}
         <p class="hint">Gilt für „Jetzt laden“ (Cockpit, Push beim Einstecken, Service). Ohne Fahrzeugdaten wird bis zum Abstecken geladen.</p>
       </div>
       ${this._oneShotCard(s, plans)}
@@ -1221,11 +1240,12 @@ class EvPilotPanel extends HTMLElement {
     const proposal = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T07:00`;
     const target = (plans[0] && plans[0].preferred_departure_soc_pct) || 90;
     return `<div class="card wide"><h2>Einmalige Abfahrt <span class="sub">· z. B. Urlaub, Termin</span></h2>
-      ${shot ? `<div class="row"><span>Geplant: <b>${dateTime(shot.departure_at)}</b> · Ziel ${shot.preferred_departure_soc_pct} %</span>
+      ${shot ? `<div class="row"><span>Geplant: <b>${dateTime(shot.departure_at)}</b> · Ziel ${shot.preferred_departure_soc_pct} %${shot.charge_current_a ? ` · ${shot.charge_current_a} A` : ""}</span>
         <button class="act" data-service="cancel_one_shot" data-label="Einmalige Abfahrt gelöscht">Löschen</button></div>` : ""}
       <div class="form" data-form="oneshot">
         <label>Abfahrt<input type="datetime-local" name="departure_at" value="${proposal}"></label>
         <label>Laden bis<span class="unitbox"><input type="number" name="target_soc" min="20" max="100" step="5" value="${target}"><span>%</span></span></label>
+        ${s.settings.current_settable ? `<label>Ladestrom<select name="charge_current_a">${ampsOptions(plans[0] && plans[0].charge_current_a, s.settings)}</select></label>` : ""}
         <button class="act primary" data-action="oneshot-add">${shot ? "Ersetzen" : "Einplanen"}</button>
       </div>
       <p class="hint">Gilt zusätzlich zu den Wochenplänen und löscht sich nach der Abfahrt selbst.</p></div>`;

@@ -21,6 +21,7 @@ class CommandKind(StrEnum):
     CP_CLOSE = "cp_close"
     CLIMATE_START = "climate_start"
     CLIMATE_STOP = "climate_stop"
+    SET_CURRENT = "set_current"
 
 
 @dataclass(frozen=True, slots=True)

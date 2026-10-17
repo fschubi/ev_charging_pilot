@@ -21,7 +21,7 @@ from .const import (
     VERSION,
 )
 from .coordinator import ChargingCenter
-from .core.settings import OPT_MANUAL_TARGET_SOC, OPT_MODE
+from .core.settings import OPT_MANUAL_CURRENT_A, OPT_MANUAL_TARGET_SOC, OPT_MODE
 from .discovery import async_discover_plug
 from .reports import ReportView
 from .services import async_register_services, async_unregister_services
@@ -30,7 +30,7 @@ from .websocket_api import async_register as async_register_ws
 
 _LOGGER = logging.getLogger(__name__)
 # Options that apply without reloading the entry.
-LIVE_OPTIONS = (OPT_MODE, OPT_MANUAL_TARGET_SOC)
+LIVE_OPTIONS = (OPT_MODE, OPT_MANUAL_TARGET_SOC, OPT_MANUAL_CURRENT_A)
 PANEL_FILE = Path(__file__).parent / "frontend" / "ev-pilot-panel.js"
 
 type ChargingConfigEntry = ConfigEntry[ChargingCenter]

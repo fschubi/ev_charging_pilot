@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.15.0 – 2026-10-17
+
+- **Neu: Ladestrom einstellbar.** Jeder Wochenplan, die einmalige Abfahrt und „Jetzt laden“
+  haben jetzt ein Feld **„Ladestrom“** (6–16 A, mit kW-Angabe, z. B. 12 A ≈ 8,3 kW). Der
+  Pilot setzt den Strom an der Wallbox (`number.…_max_current`), wenn er laden will, und
+  nur dann. Nachts schonend mit 12 A, bei Bedarf mit 16 A (11 kW).
+- „Standard“ lässt die Wallbox-Einstellung unverändert. Unter Einstellungen → Fahrzeug und
+  Wallbox kannst du einen **Standard-Ladestrom** für alle Pläne ohne eigene Angabe
+  festlegen (0 = Wallbox-Einstellung lassen).
+- Startzeit und Ladeprognose rechnen mit der Leistung, die zum gewählten Strom passt.
+- Der Ladestrom für „Jetzt laden“ gilt sofort, ohne Neuladen der Integration, und steht im
+  Ladeplan-Reiter direkt unter „Laden bis“.
+- Neue Ereignisse „Ladestrom 12 A (ca. 8,3 kW)“; im Dry-Run wird das Setzen nur
+  protokolliert.
+
 ## 0.14.1 – 2026-10-17
 
 - **Kein falsches „Eingesteckt“ nach einem Neustart:** Direkt nach dem Start von HA ist

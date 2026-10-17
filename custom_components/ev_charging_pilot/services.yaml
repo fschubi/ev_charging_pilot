@@ -49,6 +49,13 @@ start_one_shot:
           max: 100
           step: 5
           unit_of_measurement: "%"
+    charge_current_a:
+      selector:
+        number:
+          min: 0
+          max: 32
+          step: 1
+          unit_of_measurement: "A"
 cancel_one_shot:
 vehicle_wakeup:
 cp_wakeup:

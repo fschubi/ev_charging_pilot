@@ -33,6 +33,7 @@ from .planner import (
     OverrideMode,
     VehicleParams,
     WeeklySchedule,
+    current_kw,
     one_shot_window,
     override_wish,
     schedule_window,
@@ -55,6 +56,8 @@ from .statistics import ExternalCharge
 from .trips import Trip, TripTracker
 
 HEALTH_PUSH_DEBOUNCE_S = 300
+# A current command the wallbox has not taken over yet is repeated after this.
+CURRENT_RETRY_S = 120
 ENFORCE_TARGET_MARGIN_PCT = 1
 # After the target was reached a window only tops up again when a fresh SOC is
 # clearly below it – otherwise an aging SOC would restart the charge (and wake the car).
@@ -114,6 +117,8 @@ class EngineConfig:
     configured: frozenset[Inp]
     cp_pulse_available: bool = False
     ovms_command_available: bool = False
+    # The wallbox current is a writable number entity.
+    current_settable: bool = False
 
     @property
     def cp_configured(self) -> bool:
@@ -171,6 +176,7 @@ class Engine:
         self._latched_raw: dict[str, Any] = {}
         self._cable: bool | None = None
         self._overrun_key: str | None = None
+        self._current_sent: tuple[int, datetime] | None = None
         self._pending_events: list[Event] = []
         self._reminder_day: date | None = None
         self._health_candidate: tuple[HealthStatus, datetime] | None = None
@@ -231,6 +237,8 @@ class Engine:
         self.health = evaluate(self._health_inputs(now))
         self._climate(now)
         self.desired = self._arbitrate(now, cable_flag is True)
+        self.desired = replace(self.desired, current_a=self._current_for(self.desired))
+        self._set_current(now, result)
 
         charger_on = values[Inp.CHARGER_ENABLE]
         if self.shadow:
@@ -365,12 +373,52 @@ class Engine:
             taper_from_pct=s.taper_from_pct,
             full_soc_pct=s.full_soc_pct,
             full_hold_max_h=s.full_hold_max_h,
+            phases=s.phases,
+            current_a=self._wallbox_current(),
         )
         learned = self._learn(nominal)
         if not s.learn_charging or not learned.active:
             return nominal
         return replace(nominal, learned_kwh_per_pct=learned.grid_kwh_per_pct,
                        learned_power_kw=learned.power_kw)
+
+    def _wallbox_current(self) -> float | None:
+        """The current a charge without its own setting runs at."""
+        if self.settings.default_current_a and self.config.current_settable:
+            return float(self.settings.default_current_a)
+        current = self.values.get(Inp.MAX_CURRENT) if self.values else None
+        if current is not None and current.available and current.normalized is not None:
+            return float(current.normalized)
+        return None
+
+    def _current_for(self, desired: Desired) -> int | None:
+        """Current for the winning wish: its own, "Jetzt laden" or the default."""
+        if not self.config.current_settable or desired.charger_enabled is not True:
+            return None
+        s = self.settings
+        if desired.reason is Reason.OVERRIDE and s.manual_current_a:
+            return s.manual_current_a
+        return desired.current_a or s.default_current_a or None
+
+    def _set_current(self, now: datetime, result: TickResult) -> None:
+        """Set the wallbox current before and while charging (never when it stays off)."""
+        amps = self.desired.current_a if self.desired else None
+        if amps is None:
+            return
+        actual = self.values[Inp.MAX_CURRENT]
+        if actual.available and actual.normalized is not None \
+                and abs(float(actual.normalized) - amps) < 0.5:
+            self._current_sent = None
+            return
+        if self._current_sent is not None and self._current_sent[0] == amps and (
+                self.shadow or (now - self._current_sent[1]).total_seconds() < CURRENT_RETRY_S):
+            # Dry run: the wallbox never takes the value over – log it once.
+            return
+        self._current_sent = (amps, now)
+        result.commands.append(Command(CommandKind.SET_CURRENT, {"amps": amps}))
+        kw = f"{current_kw(amps, self.settings.phases):.1f}".replace(".", ",")
+        result.events.append(Event(now, Category.CHARGING, Severity.INFO, "CURRENT_SET",
+                                   f"Ladestrom {amps} A (ca. {kw} kW)", data={"amps": amps}))
 
     def _learn(self, nominal: VehicleParams) -> LearnedCharging:
         """Re-learn only when a session was added (cheap enough, but not every tick)."""
@@ -848,10 +896,12 @@ class Engine:
 
     def start_one_shot(self, now: datetime, departure_time: time | None = None, *,
                        departure_at: datetime | None = None,
-                       target_soc: int | None = None) -> TickResult:
+                       target_soc: int | None = None,
+                       current_a: int | None = None) -> TickResult:
         plan = self.plans[0] if self.plans else DEFAULT_PLAN
         self.one_shot = OneShot.for_next(plan, now, self.tz, departure_time,
-                                         departure_at=departure_at, target_soc=target_soc)
+                                         departure_at=departure_at, target_soc=target_soc,
+                                         current_a=current_a)
         local = self.one_shot.departure_at.astimezone(self.tz)
         day = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")[local.weekday()]
         what = "Einmalige Abfahrt" if departure_at else "Heute Nacht laden"

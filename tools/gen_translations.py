@@ -391,6 +391,7 @@ SERVICES = {
 FIELDS = {
     "mode": T("Modus", "Mode"), "duration_min": T("Dauer", "Duration"),
     "until": T("Bis", "Until"), "target_soc": T("Ziel-SOC", "Target SOC"),
+    "charge_current_a": T("Ladestrom (0 = Standard)", "Charging current (0 = default)"),
     "departure_time": T("Abfahrtszeit", "Departure time"), "minutes": T("Minuten", "Minutes"),
     "departure_at": T("Abfahrt (Datum und Uhrzeit)", "Departure (date and time)"),
     "date": T("Datum", "Date"), "energy_kwh": T("Energie", "Energy"),

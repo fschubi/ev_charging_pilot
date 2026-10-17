@@ -39,6 +39,8 @@ PLAN_SCHEMA = vol.Schema({
     vol.Optional("minimum_departure_soc_pct"): vol.All(vol.Coerce(int), vol.Range(10, 100)),
     vol.Optional("preferred_departure_soc_pct"): vol.All(vol.Coerce(int), vol.Range(10, 100)),
     vol.Optional("climate"): vol.In(["off", "auto", "5", "10", "15"]),
+    vol.Optional("charge_current_a"): vol.Any(
+        None, vol.All(vol.Coerce(int), vol.Range(min=0, max=32))),
 }, extra=vol.REMOVE_EXTRA)
 
 SCHEMAS: dict[str, vol.Schema] = {
@@ -55,6 +57,7 @@ SCHEMAS: dict[str, vol.Schema] = {
         vol.Optional("departure_time"): cv.time,
         vol.Optional("departure_at"): cv.datetime,
         vol.Optional("target_soc"): vol.All(vol.Coerce(int), vol.Range(min=20, max=100)),
+        vol.Optional("charge_current_a"): vol.All(vol.Coerce(int), vol.Range(min=0, max=32)),
     }),
     "cancel_one_shot": vol.Schema({}),
     "vehicle_wakeup": vol.Schema({}),
@@ -157,7 +160,7 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 departure: time | None = data.get("departure_time")
                 await center.async_run(lambda now: engine.start_one_shot(
                     now, departure, departure_at=data.get("departure_at"),
-                    target_soc=data.get("target_soc")))
+                    target_soc=data.get("target_soc"), current_a=data.get("charge_current_a")))
             case "cancel_one_shot":
                 await center.async_run(engine.cancel_one_shot)
             case "vehicle_wakeup":

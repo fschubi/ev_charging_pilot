@@ -137,6 +137,11 @@ GROUPS: list[dict[str, Any]] = [
            help="Bordlader des Autos – smart 453: 4,6 kW Serie, 22 kW mit Schnelllader. "
                 "Zuhause begrenzt die Wallbox (z. B. 11 kW dreiphasig)."),
         _n("max_power_kw", "Leistung der Wallbox", 1, 22, 0.1, "kW"),
+        _n("default_current_a", "Standard-Ladestrom (0 = Wallbox-Einstellung lassen)", 0, 32, 1,
+           "A", help="Gilt für Pläne ohne eigenen Ladestrom. 12 A ≈ 8 kW, 16 A ≈ 11 kW "
+                     "(dreiphasig). Weniger Strom ist schonender für den Akku."),
+        _n("phases", "Phasen der Wallbox", 1, 3, 1, advanced=True,
+           help="Zum Umrechnen von Ampere in kW (Halo 11 kW: 3 Phasen)."),
         _n("grid_limit_kw", "Netzbetreiber-Limit §14a (0 = keins)", 0, 22, 0.1, "kW",
            help="Nur falls der Netzbetreiber die Wallbox dimmen darf (z. B. 4,2 kW)."),
         _n("charge_efficiency", "Ladewirkungsgrad", 0.5, 1, 0.01, advanced=True),

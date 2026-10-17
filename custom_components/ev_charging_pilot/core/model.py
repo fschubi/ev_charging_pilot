@@ -120,6 +120,8 @@ class Desired:
     climate: ClimateRequest | None = None
     # False: topping up after the target was reached – never wake the car for that.
     wake_allowed: bool = True
+    # Charging current to set at the wallbox (None = leave it as it is).
+    current_a: int | None = None
 
     @property
     def window_key(self) -> str:

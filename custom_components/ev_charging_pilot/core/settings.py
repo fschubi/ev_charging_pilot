@@ -110,6 +110,9 @@ OPT_MANUAL_TARGET_SOC = "manual_target_soc"
 OPT_LEARN_CHARGING = "learn_charging"
 OPT_TAPER_FROM_PCT = "taper_from_pct"
 OPT_FULL_SOC_PCT = "full_soc_pct"
+OPT_PHASES = "phases"
+OPT_DEFAULT_CURRENT_A = "default_current_a"
+OPT_MANUAL_CURRENT_A = "manual_current_a"
 OPT_FULL_HOLD_MAX_H = "full_hold_max_h"
 OPT_OVMS_WAKEUP_COMMAND = "ovms_wakeup_command"
 OPT_OVMS_CLIMATE_COMMAND = "ovms_climate_command"
@@ -192,6 +195,10 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     # A target above this SOC is reached at most this many hours before departure,
     # even when the electricity is cheaper earlier: a full battery should not stand.
     OPT_FULL_SOC_PCT: 90,
+    # Charging current: plans may set their own; 0 = leave the wallbox setting alone.
+    OPT_PHASES: 3,
+    OPT_DEFAULT_CURRENT_A: 0,
+    OPT_MANUAL_CURRENT_A: 0,
     OPT_FULL_HOLD_MAX_H: 2.0,
     # Ready-made OVMS v3 shell commands. Nothing is sent until the user switches the
     # vehicle access to "read & write" (ovms_enabled) – §1.2.
@@ -303,6 +310,9 @@ class Settings:
     learn_charging: bool = True
     taper_from_pct: float = 80
     full_soc_pct: float = 90
+    phases: int = 3
+    default_current_a: int = 0
+    manual_current_a: int = 0
     full_hold_max_h: float = 2.0
     ovms_wakeup_command: str = "auto"
     ovms_climate_command: str = "homelink {level}"
@@ -396,6 +406,9 @@ class Settings:
             learn_charging=bool(o[OPT_LEARN_CHARGING]),
             taper_from_pct=float(o[OPT_TAPER_FROM_PCT]),
             full_soc_pct=float(o[OPT_FULL_SOC_PCT]),
+            phases=int(o[OPT_PHASES]),
+            default_current_a=int(o[OPT_DEFAULT_CURRENT_A] or 0),
+            manual_current_a=int(o[OPT_MANUAL_CURRENT_A] or 0),
             full_hold_max_h=float(o[OPT_FULL_HOLD_MAX_H]),
             ovms_wakeup_command=str(o[OPT_OVMS_WAKEUP_COMMAND] or ""),
             ovms_climate_command=str(o[OPT_OVMS_CLIMATE_COMMAND] or ""),

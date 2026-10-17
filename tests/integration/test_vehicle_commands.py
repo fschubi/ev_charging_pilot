@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from homeassistant.core import SupportsResponse
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
 from custom_components.ev_charging_pilot.const import DOMAIN
 from custom_components.ev_charging_pilot.core.planner import OverrideMode
 from custom_components.ev_charging_pilot.core.ports import Command, CommandKind
-from custom_components.ev_charging_pilot.ha_ports import OVMS_PATH_SERVICE
+from custom_components.ev_charging_pilot.core.settings import Settings
+from custom_components.ev_charging_pilot.ha_ports import OVMS_PATH_SERVICE, HaPorts
 
 from .conftest import DATA, SOC
 
@@ -100,3 +101,16 @@ async def test_smart_453_gets_xsq_wakeup(hass, halo):
     assert center.ports.wakeup_command("wakeup") == "wakeup"
     await center.ports.execute(Command(CommandKind.OVMS_WAKEUP), center.settings)
     assert calls[-1]["command"] == "xsq wakeup"
+
+
+async def test_set_current_uses_the_number_entity_within_its_range(hass):
+    calls = async_mock_service(hass, "number", "set_value")
+    hass.states.async_set("number.halo_max_current", "12", {"min": 6, "max": 16})
+    ports = HaPorts(hass, charger_switch="switch.halo", cp_relay=None, shelly_host=None,
+                    ovms_topic=None, ovms_script=None, max_current="number.halo_max_current")
+    assert ports.current_settable
+    await ports.execute(Command(CommandKind.SET_CURRENT, {"amps": 20}), Settings())
+    assert calls[-1].data == {"entity_id": "number.halo_max_current", "value": 16.0}
+    sensor_only = HaPorts(hass, charger_switch="switch.halo", cp_relay=None, shelly_host=None,
+                          ovms_topic=None, ovms_script=None, max_current="sensor.halo_current")
+    assert not sensor_only.current_settable

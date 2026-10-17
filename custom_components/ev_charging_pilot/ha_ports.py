@@ -64,14 +64,20 @@ class HaPorts:
         ovms_topic: str | None,
         ovms_script: str | None,
         ovms_entity: str | None = None,
+        max_current: str | None = None,
     ) -> None:
         self.hass = hass
         self.charger_switch = charger_switch
+        self.max_current = max_current
         self.cp_relay = cp_relay
         self.shelly_host = shelly_host
         self.ovms_topic = ovms_topic
         self.ovms_script = ovms_script
         self.ovms_entity = ovms_entity
+
+    @property
+    def current_settable(self) -> bool:
+        return bool(self.max_current and self.max_current.startswith("number."))
 
     @property
     def cp_pulse_available(self) -> bool:
@@ -130,7 +136,24 @@ class HaPorts:
                 await self._ovms(text)
             case CommandKind.CLIMATE_STOP:
                 await self._ovms(settings.ovms_climate_stop_command)
+            case CommandKind.SET_CURRENT:
+                await self._set_current(float(command.params["amps"]))
         _LOGGER.info("Ausgeführt: %s", command.describe())
+
+    async def _set_current(self, amps: float) -> None:
+        if not self.current_settable:
+            raise PortError("kein einstellbarer Ladestrom (number-Entität) konfiguriert")
+        state = self.hass.states.get(self.max_current)
+        if state is not None:
+            # Stay inside what the wallbox accepts (Halo: 6–16 A).
+            low, high = state.attributes.get("min"), state.attributes.get("max")
+            if low is not None:
+                amps = max(float(low), amps)
+            if high is not None:
+                amps = min(float(high), amps)
+        await self.hass.services.async_call(
+            "number", "set_value", {"entity_id": self.max_current, "value": amps},
+            blocking=True)
 
     async def _switch(self, entity_id: str, on: bool) -> None:
         await self.hass.services.async_call(

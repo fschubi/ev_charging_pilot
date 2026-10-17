@@ -191,3 +191,20 @@ async def test_settings_price_check(hass, halo, hass_ws_client):
     result = (await client.receive_json())["result"]
     assert not result["ok"] and "Tibber" in result["error"]
     assert entry.runtime_data.engine.dynamic_prices is False  # a check changes nothing
+
+
+async def test_unexpected_tibber_error_is_retried(hass, halo):
+    calls: list = []
+
+    async def broken(call):
+        calls.append(1)
+        raise TimeoutError
+
+    hass.services.async_register("tibber", "get_prices", broken,
+                                 supports_response=SupportsResponse.ONLY)
+    entry = await _setup(hass, {"price_source": "tibber"})
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
+    await hass.async_block_till_done()
+    assert len(calls) == 2  # retried instead of silently waiting 30 minutes
+    await _retries_used_up(hass)
+    assert entry.runtime_data.price_fetcher.last_error.startswith("Preise nicht abrufbar")

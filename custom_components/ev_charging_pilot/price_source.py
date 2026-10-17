@@ -106,6 +106,10 @@ class PriceFetcher:
         except (HomeAssistantError, ValueError, KeyError) as err:
             self._failed(f"Preise nicht abrufbar: {err}")
             return []
+        except Exception as err:  # noqa: BLE001 – timeouts, aiohttp, odd responses
+            _LOGGER.debug("Preisabruf fehlgeschlagen", exc_info=True)
+            self._failed(f"Preise nicht abrufbar: {err.__class__.__name__} {err}".strip())
+            return []
         if not slots:
             self._failed("Preisquelle liefert keine Preise")
             return []

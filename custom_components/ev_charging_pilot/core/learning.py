@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from statistics import median
 from typing import Any
 
@@ -44,10 +45,21 @@ class LearnedCharging:
                 "sessions": self.sessions, "active": self.active}
 
 
+def _hours(item: dict[str, Any]) -> float:
+    """Length of an energy interval – the interval length is configurable (5–60 min)."""
+    try:
+        start = datetime.fromisoformat(str(item["start"]))
+        end = datetime.fromisoformat(str(item["end"]))
+    except (KeyError, ValueError):
+        return INTERVAL_H
+    hours = (end - start).total_seconds() / 3600
+    return hours if hours > 0 else INTERVAL_H
+
+
 def _session_power_kw(session: ChargeSession) -> float | None:
-    """Typical power of the full 15-min intervals (the first and last are partial)."""
+    """Typical power of the full energy intervals (the first and last are partial)."""
     items = session.energy_intervals[1:-1]
-    powers = [float(i["kwh"]) / INTERVAL_H for i in items if float(i.get("kwh", 0)) > 0]
+    powers = [float(i["kwh"]) / _hours(i) for i in items if float(i.get("kwh", 0)) > 0]
     if not powers:
         return None
     top = [p for p in powers if p >= max(powers) * 0.5]

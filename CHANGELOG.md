@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.19.4 – 2026-10-18
+
+Korrekturen aus dem Prüfbericht vom 18.10., Stufe 2 (Lade-Kern und Preise):
+- **K9 – eine Unterbrechung ist kein „Auto fertig“:** Meldet das Auto „lädt nicht“ weit
+  unter dem Ziel (z. B. FI-Auslösung, Wallbox-Störung), gilt das jetzt als Abbruch mit
+  einem Neustartversuch und einer Meldung. Als eigenes Ladeende zählt es nur nahe voll
+  oder nahe am Ziel. Nach einem Ladeende wird ein neuer Wunsch wie „Jetzt laden“ wieder
+  bedient.
+- **K11 – Automatik aus:** Endet „Jetzt laden“ (Ziel erreicht, Zeit abgelaufen), wird die
+  Wallbox trotzdem gesperrt. Vorher lud das Auto bis 100 % weiter.
+- **K12 – Lernen** rechnet mit der echten Intervalllänge statt fest mit 15 Minuten.
+- **K13 – Außentemperatur:** Die letzte Temperatur des schlafenden Autos dient als letzte
+  Rückfallquelle, statt nachts „Systemzustand eingeschränkt“ auszulösen.
+- **P1 – zwei Ladeblöcke:** Die Suche findet jetzt immer die günstigste Kombination
+  (vorher teils bis doppelt so teuer) und braucht Millisekunden statt rund einer Sekunde
+  pro Takt.
+- **P2 – Cent oder Euro** wird einmal pro Preisliste entschieden (Einheit, Feldname, sonst
+  typischer Wert). Günstige Preise unter 5 ct und negative Preise werden nicht mehr als
+  Euro gelesen. Bei der Preiseingabe wird „4 ct“ jetzt verstanden.
+- **P3 – Lücken in Preislisten** bleiben Lücken, statt mit einem erfundenen Preis
+  aufgefüllt zu werden.
+- **P4 – unerwartete Fehler beim Tibber-Abruf** (z. B. Zeitüberschreitung) werden jetzt
+  wiederholt und gemeldet.
+- **P5 – Wechsel des Preisrasters** (15 Minuten ↔ Stunde): Alte Werte bleiben nicht
+  mehr tagelang stehen.
+- Halbstündliche Preislisten werden erkannt.
+
 ## 0.19.3 – 2026-10-18
 
 Korrekturen aus dem Prüfbericht vom 18.10., Stufe 1 (HA):

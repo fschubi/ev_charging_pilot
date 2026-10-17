@@ -38,7 +38,7 @@ def parse_price_input(text: str | None) -> float | None:
     if match is None:
         return None
     value = float(match.group().replace(",", "."))
-    if value > 5:  # cents
+    if value > CENT_THRESHOLD or re.search(r"ct|cent", text, re.IGNORECASE):
         value /= 100
     return round(value, 4) if 0 < value < 3 else None
 
@@ -60,16 +60,6 @@ class PriceSlot:
                 "eur_per_kwh": round(self.eur_per_kwh, 5)}
 
 
-def _eur(value: Any, mwh: bool = False) -> float | None:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    if mwh:
-        return number / 1000
-    return number / 100 if number > CENT_THRESHOLD else number
-
-
 def _time(value: Any, tz: ZoneInfo) -> datetime | None:
     if isinstance(value, datetime):
         moment = value
@@ -89,17 +79,22 @@ def _time(value: Any, tz: ZoneInfo) -> datetime | None:
 
 
 def _close(slots: list[tuple[datetime, datetime | None, float]]) -> list[PriceSlot]:
-    """Fill missing slot ends from the next start (or the typical slot length)."""
+    """Fill missing slot ends from the next start – at most the typical slot length.
+
+    A hole in the list (missing hours) stays a hole: stretching the previous price
+    over it would make the planner trust an invented price.
+    """
     slots.sort(key=lambda s: s[0])
+    steps = [b[0] - a[0] for a, b in zip(slots, slots[1:], strict=False)
+             if b[0] > a[0]]
+    typical = min(steps) if steps else timedelta(hours=1)
     out: list[PriceSlot] = []
     for index, (start, end, price) in enumerate(slots):
         if end is None:
             if index + 1 < len(slots):
-                end = slots[index + 1][0]
-            elif out:
-                end = start + (out[-1].end - out[-1].start)
+                end = min(slots[index + 1][0], start + typical)
             else:
-                end = start + timedelta(hours=1)
+                end = start + typical
         if end > start:
             out.append(PriceSlot(start, end, price))
     return out
@@ -111,40 +106,66 @@ PRICE_KEYS = ("value", "price", "total", "price_per_kwh", "price_eur_kwh", "pric
               "marketprice")
 
 
-def _from_dicts(items: Iterable[Any], tz: ZoneInfo, mwh: bool = False) -> list[tuple]:
+def _number(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _from_dicts(items: Iterable[Any], tz: ZoneInfo) -> list[tuple]:
+    """Raw (start, end, value, value_is_ct) – scaling happens once per list (_scaled)."""
     found = []
     for item in items:
         if isinstance(item, (list, tuple)) and len(item) >= 2:
             # [timestamp, price] pairs.
-            start, price = _time(item[0], tz), _eur(item[1], mwh)
+            start, price = _time(item[0], tz), _number(item[1])
             if start is not None and price is not None:
-                found.append((start, None, price))
+                found.append((start, None, price, False))
             continue
         if not isinstance(item, dict):
             continue
         start = _time(next((item[k] for k in START_KEYS if item.get(k) is not None), None), tz)
         end_raw = next((item[k] for k in END_KEYS if item.get(k)), None)
         end = _time(end_raw, tz) if end_raw else None
-        price = None
+        price, cents = None, False
         for key in PRICE_KEYS:
             if key in item:
-                price = _eur(item[key], mwh)
+                price, cents = _number(item[key]), "ct" in key
                 break
         if start is not None and price is not None:
-            found.append((start, end, price))
+            found.append((start, end, price, cents))
     return found
 
 
-def _from_numbers(values: Sequence[Any], day: date, tz: ZoneInfo,
-                  mwh: bool = False) -> list[tuple]:
-    """A plain list of prices for one day: 24 (hourly), 96 (15 min) or with DST 23/25."""
-    numbers = [_eur(v, mwh) for v in values]
+def _from_numbers(values: Sequence[Any], day: date, tz: ZoneInfo) -> list[tuple]:
+    """A plain list of prices for one day: 24 (hourly), 48 (30 min), 96 (15 min),
+    each ±4 on DST days."""
+    numbers = [_number(v) for v in values]
     if not numbers or any(n is None for n in numbers):
         return []
-    slots_per_hour = 4 if len(numbers) >= 92 else 1
+    slots_per_hour = 4 if len(numbers) >= 92 else 2 if len(numbers) >= 46 else 1
     step = timedelta(minutes=60 // slots_per_hour)
     start = datetime.combine(day, time(0), tzinfo=tz).astimezone(ZoneInfo("UTC"))
-    return [(start + i * step, start + (i + 1) * step, n) for i, n in enumerate(numbers)]
+    return [(start + i * step, start + (i + 1) * step, n, False)
+            for i, n in enumerate(numbers)]
+
+
+def _scaled(found: list[tuple], unit: str) -> list[tuple]:
+    """€/kWh for a whole list: by unit, by a ct field name, else by its typical value.
+
+    Deciding per value would read cheap or negative spot prices in ct (0–5 ct) as €.
+    """
+    if not found:
+        return []
+    if "MWh" in unit:
+        divisor = 1000.0
+    elif re.search(r"ct|cent", unit, re.IGNORECASE) or any(f[3] for f in found):
+        divisor = 100.0
+    else:
+        magnitudes = sorted(abs(f[2]) for f in found)
+        divisor = 100.0 if magnitudes[len(magnitudes) // 2] > CENT_THRESHOLD else 1.0
+    return [(start, end, value / divisor) for start, end, value, _ in found]
 
 
 KNOWN_LISTS = ("raw_today", "raw_tomorrow", "data", "prices", "forecast", "prices_today",
@@ -154,28 +175,27 @@ KNOWN_LISTS = ("raw_today", "raw_tomorrow", "data", "prices", "forecast", "price
 def parse_price_attributes(attributes: dict[str, Any], tz: ZoneInfo,
                            today: date) -> list[PriceSlot]:
     unit = str(attributes.get("unit_of_measurement") or attributes.get("unit") or "")
-    mwh = "MWh" in unit
     found: list[tuple] = []
     for key in KNOWN_LISTS:
         value = attributes.get(key)
         if isinstance(value, list):
-            found += _from_dicts(value, tz, mwh)
+            found += _from_dicts(value, tz)
     if not found:
         for key, day in (("today", today), ("tomorrow", today + timedelta(days=1))):
             value = attributes.get(key)
             if isinstance(value, list) and value:
                 if isinstance(value[0], (dict, list, tuple)):
-                    found += _from_dicts(value, tz, mwh)
+                    found += _from_dicts(value, tz)
                 else:
-                    found += _from_numbers(value, day, tz, mwh)
+                    found += _from_numbers(value, day, tz)
     if not found:
         # Unknown attribute name (e.g. "daten"): the first list that yields prices.
         for key, value in attributes.items():
             if key not in KNOWN_LISTS and isinstance(value, list) and len(value) >= 4:
-                found = _from_dicts(value, tz, mwh)
+                found = _from_dicts(value, tz)
                 if found:
                     break
-    return _close(_dedupe(found))
+    return _close(_dedupe(_scaled(found, unit)))
 
 
 def describe_prices(slots: Sequence[PriceSlot], tz: ZoneInfo) -> dict[str, Any]:
@@ -197,7 +217,7 @@ def describe_prices(slots: Sequence[PriceSlot], tz: ZoneInfo) -> dict[str, Any]:
 def parse_tibber_response(response: dict[str, Any], tz: ZoneInfo) -> list[PriceSlot]:
     homes = (response or {}).get("prices") or {}
     first = next(iter(homes.values()), []) if isinstance(homes, dict) else homes
-    return _close(_dedupe(_from_dicts(first, tz)))
+    return _close(_dedupe(_scaled(_from_dicts(first, tz), "")))
 
 
 def _dedupe(slots: list[tuple]) -> list[tuple]:
@@ -289,25 +309,62 @@ def cheapest_blocks(schedule: PriceSchedule, earliest: datetime, latest: datetim
             best = ([(start, start + duration)], cost)
 
     if max_blocks >= 2:
-        step = min((s.end - s.start for s in schedule.slots), default=timedelta(hours=1))
-        first_len = step
-        while first_len < duration:
-            second_len = duration - first_len
-            for a in candidates:
-                a_end = a + first_len
-                if a_end > latest:
-                    continue
-                cost_a = schedule.energy_cost(a, a_end, kw)
-                if cost_a is None:
-                    continue
-                for b in (c for c in candidates if c >= a_end + step):
-                    if b + second_len > latest:
-                        continue
-                    cost_b = schedule.energy_cost(b, b + second_len, kw)
-                    if cost_b is None:
-                        continue
-                    total = cost_a + cost_b
-                    if best is None or total < best[1] - 1e-6:
-                        best = ([(a, a_end), (b, b + second_len)], total)
-            first_len += step
+        two = _cheapest_two_blocks(schedule, earliest, latest, duration, kw)
+        if two is not None and (best is None or two[1] < best[1] - 1e-6):
+            best = two
     return best
+
+
+TWO_BLOCK_CELL = timedelta(minutes=5)
+
+
+def _cheapest_two_blocks(schedule: PriceSchedule, earliest: datetime, latest: datetime,
+                         duration: timedelta, kw: float) -> tuple[list[Block], float] | None:
+    """Best split into two blocks, searched on a 5-minute grid with prefix sums.
+
+    O(cells × split points) instead of trying every pair of candidates – the old
+    search missed second blocks late in the window and took about a second per
+    tick with 15-minute prices. The result's cost is computed exactly.
+    """
+    cell = TWO_BLOCK_CELL
+    epoch = datetime(2000, 1, 1, tzinfo=earliest.tzinfo)
+    offset = (earliest - epoch) % cell
+    grid0 = earliest if not offset else earliest + (cell - offset)
+    n = int((latest - grid0) / cell)
+    need = -(-duration // cell)  # ceil
+    step = min((s.end - s.start for s in schedule.slots), default=timedelta(hours=1))
+    gap = max(1, -(-step // cell))
+    if need < 2 or need + gap > n:
+        return None
+    prefix = [0.0]
+    for i in range(n):
+        price = schedule.price_at(grid0 + i * cell)
+        prefix.append(prefix[-1] + (price if price is not None else float("inf")))
+
+    def window(i: int, length: int) -> float:
+        return prefix[i + length] - prefix[i]
+
+    found: tuple[float, int, int, int] | None = None
+    for first in range(1, need):
+        second = need - first
+        best_first, best_i = float("inf"), -1
+        for j in range(first + gap, n - second + 1):
+            i = j - first - gap
+            value = window(i, first)
+            if value < best_first:
+                best_first, best_i = value, i
+            total = best_first + window(j, second)
+            if found is None or total < found[0] - 1e-12:
+                found = (total, best_i, j, first)
+    if found is None or found[0] == float("inf"):
+        return None
+    _, i, j, first = found
+    a = grid0 + i * cell
+    a_end = a + first * cell
+    b = grid0 + j * cell
+    b_end = min(b + (duration - first * cell), latest)
+    cost_a = schedule.energy_cost(a, a_end, kw)
+    cost_b = schedule.energy_cost(b, b_end, kw)
+    if cost_a is None or cost_b is None:
+        return None
+    return [(a, a_end), (b, b_end)], cost_a + cost_b

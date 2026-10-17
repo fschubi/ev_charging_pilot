@@ -696,6 +696,13 @@ class Executor:
     def _in_charge_ended(self, snap: Snapshot) -> None:
         if self._reconcile_off(snap):
             return
+        if snap.desired.charger_enabled is True and self._ended_window is not None \
+                and snap.desired.window_key != self._ended_window:
+            # A new request (e.g. "Jetzt laden" after the plan's charge ended).
+            self._ended_window = None
+            self._go(ExecState.WAITING_FOR_CHARGE, snap.now, "WAIT_FOR_CHARGE",
+                     "Neue Anforderung nach Ladeende")
+            return
         if self.stable(snap):
             self._go(ExecState.CHARGING, snap.now, "CHARGE_RESUMED", "Fahrzeug lädt wieder")
 

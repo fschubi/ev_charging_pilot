@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.18.0 Monatsbericht per Mail.** `core/mail.py` (Presets, `monthly_mail`,
+  `build_message`, `send` im Executor), Optionen `mail_*`/`report_push_targets`, Feldtyp
+  `password` (nie zurück, leer = behalten), `async_send_report_mail` am 1. + Dienst
+  `send_report_mail`, Push an Zusatzziele. Frank: Gmail (App-Passwort), Empfängerin Melanie.
 - **2026-10-17 – v0.17.3 Start im Cockpit.** `localStorage` `ev-pilot-view` entfernt;
   `connectedCallback` nach `disconnectedCallback` setzt den Reiter auf Cockpit (außer bei
   offenem `_settingsDraft`). Frank wollte nach HA-Seitenwechsel nicht im alten Reiter landen.

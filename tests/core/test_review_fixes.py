@@ -4,7 +4,7 @@ Each scenario was reproduced with this simulation before the fix.
 """
 
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from custom_components.ev_charging_pilot.core.engine import Engine
 from custom_components.ev_charging_pilot.core.executor import ExecState
@@ -169,3 +169,129 @@ def test_k10_stop_inside_the_switch_interval_gives_one_session():
     assert world.events.count("SESSION_END") == 1
     assert "SESSION_RESUMED" not in world.events
     assert len(world.engine.monitor.data.sessions) == 1
+
+
+def test_k9_interruption_far_below_target_is_no_end_of_charge():
+    world = World(NIGHT, configured=WITH_OVMS)
+    world.set(Inp.OVMS_SOC, "50")
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.run(1800)
+    assert world.engine.executor.state is ExecState.CHARGING
+    # Wallbox fault: power gone, the car (awake) reports "not charging" at 55 %.
+    world.car_charges_when_enabled = False
+    world.set(Inp.OVMS_SOC, "55")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.run(400)
+    assert "CHARGE_INTERRUPTED" in world.events
+    assert "CHARGE_ENDED" not in world.events
+
+
+def test_k9_new_request_after_end_of_charge_is_served():
+    world = World(NIGHT, configured=WITH_CP, cp_pulse=True, cp_failsafe_verified=True)
+    world.run(1800)
+    _taper_end(world)
+    world.run(600)
+    assert world.engine.executor.state is ExecState.CHARGE_ENDED
+    world.car_charges_when_enabled = True
+    world.charging_power = 2300
+    world.apply(world.engine.charge_now(world.now))
+    world.run(300)
+    assert world.engine.executor.state is ExecState.CHARGING
+
+
+def test_k11_automation_off_override_end_switches_the_wallbox_off():
+    world = World(datetime(2026, 10, 20, 12, 0, tzinfo=TZ), configured=WITH_OVMS,
+                  manual_target_soc=60)
+    world.engine.automation_enabled = False
+    world.set(Inp.OVMS_SOC, "50")
+    world.tick()
+    world.apply(world.engine.charge_now(world.now))
+    world.run(300)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+    world.set(Inp.OVMS_SOC, "60")
+    world.run(400)
+    assert world.engine.override is None
+    assert world.states[Inp.CHARGER_ENABLE][0] == "off"
+    world.set(Inp.CHARGER_ENABLE, "on")  # switched on by hand later: hands off again
+    world.run(300)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+
+
+def test_k12_learning_uses_the_real_interval_length():
+    from custom_components.ev_charging_pilot.core.learning import _session_power_kw
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+
+    start = datetime(2026, 10, 20, 2, 0, tzinfo=TZ)
+    intervals = [{"start": (start + timedelta(minutes=5 * i)).isoformat(),
+                  "end": (start + timedelta(minutes=5 * (i + 1))).isoformat(),
+                  "kwh": 7.2 * 5 / 60} for i in range(12)]
+    session = ChargeSession("s", start, reason="schedule", energy_intervals=intervals)
+    assert abs(_session_power_kw(session) - 7.2) < 0.01
+
+
+def test_k13_sleeping_car_temperature_is_used_as_last_resort():
+    from custom_components.ev_charging_pilot.core.model import Value
+    from custom_components.ev_charging_pilot.core.source_policy import outside_temperature
+
+    car = Value("4", 4.0, "ovms", NIGHT, Quality.LAST_KNOWN_VALID)
+    none = Value.unavailable("none")
+    assert outside_temperature(car, none, none) is car
+
+
+def _quarter_prices(start, values):
+    from custom_components.ev_charging_pilot.core.prices import PriceSchedule, PriceSlot
+
+    return PriceSchedule(PriceSlot(start + timedelta(minutes=15 * i),
+                                   start + timedelta(minutes=15 * (i + 1)), p)
+                         for i, p in enumerate(values))
+
+
+def test_p1_two_blocks_find_the_optimum_fast():
+    import time as clock
+
+    from custom_components.ev_charging_pilot.core.prices import cheapest_blocks
+
+    start = datetime(2026, 10, 20, 18, 0, tzinfo=TZ)
+    # Cheap 20:00–21:30 and 04:30–06:00, everything else expensive; ready at 06:30.
+    values = [0.10 if (8 <= i < 14) or (42 <= i < 48) else 0.40 for i in range(50)]
+    schedule = _quarter_prices(start, values)
+    began = clock.perf_counter()
+    blocks, cost = cheapest_blocks(schedule, start, start + timedelta(hours=12, minutes=30),
+                                   timedelta(hours=3), 4.6, max_blocks=2)
+    assert clock.perf_counter() - began < 0.2
+    assert blocks == [(start + timedelta(hours=2), start + timedelta(hours=3, minutes=30)),
+                      (start + timedelta(hours=10, minutes=30), start + timedelta(hours=12))]
+    assert abs(cost - 3 * 4.6 * 0.10) < 1e-6
+
+
+def test_p2_cheap_and_negative_cent_prices_stay_cents():
+    from custom_components.ev_charging_pilot.core.prices import parse_price_attributes
+
+    day = date(2026, 10, 20)
+    attrs = {"raw_today": [{"start": f"2026-10-20T{h:02d}:00:00+02:00", "value": v}
+                           for h, v in enumerate([12.0, 8.5, 4.5, 3.2, -1.5, 10.0])]}
+    prices = [s.eur_per_kwh for s in parse_price_attributes(attrs, TZ, day)]
+    assert prices == [0.12, 0.085, 0.045, 0.032, -0.015, 0.1]
+    epex = {"data": [{"start_time": "2026-10-20T00:00:00+02:00", "price_ct_per_kwh": 4.0}]}
+    assert parse_price_attributes(epex, TZ, day)[0].eur_per_kwh == 0.04
+
+
+def test_p3_a_hole_in_the_price_list_stays_a_hole():
+    from custom_components.ev_charging_pilot.core.prices import parse_price_attributes
+
+    attrs = {"prices": [{"start": "2026-10-20T10:00:00+02:00", "price": 0.2},
+                        {"start": "2026-10-20T11:00:00+02:00", "price": 0.2},
+                        {"start": "2026-10-21T10:00:00+02:00", "price": 0.3}]}
+    slots = parse_price_attributes(attrs, TZ, date(2026, 10, 20))
+    assert all((s.end - s.start) == timedelta(hours=1) for s in slots)
+
+
+def test_p5_hourly_prices_replace_old_quarter_hours():
+    from custom_components.ev_charging_pilot.core.prices import PriceSlot
+
+    world = World(NIGHT, configured=WITH_OVMS)
+    start = datetime(2026, 10, 20, 10, 0, tzinfo=TZ)
+    world.engine.set_prices(_quarter_prices(start, [0.5] * 4).slots)
+    world.engine.set_prices([PriceSlot(start, start + timedelta(hours=1), 0.2)])
+    assert world.engine.price_schedule.price_at(start + timedelta(minutes=20)) == 0.2
+    assert len(world.engine.price_schedule.slots) == 1

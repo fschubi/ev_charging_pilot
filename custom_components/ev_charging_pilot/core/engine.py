@@ -76,6 +76,10 @@ CONFLICT_GRACE_S = 180
 # An OVMS "not charging" is only an end-of-charge signal while it is this recent.
 FINISHED_SIGNAL_MAX_AGE = timedelta(minutes=15)
 FULL_SOC_PCT = 99
+# The car reporting "not charging" counts as its own end of charge only from here …
+CAR_FULL_PCT = 95
+# … or this close to the window's target; below that it is an interruption.
+FINISHED_TARGET_MARGIN_PCT = 3
 REMINDER_HORIZON = timedelta(hours=12)
 # The buttons of the plug-in push only apply to that plug-in, and not forever.
 PLUG_OFFER_VALID = timedelta(hours=12)
@@ -189,6 +193,9 @@ class Engine:
         self._latched_raw: dict[str, Any] = {}
         self._cable: bool | None = None
         self._overrun_key: str | None = None
+        # Automation off: the end of a manual override still switches the wallbox off once.
+        self._had_override = False
+        self._off_after_override = False
         self._current_sent: tuple[int, datetime] | None = None
         self._pending_events: list[Event] = []
         self._reminder_day: date | None = None
@@ -245,6 +252,13 @@ class Engine:
         # During a CP pulse the wallbox briefly sees "no vehicle" (§3.4): that must not
         # end a "Jetzt laden" override or the charge test that caused the pulse.
         self._expire(now, None if self.executor.cp_masked(now) else cable_flag)
+        if self._had_override and self.override is None:
+            self._off_after_override = True
+        self._had_override = self.override is not None
+        charger_value = self.values[Inp.CHARGER_ENABLE]
+        if self.automation_enabled or self.override is not None or (
+                charger_value.available and charger_value.normalized is False):
+            self._off_after_override = False
         self._plan(now)
         result.events += self._pending_events
         self._pending_events.clear()
@@ -379,14 +393,25 @@ class Engine:
         recent "not charging" also counts once it is no longer GOOD, and so does
         a full battery.
         """
-        charging = self.values[Inp.OVMS_CHARGING]
-        if charging.normalized is False and charging.quality in (
-                Quality.GOOD, Quality.LAST_KNOWN_VALID) and charging.updated_at is not None \
-                and now - charging.updated_at <= FINISHED_SIGNAL_MAX_AGE:
-            return True
         soc = self.soc
-        return soc.quality.usable_for_planning and soc.normalized is not None \
-            and float(soc.normalized) >= FULL_SOC_PCT
+        level = float(soc.normalized) if soc.quality.usable_for_planning \
+            and soc.normalized is not None else None
+        if level is not None and level >= FULL_SOC_PCT:
+            return True
+        charging = self.values[Inp.OVMS_CHARGING]
+        stopped = charging.normalized is False and charging.quality in (
+            Quality.GOOD, Quality.LAST_KNOWN_VALID) and charging.updated_at is not None \
+            and now - charging.updated_at <= FINISHED_SIGNAL_MAX_AGE
+        if not stopped:
+            return False
+        # "Not charging" alone also happens on a real interruption (RCD, wallbox fault).
+        # The car ended the charge itself only near full or near the window's target.
+        window = self.active_window
+        target = window.preferred_soc_pct if window else None
+        if level is None:
+            return True  # nothing better to go by – trust the car
+        return level >= CAR_FULL_PCT or (target is not None
+                                         and level >= target - FINISHED_TARGET_MARGIN_PCT)
 
     # ------------------------------------------------------------ planning
 
@@ -552,6 +577,11 @@ class Engine:
     def set_prices(self, slots: list[PriceSlot]) -> None:
         """New dynamic prices (Tibber/entity). Old slots are kept for costing."""
         known = {s.start: s for s in self.price_schedule.slots}
+        if slots:
+            # New prices replace everything they cover – also old slots of another
+            # length (15-min source → hourly source), which a start-only merge kept.
+            first, last = min(s.start for s in slots), max(s.end for s in slots)
+            known = {k: v for k, v in known.items() if not (first <= k < last)}
         known.update({s.start: s for s in slots})
         horizon = max(known) - timedelta(days=3) if known else None
         self.price_schedule = PriceSchedule(
@@ -623,7 +653,10 @@ class Engine:
         desired = arbitrate(
             wishes,
             safety_lock=self.health.blocks_automation,
-            default=DEFAULT_OFF if self.automation_enabled else HANDS_OFF,
+            # Automation off leaves the wallbox alone – except right after a manual
+            # override ended (target reached, time over): that switch-off is still ours.
+            default=DEFAULT_OFF if self.automation_enabled or self._off_after_override
+            else HANDS_OFF,
         )
         if self.active_window is not None and self.active_window.overrun \
                 and desired.charger_enabled and desired.source_id == self.active_window.source_id:

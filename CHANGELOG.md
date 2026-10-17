@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.5 – 2026-10-17
+
+- **Wichtig für Pendeltage: Preisblock nur festhalten, wenn das Auto eingesteckt ist.**
+  Bisher wurde der günstigste Ladeblock beim Erreichen fest eingeplant, auch wenn das Auto
+  gar nicht zu Hause war. Lag er z. B. Montagmittag, während das Auto im Büro steht,
+  verstrich er ungenutzt, und für die Abfahrt am nächsten Morgen wurde nicht mehr geladen.
+  Jetzt wird ein verpasster Block ab dem Einstecken neu geplant, und zwar wieder in der
+  günstigsten noch möglichen Zeit vor der Abfahrt.
+
 ## 0.13.4 – 2026-10-17
 
 - **Einstecken wird auch bei gesperrter Wallbox erkannt:** Die Charge-Amps-Halo meldet das

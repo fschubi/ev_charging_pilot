@@ -122,6 +122,27 @@ def test_engine_charges_only_in_cheap_block():
     assert world.engine.next_window.blocks == window.blocks
 
 
+def test_cheap_block_while_away_is_planned_again():
+    world = World(local(2026, 10, 13, 22, 0), configured=WITH_OVMS, price_source="tibber")
+    world.engine.set_prices(night_prices().slots)
+    world.set(Inp.OVMS_SOC, "70")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.tick()
+    block = world.engine.next_window.blocks[0]
+    # The cheap block passes while the car is not at home ...
+    world.now = block[0] + timedelta(minutes=1)
+    world.run(30)
+    world.now = block[1] + timedelta(minutes=10)
+    world.run(30)
+    assert not world.commands
+    # ... plugged in afterwards it still charges before the departure.
+    world.set(Inp.CABLE_CONNECTED, "on")
+    world.run(30)
+    assert block not in world.engine.next_window.blocks
+    assert world.engine.desired.charger_enabled is True
+
+
 def test_session_cost_uses_dynamic_price():
     world = World(local(2026, 10, 14, 1, 59), configured=WITH_OVMS, price_source="tibber",
                   price_optimization=False)

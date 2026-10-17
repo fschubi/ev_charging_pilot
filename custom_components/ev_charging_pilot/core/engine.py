@@ -392,7 +392,9 @@ class Engine:
         if latched is not None:
             # Keep start and price blocks, refresh the estimate.
             return replace(window, start=latched.start, blocks=latched.blocks)
-        if window.start <= now:
+        # Only a start the car is plugged in for is frozen. A cheap block that passes
+        # while the car is away (office, daytime prices) is planned again from now.
+        if window.start <= now and self._cable is not False:
             self._latched[window.key] = window
         return window
 

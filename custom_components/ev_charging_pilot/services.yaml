@@ -60,6 +60,7 @@ cancel_one_shot:
 vehicle_wakeup:
 cp_wakeup:
 charge_test:
+test_price_push:
 reset_error:
 start_climate:
   fields:

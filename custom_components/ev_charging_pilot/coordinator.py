@@ -115,6 +115,8 @@ class ChargingCenter:
             self.monitor,
         )
         self.notifier = Notifier(hass, self.conf, self.vehicle_name)
+        # Diagnose: test of the price question of an external charge (push with text field).
+        self.price_push_test: dict[str, Any] | None = None
         self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
         self.recorder = CommandRecorder()
         self.events: deque[dict[str, Any]] = deque(maxlen=20000)
@@ -479,9 +481,47 @@ class ChargingCenter:
                 dt_util.utcnow(), Category.USER, Severity.INFO, "PLAN_CONFIRMED",
                 "Normaler Plan bestätigt")]))
 
+    async def async_test_price_push(self) -> dict[str, Any]:
+        """Send the external-charge price question once, without any charge behind it."""
+        if not self.notifier.service:
+            raise ValueError("Kein Push-Ziel eingerichtet (Einstellungen → Benachrichtigungen)")
+        now = dt_util.utcnow()
+        test_id = f"test-{now:%Y%m%d%H%M%S}"
+        self.price_push_test = {"id": test_id, "sent_at": now.isoformat(), "reply": None,
+                                "price_eur_kwh": None, "received_at": None}
+        await self._handle(TickResult(
+            events=[Event(now, Category.USER, Severity.INFO, "PRICE_PUSH_TEST_SENT",
+                          "Test der Preisabfrage per Push gesendet")],
+            notifications=[Notification(
+                "external_test", "normal", "Test: Preis eingeben",
+                "Nur ein Test – keine echte Fremdladung. Mitteilung lange drücken bzw. "
+                "aufziehen, „Preis eingeben“ wählen und z. B. 0,49 eintippen.",
+                actions=(f"ext_price:{test_id}",))]))
+        self._notify_listeners()
+        return self.price_push_test
+
+    def _price_push_test_answer(self, now: datetime, test_id: str,
+                                reply: str | None) -> TickResult:
+        test = self.price_push_test
+        if test is None or test["id"] != test_id:
+            return TickResult(events=[Event(now, Category.USER, Severity.INFO,
+                                            "PRICE_PUSH_TEST_EXPIRED",
+                                            "Antwort auf einen älteren Push-Test ignoriert")])
+        price = parse_price_input(reply)
+        test.update(reply=reply, price_eur_kwh=price, received_at=now.isoformat())
+        text = f"{price:.2f} €/kWh erkannt".replace(".", ",") if price is not None \
+            else f"Eingabe „{reply or ''}“ nicht als Preis erkannt"
+        return TickResult(events=[Event(
+            now, Category.USER, Severity.INFO if price is not None else Severity.WARNING,
+            "PRICE_PUSH_TEST_ANSWER", f"Push-Test Preisabfrage: {text}")])
+
     async def _set_external_price(self, now: datetime, charge_id: str,
                                   reply: str | None) -> None:
         """Price per kWh typed into the push of a detected external charge."""
+        if charge_id.startswith("test-"):
+            await self._handle(self._price_push_test_answer(now, charge_id, reply))
+            self._notify_listeners()
+            return
         charge = next((e for e in self.monitor.data.external if e.id == charge_id), None)
         price = parse_price_input(reply)
         if charge is None or price is None:

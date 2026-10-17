@@ -654,6 +654,10 @@
       "name": "CP-Wakeup",
       "description": "CP-Puls über den Shelly – nur mit verifiziertem Failsafe."
     },
+    "test_price_push": {
+      "name": "Test: Preisabfrage per Push",
+      "description": "Schickt die Preisabfrage einer Fremdladung als Test aufs Handy; die Antwort erscheint im Diagnose-Reiter."
+    },
     "charge_test": {
       "name": "Ladetest",
       "description": "Funktionstest: Wallbox an, bei Bedarf Auto wecken (OVMS, dann CP-Puls), kurz stabil laden, Wallbox wieder aus. Dauert höchstens 8 Minuten."

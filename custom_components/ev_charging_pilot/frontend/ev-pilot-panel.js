@@ -1365,6 +1365,22 @@ class EvPilotPanel extends HTMLElement {
     return this._openDetails && this._openDetails.has(id) ? "open" : "";
   }
 
+  _pricePushCard(s) {
+    const t = s.price_push_test;
+    let result = "";
+    if (t && !t.received_at) {
+      result = `<span class="pill info">wartet auf Antwort …</span>`;
+    } else if (t) {
+      result = t.price_eur_kwh != null
+        ? `<span class="pill ok">angekommen</span> <b>${num(t.price_eur_kwh, 2, "€/kWh")}</b> erkannt`
+        : `<span class="pill bad">nicht erkannt</span> Eingabe „${esc(t.reply || "")}“`;
+    }
+    return `<div class="card wide"><h2>Push-Test: Preisabfrage Fremdladung</h2>
+      <p class="sub">Schickt die Frage nach dem Preis pro kWh aufs Handy, wie nach einer erkannten Fremdladung – nur als Test, es wird nichts gespeichert. Auf dem iPhone die Mitteilung lange drücken bzw. aufziehen, „Preis eingeben“ wählen, z. B. 0,49 eintippen und speichern.</p>
+      <div class="actions"><button class="act primary" data-service="test_price_push" data-label="Test-Push gesendet">Test-Push senden</button>${result}</div>
+      ${t ? `<div class="hint">Gesendet ${dateTime(t.sent_at)}${t.received_at ? ` · Antwort ${dateTime(t.received_at)}` : ""}</div>` : ""}</div>`;
+  }
+
   _chargeTestCard(s) {
     const t = s.charge_test;
     const running = t && t.phase !== "done";
@@ -1403,6 +1419,7 @@ class EvPilotPanel extends HTMLElement {
           <button class="act" data-action="system-check" data-push="1">… mit Test-Push</button></div>
         ${check ? `<div class="checks">${checkRows}</div><div class="hint">Stand ${dateTime(check.at)}</div>` : ""}</div>
       ${this._chargeTestCard(s)}
+      ${this._pricePushCard(s)}
       <div class="card"><h2>Health</h2>
         <div class="big"><span class="pill ${{ HEALTHY: "ok", DEGRADED: "warn", ERROR: "bad" }[s.health.status]}">${esc(HEALTH_LABELS[s.health.status])}</span></div>
         ${s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("") || `<div class="sub">keine Auffälligkeiten</div>`}</div>

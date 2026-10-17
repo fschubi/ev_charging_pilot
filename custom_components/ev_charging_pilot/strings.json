@@ -654,6 +654,10 @@
       "name": "CP wakeup",
       "description": "CP pulse via the Shelly – only with a verified failsafe."
     },
+    "test_price_push": {
+      "name": "Test: price question push",
+      "description": "Sends the external charge price question as a test; the answer shows up in the diagnostics tab."
+    },
     "charge_test": {
       "name": "Charge test",
       "description": "Function test: wallbox on, wake the car if needed (OVMS, then CP pulse), charge briefly, wallbox off again. Takes at most 8 minutes."

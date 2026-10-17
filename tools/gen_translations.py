@@ -354,6 +354,11 @@ SERVICES = {
     "cp_wakeup": (T("CP-Wakeup", "CP wakeup"),
                   T("CP-Puls über den Shelly – nur mit verifiziertem Failsafe.",
                     "CP pulse via the Shelly – only with a verified failsafe.")),
+    "test_price_push": (T("Test: Preisabfrage per Push", "Test: price question push"),
+                        T("Schickt die Preisabfrage einer Fremdladung als Test aufs Handy; "
+                          "die Antwort erscheint im Diagnose-Reiter.",
+                          "Sends the external charge price question as a test; the answer "
+                          "shows up in the diagnostics tab.")),
     "charge_test": (T("Ladetest", "Charge test"),
                     T("Funktionstest: Wallbox an, bei Bedarf Auto wecken (OVMS, dann CP-Puls), "
                       "kurz stabil laden, Wallbox wieder aus. Dauert höchstens 8 Minuten.",

@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.14.0 Ladetest.** `core/charge_test.py` (ChargeTest: Schritte aus
+  Executor-Events, Ende 60 s nach CHARGE_STABLE, max. 8 min, dann Halo-aus-Prüfung);
+  `Engine.start_charge_test` = DURATION-Override, nur live/eingesteckt; Dienst `charge_test`,
+  WS-State `charge_test`, Diagnose-Karte. `async_run` setzt Shadow vor der Aktion.
 - **2026-10-17 – v0.13.9 Weiterladen nach Blockende.** `Engine._overrun`: letzter Block eines
   verriegelten Fensters wird bis `ready_at` gestreckt, solange der Executor CHARGING/
   CHARGE_STABILIZING ist und kein Target-Hold greift; `ChargeWindow.overrun`, Desired mit

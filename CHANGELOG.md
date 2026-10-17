@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.1 – 2026-10-17
+
+- **Neu: Push-Test für die Preisabfrage** im Diagnose-Reiter. „Test-Push senden“ schickt
+  die Frage nach dem Preis pro kWh aufs Handy, genau wie nach einer erkannten
+  Fremdladung. Die Antwort erscheint direkt in der Karte, z. B. „angekommen – 0,49 €/kWh
+  erkannt“ oder „nicht erkannt“ mit der Eingabe. Gespeichert wird dabei nichts. Auch als
+  Dienst `ev_charging_pilot.test_price_push`.
+
 ## 0.16.0 – 2026-10-17
 
 - **Preis per Push nach erkannter Fremdladung:** Erkennt der Pilot eine Ladung außer Haus,

@@ -163,3 +163,29 @@ async def test_price_typed_into_the_push_completes_the_external_charge(hass, ent
     await hass.async_block_till_done()
     assert center.monitor.data.external[0].price_eur_kwh == 0.49
     assert any(e["code"] == "EXTERNAL_PRICE_INVALID" for e in center.events)
+
+
+async def test_price_push_test_round_trip(hass, entry, halo):
+    from custom_components.ev_charging_pilot.const import ACTION_EXT_PRICE
+
+    with pytest.raises(ServiceValidationError, match="Push-Ziel"):
+        await _setup(hass, entry)
+        await hass.services.async_call(DOMAIN, "test_price_push", {}, blocking=True)
+    await hass.config_entries.async_unload(entry.entry_id)
+
+    entry = MockConfigEntry(domain=DOMAIN, version=2, options={"mode": "dry_run"},
+                            data={**entry.data, CONF_NOTIFY_SERVICE: "notify.mobile_app_phone"})
+    pushes = async_mock_service(hass, "notify", "mobile_app_phone")
+    await _setup(hass, entry)
+    await hass.services.async_call(DOMAIN, "test_price_push", {}, blocking=True)
+    await hass.async_block_till_done()
+    center = entry.runtime_data
+    action = pushes[-1].data["data"]["actions"][0]
+    assert action["behavior"] == "textInput"
+    assert action["action"] == f"{ACTION_EXT_PRICE}|{center.price_push_test['id']}"
+    hass.bus.async_fire("mobile_app_notification_action",
+                        {"action": action["action"], "reply_text": "49 ct"})
+    await hass.async_block_till_done()
+    assert center.price_push_test["price_eur_kwh"] == 0.49
+    assert center.price_push_test["reply"] == "49 ct"
+    assert center.monitor.data.external == []

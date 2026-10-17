@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.4 – 2026-10-17
+
+- **Einstecken wird auch bei gesperrter Wallbox erkannt:** Die Charge-Amps-Halo meldet das
+  Kabel nur, solange der Ladepunkt freigegeben ist. Weil der Charging Pilot sie im
+  Normalfall gesperrt hält, stand das Cockpit trotz eingestecktem Auto auf „Nicht
+  eingesteckt“. Neu: Das Auto meldet über OVMS selbst, dass der Ladestecker steckt
+  (`…_charge_plug_detected`). Der OVMS-Standort (`device_tracker …_location`) sorgt dafür,
+  dass ein Stecker an einer fremden Ladesäule nicht als Wallbox-Kabel zählt.
+- Bestehende Installationen übernehmen beide Entitäten beim Start automatisch; im
+  Einrichtungsdialog stehen sie unter den Fahrzeugwerten.
+
 ## 0.13.3 – 2026-10-17
 
 - **„Preisquelle liefert keine Preise“ nach einem HA-Neustart behoben:** Der Preisabruf lief,

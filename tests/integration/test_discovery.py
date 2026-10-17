@@ -69,6 +69,17 @@ def test_suggest_maps_ovms_metrics():
     assert found["ovms_hv_cycles"] == "sensor.ovms_smart_xsq_bms_contactor_cycles"
 
 
+def test_suggest_maps_ovms_plug_and_location_of_the_hacs_integration():
+    found = suggest([
+        Candidate("sensor.car_charge_plug_detected_smart_fortwo", "ovms"),
+        Candidate("binary_sensor.car_charge_port", "ovms"),
+        Candidate("device_tracker.car_location", "ovms"),
+        Candidate("device_tracker.franks_iphone", "mobile_app"),
+    ])
+    assert found["ovms_plug"] == "sensor.car_charge_plug_detected_smart_fortwo"
+    assert found["ovms_location"] == "device_tracker.car_location"
+
+
 def test_nothing_found_without_wallbox():
     assert suggest([Candidate("switch.kitchen_light", "hue")]) == {}
 

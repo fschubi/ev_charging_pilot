@@ -66,7 +66,7 @@ OVMS_INPUTS: Final = (
     Inp.OVMS_SOC, Inp.OVMS_SOH, Inp.OVMS_RANGE, Inp.OVMS_ODOMETER, Inp.OVMS_CHARGING,
     Inp.OVMS_CHARGE_POWER, Inp.OVMS_BATTERY_TEMP, Inp.OVMS_HV_CYCLES, Inp.OVMS_VEHICLE_ON,
     Inp.OVMS_OUTSIDE_TEMP, Inp.OVMS_ENERGY_USED, Inp.OVMS_ENERGY_RECD,
-    Inp.OVMS_AUX_CONSUMPTION, Inp.OVMS_12V,
+    Inp.OVMS_AUX_CONSUMPTION, Inp.OVMS_12V, Inp.OVMS_PLUG, Inp.OVMS_LOCATION,
 )
 INPUT_DOMAINS: Final = {
     Inp.CHARGER_ENABLE: "switch",
@@ -80,6 +80,8 @@ INPUT_DOMAINS: Final = {
     Inp.CP_RELAY: "switch",
     Inp.OVMS_CHARGING: ["binary_sensor", "sensor"],
     Inp.OVMS_VEHICLE_ON: ["binary_sensor", "sensor"],
+    Inp.OVMS_PLUG: ["binary_sensor", "sensor"],
+    Inp.OVMS_LOCATION: "device_tracker",
     Inp.OUTSIDE_TEMP: "sensor",
     Inp.WEATHER: "weather",
 }

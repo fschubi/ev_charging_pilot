@@ -106,3 +106,23 @@ def test_hv_contactor_vector_uses_consumed_cycles():
     assert parse("[300000, 299000, 1000, 2, 0]") == 1000
     assert parse("300000,299000,1000,2,0") == 1000
     assert parse("1234") == 1234
+
+
+def test_ovms_plug_detects_the_cable_while_the_halo_is_disabled():
+    from custom_components.ev_charging_pilot.core.source_policy import plugged_in
+
+    halo_off = Value("off", False, "halo", NOW)
+    plug = Value("yes", True, "ovms", NOW)
+    home = Value("home", True, "ovms", NOW)
+    away = Value("not_home", False, "ovms", NOW)
+    none = Value.unavailable("none")
+    assert plugged_in(halo_off, plug, home).normalized is True
+    assert plugged_in(halo_off, plug, none).normalized is True
+    # Plugged in at a public charger: not the wallbox cable.
+    assert plugged_in(halo_off, plug, away).normalized is False
+    assert plugged_in(halo_off, Value("no", False, "ovms", NOW), home) is halo_off
+    # Without OVMS the Halo decides alone; a Halo "on" always wins.
+    assert plugged_in(halo_off, none, home) is halo_off
+    halo_on = Value("on", True, "halo", NOW)
+    assert plugged_in(halo_on, Value("no", False, "ovms", NOW), away) is halo_on
+    assert plugged_in(none, Value("no", False, "ovms", NOW), home).normalized is False

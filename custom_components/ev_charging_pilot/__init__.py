@@ -22,6 +22,7 @@ from .const import (
 )
 from .coordinator import ChargingCenter
 from .core.settings import OPT_MANUAL_TARGET_SOC, OPT_MODE
+from .discovery import async_discover_plug
 from .reports import ReportView
 from .services import async_register_services, async_unregister_services
 from .vehicle_image import VehicleImageView
@@ -36,6 +37,9 @@ type ChargingConfigEntry = ConfigEntry[ChargingCenter]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> None | bool:
+    if plug := async_discover_plug(hass, dict(entry.data)):
+        _LOGGER.info("OVMS-Steckererkennung übernommen: %s", plug)
+        hass.config_entries.async_update_entry(entry, data={**entry.data, **plug})
     center = ChargingCenter(hass, entry)
     await center.async_setup()
     entry.runtime_data = center

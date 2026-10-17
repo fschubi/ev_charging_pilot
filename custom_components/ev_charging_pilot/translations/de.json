@@ -77,12 +77,16 @@
           "ovms_energy_recd": "Fahrzeug: Rekuperation",
           "ovms_aux_consumption": "Fahrzeug: Nebenverbrauch",
           "ovms_12v": "Fahrzeug: 12-V-Spannung",
+          "ovms_plug": "Fahrzeug: Ladestecker erkannt",
+          "ovms_location": "Fahrzeug: Standort (Tracker)",
           "outside_temp": "Außentemperatur (HA-Sensor)",
           "weather": "Wetter (Rückfall Außentemperatur)",
           "ovms_command_topic": "OVMS-Befehls-Topic (MQTT)",
           "ovms_command_script": "Oder: Script für OVMS-Befehle (Variable command)"
         },
         "data_description": {
+          "ovms_plug": "Meldet das Auto, dass ein Ladestecker steckt (z. B. …_charge_plug_detected). Die Halo meldet das Kabel nur bei freigegebenem Ladepunkt – damit wird das Einstecken auch bei gesperrter Wallbox erkannt.",
+          "ovms_location": "Standort des Autos (device_tracker …_location). Steckt das Auto nicht zu Hause, zählt der Stecker nicht als Wallbox-Kabel.",
           "outside_temp": "Außentemperatur-Sensor für die Klimaprofile. Optional.",
           "weather": "Wetter-Entität als Rückfall für die Außentemperatur. Optional.",
           "ovms_command_topic": "MQTT-Topic, über das OVMS Befehle annimmt. Erst nach dem Test am Auto eintragen.",

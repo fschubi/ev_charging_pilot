@@ -43,7 +43,13 @@ from .prices import PriceSchedule, PriceSlot
 from .quality import QualityRule, charging_conflict, classify, non_negative, soc_plausible
 from .sessions import ChargeSession, SessionTracker
 from .settings import ClimateAfterTarget, OdometerSource, PriceSource, Settings
-from .source_policy import HvCycleMonitor, mark_conflict, outside_temperature, vehicle_charging
+from .source_policy import (
+    HvCycleMonitor,
+    mark_conflict,
+    outside_temperature,
+    plugged_in,
+    vehicle_charging,
+)
 from .statistics import ExternalCharge
 from .trips import Trip, TripTracker
 
@@ -305,6 +311,9 @@ class Engine:
                 values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING])
             # The executor still needs the raw power samples to measure stability.
             values[Inp.CHARGE_POWER] = values[Inp.CHARGE_POWER].with_quality(Quality.CONFLICT)
+
+        values[Inp.CABLE_CONNECTED] = plugged_in(
+            values[Inp.CABLE_CONNECTED], values[Inp.OVMS_PLUG], values[Inp.OVMS_LOCATION])
 
         self.values = values
         self.soc = values[Inp.OVMS_SOC]

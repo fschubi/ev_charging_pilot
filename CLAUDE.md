@@ -134,9 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-16 – v0.12.0 Lernendes Lade-Modell (Review Stufe 3a).** `core/learning.py`
-  (Median aus ≤15 Sessions, ≥3 nötig, Plausibilitätsband 0,6–1,5), `VehicleParams`
-  mit `learned_*` und Taper ab 90 % (Faktor 0,6), `soc_after`, Option `learn_charging`.
 - **2026-10-16 – v0.13.0 Systemtest & Extras (Review Stufe 3b).** `system_check.py` +
   WS `run_system_check` (nichts schalten, nie wecken), `start_one_shot` mit `departure_at`/
   `target_soc`, Wochenrückblick So 18:00 (`notify_weekly`, `Monitor.week`, `weekly_text`).
@@ -149,3 +146,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `EVENT_HOMEASSISTANT_STARTED`, wiederholt Fehlschläge nach 60/120/300 s
   (`RETRY_DELAYS_S`), meldet `PRICE_SOURCE_PROBLEM` erst danach (Tibber antwortet
   direkt nach dem Start leer).
+- **2026-10-17 – v0.13.4 Einstecken per OVMS.** Halo meldet Kabel nur bei freigegebenem
+  Ladepunkt (Status `Unavailable` = gesperrt). Neue Inputs `ovms_plug`, `ovms_location`;
+  `source_policy.plugged_in` verschmilzt sie mit `cable_connected` (unterwegs = nicht
+  gesteckt). `async_discover_plug` ergänzt sie beim Start aus dem Entity-Registry.

@@ -126,12 +126,18 @@ OVMS_RULES: dict[Inp, tuple[str, ...]] = {
     Inp.OVMS_ENERGY_RECD: ("xsq_v_energy_recd", "v_b_energy_recd"),
     Inp.OVMS_AUX_CONSUMPTION: ("xsq_v_aux_consumption", "aux"),
     Inp.OVMS_12V: ("v_b_12v_voltage", "12v"),
+    Inp.OVMS_PLUG: ("v_c_pilot", "charge_plug_detected", "plug_detected", "pilot"),
+    Inp.OVMS_LOCATION: ("location", "v_p_location", "position"),
 }
 
 
 def _ovms_rule(inp: Inp, words: tuple[str, ...]):
     def score(c: Candidate) -> int:
-        if not c.has("ovms") or c.domain not in ("sensor", "binary_sensor"):
+        if not (c.platform == "ovms" or c.has("ovms")):
+            return 0
+        domains = ("device_tracker",) if inp is Inp.OVMS_LOCATION \
+            else ("sensor", "binary_sensor")
+        if c.domain not in domains:
             return 0
         if inp is Inp.OVMS_SOC and c.has("soh"):
             return 0
@@ -160,6 +166,28 @@ def suggest(candidates: list[Candidate]) -> dict[str, str]:
     if len(weather) == 1:
         found[Inp.WEATHER.value] = weather[0].entity_id
     return found
+
+
+PLUG_KEYS = (Inp.OVMS_PLUG.value, Inp.OVMS_LOCATION.value)
+
+
+def async_discover_plug(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
+    """0.13.4: suggest the OVMS plug and location for an existing installation.
+
+    Uses the entity registry, because at startup the OVMS entities may not
+    have a state yet.
+    """
+    if not data.get(Inp.OVMS_SOC.value) or any(k in data for k in PLUG_KEYS):
+        return {}
+    taken = {v for v in data.values() if isinstance(v, str)}
+    candidates = [
+        Candidate(entity_id=e.entity_id, platform=e.platform,
+                  device_class=e.device_class or e.original_device_class,
+                  unit=e.unit_of_measurement, name=str(e.name or e.original_name or ""))
+        for e in er.async_get(hass).entities.values()
+        if e.disabled_by is None and e.entity_id not in taken]
+    found = suggest(candidates)
+    return {k: found[k] for k in PLUG_KEYS if k in found}
 
 
 def async_discover(hass: HomeAssistant) -> dict[str, Any]:

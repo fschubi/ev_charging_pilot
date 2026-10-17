@@ -77,12 +77,16 @@
           "ovms_energy_recd": "Vehicle: energy recovered",
           "ovms_aux_consumption": "Vehicle: auxiliary consumption",
           "ovms_12v": "Vehicle: 12 V voltage",
+          "ovms_plug": "Vehicle: charge plug detected",
+          "ovms_location": "Vehicle: location (tracker)",
           "outside_temp": "Outside temperature (HA sensor)",
           "weather": "Weather (fallback outside temperature)",
           "ovms_command_topic": "OVMS command topic (MQTT)",
           "ovms_command_script": "Or: script for OVMS commands (variable command)"
         },
         "data_description": {
+          "ovms_plug": "The car reports a plugged-in charge cable. The Halo only reports the cable while enabled – this detects plugging in while it is locked.",
+          "ovms_location": "Location of the car. Away from home the plug does not count as the wallbox cable.",
           "outside_temp": "Outside temperature sensor for climate profiles. Optional.",
           "weather": "Weather entity as fallback for the outside temperature. Optional.",
           "ovms_command_topic": "MQTT topic for OVMS commands; only after testing.",

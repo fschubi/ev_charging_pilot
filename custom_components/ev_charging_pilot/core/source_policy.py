@@ -13,6 +13,23 @@ def mark_conflict(*values: Value) -> tuple[Value, ...]:
     return tuple(v.with_quality(Quality.CONFLICT) for v in values)
 
 
+def plugged_in(halo: Value, plug: Value, at_home: Value) -> Value:
+    """Fuse the wallbox cable flag with the vehicle's own plug detection.
+
+    The Halo reports the cable only while its connector is enabled – and the
+    Charging Center keeps it disabled most of the time. OVMS sees the plug
+    always; its location tells a home plug from one at a public charger.
+    """
+    if (halo.available and halo.normalized) or not plug.available:
+        return halo
+    home = bool(at_home.normalized) if at_home.available else None
+    if plug.normalized and home is not False:
+        return Value(plug.raw, True, plug.source, plug.updated_at, plug.quality)
+    if halo.available:
+        return halo
+    return Value(plug.raw, False, plug.source, plug.updated_at, plug.quality)
+
+
 def vehicle_charging(ovms: Value, halo_power: Value, threshold_w: float) -> Value:
     """OVMS first; without a GOOD OVMS value the Halo power is the fallback."""
     if ovms.quality is Quality.GOOD:

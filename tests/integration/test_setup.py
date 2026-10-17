@@ -8,11 +8,13 @@ from unittest.mock import patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.ev_charging_pilot.const import DOMAIN
+from custom_components.ev_charging_pilot.core.inputs import Inp
 
-from .conftest import CHARGER
+from .conftest import CABLE, CHARGER
 
 
 async def _setup(hass: HomeAssistant, entry) -> None:
@@ -201,3 +203,20 @@ async def test_merged_safety_margin_is_migrated_away(hass, halo):
     await _setup(hass, old)
     assert old.minor_version == 2
     assert "safety_margin_min" not in old.options
+
+
+async def test_existing_install_gets_the_ovms_plug(hass, full_entry, halo):
+    registry = er.async_get(hass)
+    plug = registry.async_get_or_create("sensor", "ovms", "plug",
+                                        suggested_object_id="car_charge_plug_detected")
+    tracker = registry.async_get_or_create("device_tracker", "ovms", "loc",
+                                           suggested_object_id="car_location")
+    hass.states.async_set(plug.entity_id, "yes")
+    hass.states.async_set(tracker.entity_id, "home")
+    hass.states.async_set(CABLE, "off")
+    full_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(full_entry.entry_id)
+    await hass.async_block_till_done()
+    assert full_entry.data["ovms_plug"] == plug.entity_id
+    assert full_entry.data["ovms_location"] == tracker.entity_id
+    assert full_entry.runtime_data.engine.values[Inp.CABLE_CONNECTED].normalized is True

@@ -42,6 +42,8 @@ INPUTS = {
     "ovms_energy_recd": T("Fahrzeug: Rekuperation", "Vehicle: energy recovered"),
     "ovms_aux_consumption": T("Fahrzeug: Nebenverbrauch", "Vehicle: auxiliary consumption"),
     "ovms_12v": T("Fahrzeug: 12-V-Spannung", "Vehicle: 12 V voltage"),
+    "ovms_plug": T("Fahrzeug: Ladestecker erkannt", "Vehicle: charge plug detected"),
+    "ovms_location": T("Fahrzeug: Standort (Tracker)", "Vehicle: location (tracker)"),
     "outside_temp": T("Außentemperatur (HA-Sensor)", "Outside temperature (HA sensor)"),
     "weather": T("Wetter (Rückfall Außentemperatur)", "Weather (fallback outside temperature)"),
     "ovms_command_topic": T("OVMS-Befehls-Topic (MQTT)", "OVMS command topic (MQTT)"),
@@ -78,6 +80,15 @@ FIELD_HELP = {
                       "Outside temperature sensor for climate profiles. Optional."),
     "weather": T("Wetter-Entität als Rückfall für die Außentemperatur. Optional.",
                  "Weather entity as fallback for the outside temperature. Optional."),
+    "ovms_plug": T("Meldet das Auto, dass ein Ladestecker steckt (z. B. …_charge_plug_detected). "
+                   "Die Halo meldet das Kabel nur bei freigegebenem Ladepunkt – damit wird "
+                   "das Einstecken auch bei gesperrter Wallbox erkannt.",
+                   "The car reports a plugged-in charge cable. The Halo only reports the "
+                   "cable while enabled – this detects plugging in while it is locked."),
+    "ovms_location": T("Standort des Autos (device_tracker …_location). Steckt das Auto "
+                       "nicht zu Hause, zählt der Stecker nicht als Wallbox-Kabel.",
+                       "Location of the car. Away from home the plug does not count as the "
+                       "wallbox cable."),
     "ovms_command_topic": T("MQTT-Topic, über das OVMS Befehle annimmt. Erst nach dem Test am "
                             "Auto eintragen.", "MQTT topic for OVMS commands; only after testing."),
     "ovms_command_script": T("Alternativ ein Script, das den OVMS-Befehl ausführt (Variable command).",

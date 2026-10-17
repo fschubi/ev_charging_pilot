@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.3 – 2026-10-17
+
+- **„Preisquelle liefert keine Preise“ nach einem HA-Neustart behoben:** Der Preisabruf lief,
+  bevor Tibber nach dem Start seine Preise geladen hatte, bekam eine leere Antwort und
+  versuchte es erst 30 Minuten später erneut. Jetzt wartet der Abruf, bis HA vollständig
+  gestartet ist, und wiederholt einen Fehlschlag nach 1, 2 und 5 Minuten. Die Warnung
+  erscheint nur noch, wenn auch diese Versuche scheitern.
+
 ## 0.13.2 – 2026-10-16
 
 - **Leistungsanzeige und 24-h-Kurve skalieren auf die echte Ladeleistung:** bei einem

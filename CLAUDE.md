@@ -134,9 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-16 – v0.11.0 Oberfläche (Review Stufe 2b).** `core/summary.py` (Statussatz,
-  getestet), neue Ladeplan-Karte (`plan-day`, `plan-mode`), Zeitleiste im Ladeplan,
-  Ereignisfilter „Wichtiges“, Render nur bei Änderung (Signatur ohne `age_s`).
 - **2026-10-16 – v0.12.0 Lernendes Lade-Modell (Review Stufe 3a).** `core/learning.py`
   (Median aus ≤15 Sessions, ≥3 nötig, Plausibilitätsband 0,6–1,5), `VehicleParams`
   mit `learned_*` und Taper ab 90 % (Faktor 0,6), `soc_after`, Option `learn_charging`.
@@ -148,3 +145,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   (Frank: smart mit 22-kW-Lader; Wallbox meldet keinen Ladestand, Auto beendet selbst).
 - **2026-10-16 – v0.13.2 Anzeige-Maßstab.** Cockpit-Gauge/Kurve: max(Bordlader, gelernt,
   aktuell, 24-h-Spitze), gedeckelt durch Wallbox. Frank: Halo 11 kW 3-phasig, smart 22-kW-Lader.
+- **2026-10-17 – v0.13.3 Preisabruf nach Neustart.** `PriceFetcher` wartet auf
+  `EVENT_HOMEASSISTANT_STARTED`, wiederholt Fehlschläge nach 60/120/300 s
+  (`RETRY_DELAYS_S`), meldet `PRICE_SOURCE_PROBLEM` erst danach (Tibber antwortet
+  direkt nach dem Start leer).

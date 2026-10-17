@@ -8,7 +8,7 @@ from unittest.mock import patch
 from homeassistant.core import SupportsResponse
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.ev_charging_pilot.const import DOMAIN
 
@@ -38,6 +38,30 @@ def _register_tibber(hass, calls):
                                  supports_response=SupportsResponse.ONLY)
 
 
+async def test_empty_tibber_answer_after_restart_is_retried(hass, halo):
+    calls: list = []
+    answers = iter([{"prices": {}}])
+    start = dt_util.start_of_local_day()
+
+    async def get_prices(call):
+        calls.append(call.data)
+        return next(answers, {"prices": {"Zuhause": [
+            {"start_time": (start + timedelta(hours=h)).isoformat(), "price": 0.30}
+            for h in range(48)]}})
+
+    hass.services.async_register("tibber", "get_prices", get_prices,
+                                 supports_response=SupportsResponse.ONLY)
+    entry = await _setup(hass, {"price_source": "tibber"})
+    center = entry.runtime_data
+    assert not center.engine.dynamic_prices
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
+    await hass.async_block_till_done()
+    assert len(calls) == 2
+    assert center.engine.dynamic_prices
+    assert center.price_fetcher.last_error is None
+    assert not any(e["code"] == "PRICE_SOURCE_PROBLEM" for e in center.events)
+
+
 async def test_tibber_prices_feed_the_engine(hass, halo):
     calls: list = []
     _register_tibber(hass, calls)
@@ -53,11 +77,20 @@ async def test_tibber_prices_feed_the_engine(hass, halo):
     assert response["slots"] == 48
 
 
+async def _retries_used_up(hass):
+    for _ in range(3):
+        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=6))
+        await hass.async_block_till_done()
+
+
 async def test_missing_tibber_falls_back_and_logs(hass, halo):
     entry = await _setup(hass, {"price_source": "tibber"})
     await hass.async_block_till_done()
     center = entry.runtime_data
     assert not center.engine.dynamic_prices
+    # The first failures are retried quietly (Tibber is often slow after a restart).
+    assert not any(e["code"] == "PRICE_SOURCE_PROBLEM" for e in center.events)
+    await _retries_used_up(hass)
     assert any(e["code"] == "PRICE_SOURCE_PROBLEM" for e in center.events)
     assert hass.states.get("sensor.ev_pilot_current_price").state == "0.29"
 

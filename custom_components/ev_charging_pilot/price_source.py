@@ -8,9 +8,14 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import CALLBACK_TYPE, CoreState, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 from homeassistant.util import dt as dt_util
 
 from .core.prices import PriceSlot, parse_price_attributes, parse_tibber_response
@@ -19,6 +24,9 @@ from .core.settings import PriceSource, Settings
 _LOGGER = logging.getLogger(__name__)
 
 REFRESH = timedelta(minutes=30)
+# Right after a restart the price integration often answers empty (Tibber loads its
+# prices lazily). Retry quickly and only report a problem once these are used up.
+RETRY_DELAYS_S = (60, 120, 300)
 
 
 class PriceFetcher:
@@ -33,22 +41,45 @@ class PriceFetcher:
         self.settings: Settings | None = None
         self.last_update: datetime | None = None
         self.last_error: str | None = None
+        self._failures = 0
+        self._retry: CALLBACK_TYPE | None = None
 
     def start(self, settings: Settings) -> None:
         self.stop()
         self.settings = settings
+        self._failures = 0
         if settings.price_source is PriceSource.FIXED:
             return
         self._unsubs.append(async_track_time_interval(self.hass, self._interval, REFRESH))
         if settings.price_source is PriceSource.ENTITY and settings.price_entity:
             self._unsubs.append(async_track_state_change_event(
                 self.hass, [settings.price_entity], self._entity_changed))
-        self.hass.async_create_task(self.async_refresh())
+        if self.hass.state is CoreState.running:
+            self.hass.async_create_task(self.async_refresh())
+        else:
+            # Other integrations (Tibber, Nordpool) are not ready before HA has started.
+            self._unsubs.append(self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_STARTED, self._started))
 
     def stop(self) -> None:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
+        self._cancel_retry()
+
+    def _cancel_retry(self) -> None:
+        if self._retry is not None:
+            self._retry()
+            self._retry = None
+
+    @callback
+    def _started(self, _event) -> None:
+        self.hass.async_create_task(self.async_refresh())
+
+    @callback
+    def _retry_now(self, _now: datetime) -> None:
+        self._retry = None
+        self.hass.async_create_task(self.async_refresh())
 
     @callback
     def _interval(self, _now: datetime) -> None:
@@ -68,15 +99,27 @@ class PriceFetcher:
             else:
                 slots = self._entity(settings.price_entity)
         except (HomeAssistantError, ValueError, KeyError) as err:
-            self._problem(f"Preise nicht abrufbar: {err}")
+            self._failed(f"Preise nicht abrufbar: {err}")
             return []
         if not slots:
-            self._problem("Preisquelle liefert keine Preise")
+            self._failed("Preisquelle liefert keine Preise")
             return []
+        self._cancel_retry()
+        self._failures = 0
         self.last_error = None
         self.last_update = dt_util.utcnow()
         self._on_prices(slots)
         return slots
+
+    def _failed(self, message: str) -> None:
+        self._cancel_retry()
+        if self._failures < len(RETRY_DELAYS_S):
+            delay = RETRY_DELAYS_S[self._failures]
+            self._failures += 1
+            _LOGGER.debug("%s – neuer Versuch in %s s", message, delay)
+            self._retry = async_call_later(self.hass, delay, self._retry_now)
+            return
+        self._problem(message)
 
     def _problem(self, message: str) -> None:
         if message != self.last_error:

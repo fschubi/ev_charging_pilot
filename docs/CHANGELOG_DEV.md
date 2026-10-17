@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.15.1 Statistik-Korrekturen.** `OdometerSource.AUTO` (Default; OVMS wenn
+  gemappt, `Monitor.ovms_odometer`), `trips.net_energy` (used − recd, None bei recd > used),
+  kWh/100 km erst ab 1 km, Temperaturstatistik nur Fahrten mit Strecke+Energie, Preis =
+  Ø echter Heimstrompreis.
 - **2026-10-17 – v0.15.0 Ladestrom.** `charge_current_a` je Plan/One-Shot (None = Wallbox
   lassen), Optionen `default_current_a`/`manual_current_a` (live)/`phases`; `Desired.current_a`,
   `Engine._set_current` → `CommandKind.SET_CURRENT` → `number.set_value` (min/max geklemmt),

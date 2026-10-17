@@ -255,6 +255,9 @@ async function shrinkImage(file, maxWidth) {
 }
 
 const STYLE = `
+  .testcenter { grid-column: 1 / -1; }
+  .testcenter > summary { font-size: 16px; padding: 10px 4px; }
+  .testcenter > .grid { padding: 0; }
   /* Price dialog: a page of its own (opaque), so the cockpit does not shine through. */
   .overlay { position: fixed; inset: 0; z-index: 100; overflow: auto;
              background: var(--primary-background-color);
@@ -1471,6 +1474,10 @@ class EvPilotPanel extends HTMLElement {
 
   _diag(s) {
     const c = this._cache;
+    // A running test keeps the Test-Center open even if it was collapsed.
+    const testRunning = (s.charge_test && s.charge_test.phase !== "done")
+      || (s.price_push_test && !s.price_push_test.received_at
+        && Date.now() - new Date(s.price_push_test.sent_at) < 10 * 60e3);
     const all = (c.events && c.events.items) || [];
     const events = this._eventFilter === "important"
       ? all.filter((e) => e.severity !== "debug" && !ROUTINE_EVENTS.has(e.code)) : all;
@@ -1484,13 +1491,6 @@ class EvPilotPanel extends HTMLElement {
     const checkRows = check ? (check.results || []).map((r) => `<div class="crow"><span class="pill ${{ ok: "ok", info: "info", warn: "warn", bad: "bad" }[r.status]}">${{ ok: "ok", info: "Info", warn: "Hinweis", bad: "Fehler" }[r.status]}</span>
         <div><b>${esc(r.title)}</b><div class="sub">${esc(r.detail)}</div></div></div>`).join("") : "";
     return `<div class="grid">
-      <div class="card wide"><h2>Systemtest</h2>
-        <p class="sub">Prüft Wallbox, CP-Relais, Fahrzeugdaten, Befehlsweg, Push und Strompreis – ohne etwas zu schalten und ohne das Auto zu wecken.</p>
-        <div class="actions"><button class="act primary" data-action="system-check">Systemtest starten</button>
-          <button class="act" data-action="system-check" data-push="1">… mit Test-Push</button></div>
-        ${check ? `<div class="checks">${checkRows}</div><div class="hint">Stand ${dateTime(check.at)}</div>` : ""}</div>
-      ${this._chargeTestCard(s)}
-      ${this._pricePushCard(s)}
       <div class="card"><h2>Health</h2>
         <div class="big"><span class="pill ${{ HEALTHY: "ok", DEGRADED: "warn", ERROR: "bad" }[s.health.status]}">${esc(HEALTH_LABELS[s.health.status])}</span></div>
         ${s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("") || `<div class="sub">keine Auffälligkeiten</div>`}</div>
@@ -1528,6 +1528,18 @@ class EvPilotPanel extends HTMLElement {
           </table></div>
           ${(last.mismatches || []).length ? `<p><span class="pill bad">Abweichungen</span> ${last.mismatches.map((m) => `${dateTime(m.at)} ${m.on ? "an" : "aus"}`).join(", ")}</p>` : ""}` : ""}
       </div>
+      <details class="testcenter" data-details="tests" ${this._open("tests") || (testRunning ? "open" : "")}>
+        <summary>Test-Center <span class="sub">· Systemtest, Ladetest, Push-Test Preisabfrage</span></summary>
+        <div class="grid">
+          <div class="card wide"><h2>Systemtest</h2>
+            <p class="sub">Prüft Wallbox, CP-Relais, Fahrzeugdaten, Befehlsweg, Push und Strompreis – ohne etwas zu schalten und ohne das Auto zu wecken.</p>
+            <div class="actions"><button class="act primary" data-action="system-check">Systemtest starten</button>
+              <button class="act" data-action="system-check" data-push="1">… mit Test-Push</button></div>
+            ${check ? `<div class="checks">${checkRows}</div><div class="hint">Stand ${dateTime(check.at)}</div>` : ""}</div>
+          ${this._chargeTestCard(s)}
+          ${this._pricePushCard(s)}
+        </div>
+      </details>
     </div>`;
   }
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.2 – 2026-10-17
+
+- **Test-Center im Diagnose-Reiter:** Systemtest, Ladetest und Push-Test der Preisabfrage
+  stehen jetzt gemeinsam am Ende des Reiters in einem einklappbaren Bereich
+  „Test-Center“. Er ist standardmäßig zugeklappt und bleibt offen, solange du ihn nutzt.
+  Läuft gerade ein Ladetest oder wartet ein Push-Test auf Antwort, öffnet er sich von
+  selbst.
+
 ## 0.17.1 – 2026-10-17
 
 - **Preis-Fenster aufgeräumt:** Das Fenster „Preis der Fremdladung“ ist jetzt eine eigene,

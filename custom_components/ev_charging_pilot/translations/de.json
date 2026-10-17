@@ -653,6 +653,10 @@
       "name": "CP-Wakeup",
       "description": "CP-Puls über den Shelly – nur mit verifiziertem Failsafe."
     },
+    "charge_test": {
+      "name": "Ladetest",
+      "description": "Funktionstest: Wallbox an, bei Bedarf Auto wecken (OVMS, dann CP-Puls), kurz stabil laden, Wallbox wieder aus. Dauert höchstens 8 Minuten."
+    },
     "reset_error": {
       "name": "Fehler zurücksetzen",
       "description": "Fehler zurücksetzen"

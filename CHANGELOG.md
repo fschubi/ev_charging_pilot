@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.14.0 – 2026-10-17
+
+- **Neu: Ladetest im Diagnose-Reiter.** Ein Knopf prüft einmal die ganze Startkette wie in
+  einer echten Nacht: Wallbox freigeben, auf Ladeleistung warten, bei Bedarf das Auto
+  wecken (erst per OVMS, als letztes Mittel per CP-Puls), kurz stabil laden und die
+  Wallbox danach wieder sperren. Die Karte zeigt jeden Schritt mit Zeitpunkt und am Ende
+  das Ergebnis, z. B. „Ladung startete nach Wecken per OVMS mit 2,3 kW“. Der Test dauert
+  höchstens 8 Minuten und steht auch als Dienst `ev_charging_pilot.charge_test` zur
+  Verfügung.
+- Der Test läuft nur im Live-Modus und mit eingestecktem Auto. Er bricht ab, wenn das
+  Kabel gezogen oder das Laden manuell geändert wird. Ist gerade ein Ladeplan aktiv,
+  bleibt die Wallbox danach an.
+- Wer kurz zuvor den Dry-Run-Schalter umgelegt hat, löst Aktionen jetzt sofort im
+  richtigen Modus aus (bisher erst nach dem nächsten Takt).
+
 ## 0.13.9 – 2026-10-17
 
 - **Weiterladen nach Blockende:** Bisher endete die Ladung hart mit dem gewählten günstigen

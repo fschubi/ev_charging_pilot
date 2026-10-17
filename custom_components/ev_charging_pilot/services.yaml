@@ -52,6 +52,7 @@ start_one_shot:
 cancel_one_shot:
 vehicle_wakeup:
 cp_wakeup:
+charge_test:
 reset_error:
 start_climate:
   fields:

@@ -388,6 +388,8 @@ class ChargingCenter:
     async def async_run(self, action: Callable[[datetime], TickResult]) -> TickResult:
         """Run a user action against the engine, then a regular tick."""
         async with self._lock:
+            # A mode switched a moment ago must already count for this action.
+            self.engine.set_shadow(self.mode is not RunMode.LIVE)
             result = action(dt_util.utcnow())
             await self._handle(result)
         await self.async_tick()

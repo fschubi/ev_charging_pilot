@@ -137,6 +137,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
         "plans": [p.as_dict() for p in engine.plans],
         "override": engine.override.as_dict() if engine.override else None,
         "one_shot": engine.one_shot.as_dict() if engine.one_shot else None,
+        "charge_test": engine.charge_test.as_dict() if engine.charge_test else None,
         "climate": None if engine.climate_plan is None else {
             "duration_min": engine.climate_plan.duration_min,
             "start_at": _iso(engine.climate_plan.start_at),

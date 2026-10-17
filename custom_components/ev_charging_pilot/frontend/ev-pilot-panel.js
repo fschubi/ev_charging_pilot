@@ -1330,6 +1330,23 @@ class EvPilotPanel extends HTMLElement {
     </div>`;
   }
 
+  _chargeTestCard(s) {
+    const t = s.charge_test;
+    const running = t && t.phase !== "done";
+    const verdict = !t ? "" : running
+      ? `<span class="pill info">${t.phase === "stopping" ? "Wallbox wird gesperrt …" : "läuft …"}</span>`
+      : `<span class="pill ${t.ok ? "ok" : "bad"}">${t.ok ? "erfolgreich" : "fehlgeschlagen"}</span>`;
+    const steps = t ? t.steps.map((x) => `<div class="row"><span>${esc(x.text)}</span><span class="sub">+${x.after_s} s</span></div>`).join("") : "";
+    return `<div class="card wide"><h2>Ladetest</h2>
+      <p class="sub">Schaltet wirklich: Wallbox an, bei Bedarf Auto wecken (erst OVMS, dann CP-Puls), kurz stabil laden, Wallbox wieder aus. Dauert höchstens 8 Minuten. Das Auto muss eingesteckt sein.</p>
+      <div class="actions"><button class="act primary" data-service="charge_test" data-label="Ladetest gestartet"
+        data-confirm="Ladetest jetzt starten? Die Wallbox wird freigegeben und das Auto bei Bedarf geweckt."
+        ${running ? "disabled" : ""}>Ladetest starten</button>${verdict}</div>
+      ${t && t.summary ? `<p><b>${esc(t.summary)}</b></p>` : ""}
+      ${steps}
+      ${t ? `<div class="hint">Gestartet ${dateTime(t.started_at)}</div>` : ""}</div>`;
+  }
+
   _diag(s) {
     const c = this._cache;
     const all = (c.events && c.events.items) || [];
@@ -1350,6 +1367,7 @@ class EvPilotPanel extends HTMLElement {
         <div class="actions"><button class="act primary" data-action="system-check">Systemtest starten</button>
           <button class="act" data-action="system-check" data-push="1">… mit Test-Push</button></div>
         ${check ? `<div class="checks">${checkRows}</div><div class="hint">Stand ${dateTime(check.at)}</div>` : ""}</div>
+      ${this._chargeTestCard(s)}
       <div class="card"><h2>Health</h2>
         <div class="big"><span class="pill ${{ HEALTHY: "ok", DEGRADED: "warn", ERROR: "bad" }[s.health.status]}">${esc(HEALTH_LABELS[s.health.status])}</span></div>
         ${s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("") || `<div class="sub">keine Auffälligkeiten</div>`}</div>

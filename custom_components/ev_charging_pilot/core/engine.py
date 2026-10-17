@@ -15,6 +15,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .arbiter import DEFAULT_OFF, HANDS_OFF, arbitrate
+from .charge_test import ChargeTest
 from .climate import climate_blocker, climate_request, climate_wish, planned_duration
 from .costs import FixedPriceHistory
 from .executor import ExecState, Executor, ExecutorConfig, Snapshot, StepResult
@@ -146,6 +147,8 @@ class Engine:
 
         self.plans: list[WeeklySchedule] = [DEFAULT_PLAN]
         self.override: ManualOverride | None = None
+        self.charge_test: ChargeTest | None = None
+        self._test_override: ManualOverride | None = None
         self.one_shot: OneShot | None = None
         self.manual_climate: ClimateRequest | None = None
         self.automation_enabled = True
@@ -248,6 +251,7 @@ class Engine:
                     self._virtual_charger = True
                 elif command.kind is CommandKind.DISABLE_CHARGER:
                     self._virtual_charger = False
+        self._charge_test(now, result)
         self._monitor(now, result)
         self._notifications(now, result, plugged_in_event, cable_flag)
         if self.data_conflict and not self._was_conflict:
@@ -778,6 +782,59 @@ class Engine:
         if target < 100 and self.config.ovms_configured:
             return self.set_override(now, OverrideMode.UNTIL_SOC, target_soc=target)
         return self.set_override(now, OverrideMode.UNTIL_UNPLUGGED)
+
+    def start_charge_test(self, now: datetime) -> TickResult:
+        """Function test: Halo on, wakeup cascade if needed, short stable charge, Halo off."""
+        if self.shadow:
+            raise ValueError("Der Ladetest schaltet wirklich – bitte zuerst den Live-Modus "
+                             "einschalten")
+        if self._cable is not True:
+            raise ValueError("Das Auto ist nicht eingesteckt")
+        if self.health.blocks_automation or self.executor.cp_not_restored:
+            raise ValueError("Das System ist im Fehlerzustand – bitte zuerst den Fehler beheben")
+        if self.charge_test is not None and self.charge_test.running:
+            raise ValueError("Es läuft bereits ein Ladetest")
+        if self.executor.state in (ExecState.CHARGING, ExecState.CHARGE_STABILIZING,
+                                   ExecState.WAITING_FOR_CHARGE, ExecState.WAKEUP_OVMS,
+                                   ExecState.WAKEUP_CP):
+            raise ValueError("Es wird gerade geladen oder ein Ladestart läuft")
+        if self.executor.state is ExecState.START_FAILED:
+            # The test is a deliberate new attempt after a failed start.
+            self.executor.reset(now)
+        self.charge_test = ChargeTest.start(now)
+        self.override = self._test_override = ManualOverride(
+            OverrideMode.DURATION, now, self.charge_test.deadline)
+        return self._user_event(now, "CHARGE_TEST_START", "Ladetest gestartet")
+
+    def _charge_test(self, now: datetime, result: TickResult) -> None:
+        test = self.charge_test
+        if test is None or not test.running:
+            return
+        if test.phase == "running":
+            power = self.values[Inp.CHARGE_POWER]
+            watts = float(power.normalized) if power.available \
+                and power.normalized is not None else None
+            test.observe(now, result.events, watts)
+            if test.phase == "running":
+                due = test.due(now)
+                if due is not None:
+                    test.stop(now, *due)
+                elif self.override is not self._test_override:
+                    test.stop(now, False, "Abgebrochen – Kabel gezogen oder Laden manuell "
+                                          "geändert")
+            if test.phase == "stopping" and self.override is self._test_override:
+                self.override = None
+            return
+        charger = self.values[Inp.CHARGER_ENABLE]
+        kept_on = self.desired is not None and self.desired.charger_enabled is True \
+            and self.desired.reason is not Reason.OVERRIDE
+        if test.stopped(now, bool(charger.normalized) if charger.available else None, kept_on):
+            self._test_override = None
+            verdict = "erfolgreich" if test.ok else "fehlgeschlagen"
+            result.events.append(Event(
+                now, Category.CHARGING, Severity.INFO if test.ok else Severity.WARNING,
+                "CHARGE_TEST_RESULT", f"Ladetest {verdict}: {test.summary}",
+                data={"ok": test.ok, "woke_by": test.woke_by, "power_w": test.power_w}))
 
     def clear_override(self, now: datetime) -> TickResult:
         self.override = None

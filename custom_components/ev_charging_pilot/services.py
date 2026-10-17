@@ -59,6 +59,7 @@ SCHEMAS: dict[str, vol.Schema] = {
     "cancel_one_shot": vol.Schema({}),
     "vehicle_wakeup": vol.Schema({}),
     "cp_wakeup": vol.Schema({}),
+    "charge_test": vol.Schema({}),
     "reset_error": vol.Schema({}),
     "start_climate": vol.Schema({
         vol.Optional("minutes", default=10): vol.All(vol.Coerce(int), vol.In([5, 10, 15]))}),
@@ -163,6 +164,8 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 await center.async_run(lambda now: engine.wakeup(now, CommandKind.OVMS_WAKEUP))
             case "cp_wakeup":
                 await center.async_run(lambda now: engine.wakeup(now, CommandKind.CP_PULSE))
+            case "charge_test":
+                await center.async_run(engine.start_charge_test)
             case "reset_error":
                 await center.async_run(engine.reset)
             case "start_climate":

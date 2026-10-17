@@ -354,6 +354,11 @@ SERVICES = {
     "cp_wakeup": (T("CP-Wakeup", "CP wakeup"),
                   T("CP-Puls über den Shelly – nur mit verifiziertem Failsafe.",
                     "CP pulse via the Shelly – only with a verified failsafe.")),
+    "charge_test": (T("Ladetest", "Charge test"),
+                    T("Funktionstest: Wallbox an, bei Bedarf Auto wecken (OVMS, dann CP-Puls), "
+                      "kurz stabil laden, Wallbox wieder aus. Dauert höchstens 8 Minuten.",
+                      "Function test: wallbox on, wake the car if needed (OVMS, then CP "
+                      "pulse), charge briefly, wallbox off again. Takes at most 8 minutes.")),
     "reset_error": (T("Fehler zurücksetzen", "Reset error"), T("", "")),
     "start_climate": (T("Klimatisierung starten", "Start climate"), T("", "")),
     "stop_climate": (T("Klimatisierung stoppen", "Stop climate"), T("", "")),

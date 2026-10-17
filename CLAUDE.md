@@ -72,7 +72,7 @@ custom_components/ev_charging_pilot/
   notifications.py     Push + Actionable Notification (mobile_app_notification_action)
   price_source.py      PriceFetcher: Tibber-Service alle 30 min oder Preis-Entität
   reports.py           PDF erzeugen/listen, ReportView (/api/ev_charging_pilot/report, Login nötig)
-  services.py (21), websocket_api.py, export.py, diagnostics.py, config_flow.py
+  services.py (22), websocket_api.py, export.py, diagnostics.py, config_flow.py
   sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs ev_pilot_* (§12)
   frontend/ev-pilot-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
   settings_schema.py   Optionen als Formular-Schema für den Einstellungen-Reiter (get/set_settings)
@@ -134,9 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.13.5 Latch nur eingesteckt.** `Engine._latch` friert Start/Blöcke nur
-  ein, wenn `_cable is not False`; ein verpasster Block (Auto unterwegs) wird ab jetzt neu
-  geplant. Frank: Büroplan Mo–Mi 05:20, Tagespreise liegen sonst im Bürozeitraum.
 - **2026-10-17 – v0.13.6 Kostenprognose, Name One-Shot.** `_window`: Kosten = Blockkosten
   / (Leistung × Blockdauer) × `needed_kwh` statt volle Leistung inkl. Reserve. One-Shot heißt
   „Einmalige Abfahrt“ (Planner, Report, Panel-Pill mit Datum).
@@ -150,3 +147,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   verriegelten Fensters wird bis `ready_at` gestreckt, solange der Executor CHARGING/
   CHARGE_STABILIZING ist und kein Target-Hold greift; `ChargeWindow.overrun`, Desired mit
   `wake_allowed=False`, Event `BLOCK_EXTENDED`.
+- **2026-10-17 – v0.14.0 Ladetest.** `core/charge_test.py` (ChargeTest: Schritte aus
+  Executor-Events, Ende 60 s nach CHARGE_STABLE, max. 8 min, dann Halo-aus-Prüfung);
+  `Engine.start_charge_test` = DURATION-Override, nur live/eingesteckt; Dienst `charge_test`,
+  WS-State `charge_test`, Diagnose-Karte. `async_run` setzt Shadow vor der Aktion.

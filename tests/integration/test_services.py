@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import pytest
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
@@ -118,3 +120,18 @@ async def test_one_off_departure_service(hass, entry, halo):
         "departure_at": "2026-10-16 07:00:00", "target_soc": 100}, blocking=True)
     shot = entry.runtime_data.engine.one_shot
     assert shot is not None and shot.preferred_departure_soc_pct == 100
+
+
+async def test_charge_test_service(hass, entry, halo):
+    await _setup(hass, entry)
+    # Dry run: the test would switch for real, so it is refused.
+    with pytest.raises(ServiceValidationError, match="Live-Modus"):
+        await hass.services.async_call(DOMAIN, "charge_test", {}, blocking=True)
+    switch_on = async_mock_service(hass, "homeassistant", "turn_on")
+    await hass.services.async_call(
+        "switch", "turn_off", {"entity_id": "switch.ev_pilot_dry_run"}, blocking=True)
+    await hass.async_block_till_done()
+    await hass.services.async_call(DOMAIN, "charge_test", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert entry.runtime_data.engine.charge_test.running
+    assert switch_on

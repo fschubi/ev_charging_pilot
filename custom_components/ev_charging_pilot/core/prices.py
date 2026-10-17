@@ -13,6 +13,7 @@ Prices are always € per kWh. Values above 5 are taken as ct/kWh and divided by
 
 from __future__ import annotations
 
+import re
 from bisect import bisect_right
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -21,6 +22,25 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 CENT_THRESHOLD = 5.0
+
+
+def parse_price_input(text: str | None) -> float | None:
+    """€/kWh from a typed answer: "0,59", "0.59 €", "59 ct", "59" (cents)."""
+    if not text:
+        return None
+    match = re.search(r"\d+(?:[.,]\d+)?", text)
+    if match is None:
+        return None
+    value = float(match.group().replace(",", "."))
+    if value > 5:  # cents
+        value /= 100
+    return round(value, 4) if 0 < value < 3 else None
+
+
+def parse_price_list(text: str | None) -> tuple[float, ...]:
+    """Quick-pick prices from a setting like "0,39; 0,49; 0,59" (at most four)."""
+    prices = [parse_price_input(part) for part in re.split(r"[;\s/|]+", text or "")]
+    return tuple(dict.fromkeys(p for p in prices if p is not None))[:4]
 
 
 @dataclass(frozen=True, slots=True)

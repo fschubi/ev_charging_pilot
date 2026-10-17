@@ -255,6 +255,10 @@ async function shrinkImage(file, maxWidth) {
 }
 
 const STYLE = `
+  .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 10;
+             display: flex; align-items: flex-start; justify-content: center; padding: 72px 16px 16px; }
+  .overlay .dialog { width: 100%; max-width: 420px; }
+  .overlay .dialog input[name=price] { font-size: 1.4em; width: 100%; }
   details > summary { cursor: pointer; font-weight: 500; padding: 6px 0; color: var(--primary-color); }
   details[open] > summary { margin-bottom: 8px; }
   :host { display: block; background: var(--primary-background-color); min-height: 100vh;
@@ -499,7 +503,56 @@ class EvPilotPanel extends HTMLElement {
     setTimeout(() => el.remove(), 3000);
   }
 
+  /** A push about an external charge opens the panel with ?external_price=<id>. */
+  async _checkPriceLink() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("external_price");
+    if (!id) return;
+    params.delete("external_price");
+    const rest = params.toString();
+    history.replaceState(history.state, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    let charge = null;
+    if (!id.startsWith("test-")) {
+      try {
+        const list = await this._ws("get_external_charges", { limit: 50 });
+        charge = (list.items || []).find((e) => e.id === id) || null;
+      } catch (err) { /* the dialog works without the details */ }
+    }
+    this._priceDialog = { id, charge };
+  }
+
+  _priceDialogHtml(s) {
+    const d = this._priceDialog;
+    if (!d) return "";
+    const c = d.charge;
+    const info = d.id.startsWith("test-") ? "Nur ein Test – es wird nichts gespeichert."
+      : c ? `${dateOnly(c.date)} · ca. ${num(c.energy_kwh, 1, "kWh")}${c.note ? ` · ${esc(c.note)}` : ""}` : "Erkannte Fremdladung";
+    const buttons = ((s && s.settings.external_price_buttons) || []).map((p) =>
+      `<button class="act" data-action="price-pick" data-price="${p}">${num(p, 2, "€")}</button>`).join("");
+    return `<div class="overlay"><div class="card dialog">
+      <h2>Preis der Fremdladung</h2>
+      <p class="sub">${info}</p>
+      <div class="form" data-form="pricedialog">
+        <label>€ pro kWh<input type="text" inputmode="decimal" autocomplete="off" name="price" placeholder="0,49"></label>
+      </div>
+      ${buttons ? `<div class="actions">${buttons}</div>` : ""}
+      <div class="actions"><button class="act primary" data-action="price-save">Speichern</button>
+        <button class="act" data-action="price-cancel">Abbrechen</button></div>
+    </div></div>`;
+  }
+
+  async _savePrice(price) {
+    const d = this._priceDialog;
+    if (!d || !String(price || "").trim()) { this._toast("Bitte einen Preis eingeben"); return; }
+    if (await this._call("set_external_price", { id: d.id, price: String(price) }, "Preis gespeichert")) {
+      this._priceDialog = null;
+      if (this._formDrafts) delete this._formDrafts.pricedialog;
+      this._render(true);
+    }
+  }
+
   async _refresh() {
+    await this._checkPriceLink();
     try {
       this._state = await this._ws("state");
       this._error = null;
@@ -509,7 +562,7 @@ class EvPilotPanel extends HTMLElement {
     await this._loadPhoto();
     await this._loadView();
     // Re-render only when something visible changed (ages tick every poll).
-    const signature = JSON.stringify([this._view, this._state, this._cache, this._plans, this._photoUrl, this._error],
+    const signature = JSON.stringify([this._view, this._state, this._cache, this._plans, this._photoUrl, this._error, this._priceDialog],
       (key, value) => (key === "age_s" ? undefined : value));
     if (signature === this._signature) return;
     this._signature = signature;
@@ -620,7 +673,7 @@ class EvPilotPanel extends HTMLElement {
         ${modeLabel ? `<span class="badge ${mode === "live" ? "live" : ""}">${modeLabel}</span>` : ""}
       </header>
       <nav>${VIEWS.map(([id, label]) => `<button data-view="${id}" class="${this._view === id ? "active" : ""}">${id === "home" && s ? `Hausstrom → ${esc(s.vehicle_name)}` : label}</button>`).join("")}</nav>
-      <main>${body}</main>`;
+      <main>${body}</main>${this._priceDialogHtml(s)}`;
     this.shadowRoot.querySelectorAll(".scroll").forEach((el, i) => {
       if (scrolls[i]) [el.scrollTop, el.scrollLeft] = scrolls[i];
     });
@@ -746,6 +799,14 @@ class EvPilotPanel extends HTMLElement {
         this._createReport(el.dataset.month ? Number(el.dataset.month) : null); break;
       case "open-report":
         this._openReport(el.dataset.url); break;
+      case "price-pick":
+        this._savePrice(el.dataset.price); break;
+      case "price-save": {
+        const input = this.shadowRoot.querySelector('[data-form="pricedialog"] [name=price]');
+        this._savePrice(input && input.value); break;
+      }
+      case "price-cancel":
+        this._priceDialog = null; this._render(true); break;
       case "manual-current":
         this._ws("set_manual_current", { value: Number(el.value || 0) })
           .then((r) => { this._toast(r.value ? `Ladestrom „Jetzt laden“: ${r.value} A` : "Ladestrom „Jetzt laden“: Standard"); this._refresh(); })
@@ -1376,7 +1437,7 @@ class EvPilotPanel extends HTMLElement {
         : `<span class="pill bad">nicht erkannt</span> Eingabe „${esc(t.reply || "")}“`;
     }
     return `<div class="card wide"><h2>Push-Test: Preisabfrage Fremdladung</h2>
-      <p class="sub">Schickt die Frage nach dem Preis pro kWh aufs Handy, wie nach einer erkannten Fremdladung – nur als Test, es wird nichts gespeichert. Auf dem iPhone die Mitteilung lange drücken bzw. aufziehen, „Preis eingeben“ wählen, z. B. 0,49 eintippen und speichern.</p>
+      <p class="sub">Schickt die Frage nach dem Preis pro kWh aufs Handy, wie nach einer erkannten Fremdladung – nur als Test, es wird nichts gespeichert. Lange drücken zeigt die Preis-Knöpfe, ein Tipp auf die Mitteilung öffnet hier ein Fenster mit Ziffernblock.</p>
       <div class="actions"><button class="act primary" data-service="test_price_push" data-label="Test-Push gesendet">Test-Push senden</button>${result}</div>
       ${t ? `<div class="hint">Gesendet ${dateTime(t.sent_at)}${t.received_at ? ` · Antwort ${dateTime(t.received_at)}` : ""}</div>` : ""}</div>`;
   }

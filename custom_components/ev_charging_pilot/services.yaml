@@ -61,6 +61,17 @@ vehicle_wakeup:
 cp_wakeup:
 charge_test:
 test_price_push:
+set_external_price:
+  fields:
+    id:
+      required: true
+      selector:
+        text:
+    price:
+      required: true
+      example: "0,49"
+      selector:
+        text:
 reset_error:
 start_climate:
   fields:

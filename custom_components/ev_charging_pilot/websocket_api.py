@@ -182,6 +182,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             "default_current_a": center.settings.default_current_a,
             "phases": center.settings.phases,
             "current_settable": center.ports.current_settable,
+            "external_price_buttons": list(center.settings.external_price_buttons),
         },
         "history": [list(item) for item in center.history],
         "vehicle_link": vehicle_link(center),

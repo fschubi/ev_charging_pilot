@@ -159,6 +159,10 @@ GROUPS: list[dict[str, Any]] = [
            help="Erkennung aus den Fahrzeugdaten – das Auto wird dafür nie geweckt."),
         _n("external_price_eur_kwh", "Angenommener Preis für erkannte Ladungen", 0, 2, 0.01,
            "€/kWh", show_if={"external_detection": True}),
+        _f("external_price_buttons", "Preis-Knöpfe in der Push-Nachricht", "text",
+           help="Bis zu vier Preise in €/kWh, getrennt mit Semikolon, z. B. 0,39; 0,49; 0,59; "
+                "0,69. Ein Tipp auf einen Knopf speichert den Preis.",
+           show_if={"external_detection": True}),
         _n("external_min_kwh", "Mindestmenge", 0.2, 20, 0.1, "kWh", advanced=True,
            show_if={"external_detection": True}),
         _n("external_soc_jump_pct", "SOC-Sprung ohne Heimladen ab", 2, 50, 1, "%",

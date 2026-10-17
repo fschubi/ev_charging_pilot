@@ -30,14 +30,18 @@ EXTRA_ACTIONS = {"retry": {"action": ACTION_RETRY, "title": "Erneut versuchen"}}
 MOBILE_ACTION_EVENT = "mobile_app_notification_action"
 
 
-def _action(name: str) -> dict[str, Any] | None:
+def _de(price: float) -> str:
+    return f"{price:.2f}".replace(".", ",")
+
+
+def _actions(name: str, price_buttons: tuple[float, ...]) -> list[dict[str, Any]]:
     if name.startswith("ext_price:"):
-        # The companion app shows a text field (iOS and Android: behavior textInput).
-        return {"action": f"{ACTION_EXT_PRICE}|{name.removeprefix('ext_price:')}",
-                "title": "Preis eingeben", "behavior": "textInput",
-                "textInputButtonTitle": "Speichern",
-                "textInputPlaceholder": "€ pro kWh, z. B. 0,59"}
-    return EXTRA_ACTIONS.get(name)
+        # One button per quick-pick price; any other price is typed in the panel
+        # (tap on the push), where iOS shows the numeric keypad.
+        charge_id = name.removeprefix("ext_price:")
+        return [{"action": f"{ACTION_EXT_PRICE}|{charge_id}|{price}",
+                 "title": f"{_de(price)} €/kWh"} for price in price_buttons]
+    return [EXTRA_ACTIONS[name]] if name in EXTRA_ACTIONS else []
 
 
 class Notifier:
@@ -46,6 +50,8 @@ class Notifier:
         self.vehicle_name = vehicle_name
         target = conf.get(CONF_NOTIFY_SERVICE) or ""
         self.service = target.removeprefix("notify.") or None
+        # Quick-pick prices of the external charge push (from the settings).
+        self.price_buttons: tuple[float, ...] = ()
 
     async def async_send(self, notification: Notification) -> None:
         if not self.service:
@@ -62,9 +68,9 @@ class Notifier:
             data["actions"] = list(ACTIONS)
         elif notification.actions:
             data["actions"] = [action for a in notification.actions
-                               if (action := _action(a)) is not None]
+                               for action in _actions(a, self.price_buttons)]
         # Tapping a push opens the panel (iOS: url, Android: clickAction).
-        data["url"] = data["clickAction"] = "/ev-pilot"
+        data["url"] = data["clickAction"] = notification.url or "/ev-pilot"
         try:
             await self.hass.services.async_call(
                 "notify", self.service,

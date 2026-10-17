@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.14.1 Kein Plug-Event nach Neustart.** `Engine.tick`: Kabel „aus“ zählt
+  als unbekannt, solange `ovms_plug` konfiguriert, aber noch nicht verfügbar ist (auch für
+  den Executor). Erster Ladetest bei Frank ok: ohne Wecken, 7,9 kW (Halo max. 12 A).
 - **2026-10-17 – v0.14.0 Ladetest.** `core/charge_test.py` (ChargeTest: Schritte aus
   Executor-Events, Ende 60 s nach CHARGE_STABLE, max. 8 min, dann Halo-aus-Prüfung);
   `Engine.start_charge_test` = DURATION-Override, nur live/eingesteckt; Dienst `charge_test`,

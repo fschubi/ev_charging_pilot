@@ -55,15 +55,20 @@ from .const import (
     TICK_SECONDS,
     title_for,
 )
-from .core.engine import Engine, EngineConfig, Notification, TickResult
+from .core.engine import (
+    Engine,
+    EngineConfig,
+    Notification,
+    TickResult,
+    external_price_url,
+)
 from .core.inputs import Inp, RawState, to_value
 from .core.model import Category, Event, Severity
 from .core.monitor import Monitor
 from .core.ports import CommandRecorder
-from .core.prices import PriceSlot
+from .core.prices import PriceSlot, parse_price_input
 from .core.replay import ReplayDataset, run_replay
 from .core.settings import OPT_MODE, RunMode, Settings
-from .core.statistics import parse_price_input
 from .core.summary import weekly_text
 from .ha_ports import HaPorts, PortError, shelly_deviations
 from .notifications import Notifier
@@ -115,6 +120,7 @@ class ChargingCenter:
             self.monitor,
         )
         self.notifier = Notifier(hass, self.conf, self.vehicle_name)
+        self.notifier.price_buttons = self.settings.external_price_buttons
         # Diagnose: test of the price question of an external charge (push with text field).
         self.price_push_test: dict[str, Any] | None = None
         self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
@@ -291,6 +297,7 @@ class ChargingCenter:
         """Mode change only – no reload needed (the switch writes the option)."""
         self.settings = Settings.from_options(options)
         self.engine.settings = self.settings
+        self.notifier.price_buttons = self.settings.external_price_buttons
 
     async def async_set_mode(self, mode: RunMode) -> None:
         """Switch dry-run / live / replay without reloading the entry."""
@@ -461,7 +468,9 @@ class ChargingCenter:
     async def _on_notification_action(self, action: str, reply: str | None = None) -> None:
         now = dt_util.utcnow()
         if action.startswith(f"{ACTION_EXT_PRICE}|"):
-            await self._set_external_price(now, action.split("|", 1)[1], reply)
+            # "<prefix>|<id>|<price>" from a quick-pick button, else the typed reply.
+            _, charge_id, *preset = action.split("|")
+            await self._set_external_price(now, charge_id, preset[0] if preset else reply)
             return
         if action == ACTION_RETRY:
             await self.async_run(self.engine.retry)
@@ -494,9 +503,9 @@ class ChargingCenter:
                           "Test der Preisabfrage per Push gesendet")],
             notifications=[Notification(
                 "external_test", "normal", "Test: Preis eingeben",
-                "Nur ein Test – keine echte Fremdladung. Mitteilung lange drücken bzw. "
-                "aufziehen, „Preis eingeben“ wählen und z. B. 0,49 eintippen.",
-                actions=(f"ext_price:{test_id}",))]))
+                "Nur ein Test – keine echte Fremdladung. Antippen zum Eintippen oder lange "
+                "drücken für die Preis-Knöpfe.",
+                actions=(f"ext_price:{test_id}",), url=external_price_url(test_id))]))
         self._notify_listeners()
         return self.price_push_test
 
@@ -515,10 +524,16 @@ class ChargingCenter:
             now, Category.USER, Severity.INFO if price is not None else Severity.WARNING,
             "PRICE_PUSH_TEST_ANSWER", f"Push-Test Preisabfrage: {text}")])
 
+    async def async_set_external_price(self, charge_id: str, price: str) -> None:
+        """Price from the panel dialog; errors go back to the caller."""
+        await self._set_external_price(dt_util.utcnow(), charge_id, price, from_push=False)
+
     async def _set_external_price(self, now: datetime, charge_id: str,
-                                  reply: str | None) -> None:
-        """Price per kWh typed into the push of a detected external charge."""
+                                  reply: str | None, *, from_push: bool = True) -> None:
+        """Price per kWh for a detected external charge (push button or panel dialog)."""
         if charge_id.startswith("test-"):
+            if not from_push and parse_price_input(reply) is None:
+                raise ValueError(f"Kein gültiger Preis: „{reply or ''}“")
             await self._handle(self._price_push_test_answer(now, charge_id, reply))
             self._notify_listeners()
             return
@@ -527,6 +542,8 @@ class ChargingCenter:
         if charge is None or price is None:
             what = "Fremdladung nicht mehr vorhanden" if charge is None \
                 else f"Preis nicht erkannt: „{reply or ''}“"
+            if not from_push:
+                raise ValueError(what)
             await self._handle(TickResult(
                 events=[Event(now, Category.USER, Severity.WARNING, "EXTERNAL_PRICE_INVALID",
                               f"{what} – bitte im Panel ergänzen")],

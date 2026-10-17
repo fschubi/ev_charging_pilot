@@ -8,7 +8,6 @@ odometer readings and SOC log – aggregates are never the source of truth
 from __future__ import annotations
 
 import calendar
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, time, timedelta
@@ -16,6 +15,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .costs import FixedPriceHistory
+from .prices import parse_price_input  # noqa: F401 – part of the statistics API
 from .sessions import ChargeSession
 from .trips import Trip, net_energy
 
@@ -67,19 +67,6 @@ class ExternalCharge:
         values = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         values["date"] = date.fromisoformat(str(values["date"]))
         return cls(**values)
-
-
-def parse_price_input(text: str | None) -> float | None:
-    """€/kWh from a typed answer: "0,59", "0.59 €", "59 ct", "59" (cents)."""
-    if not text:
-        return None
-    match = re.search(r"\d+(?:[.,]\d+)?", text)
-    if match is None:
-        return None
-    value = float(match.group().replace(",", "."))
-    if value > 5:  # cents
-        value /= 100
-    return round(value, 4) if 0 < value < 3 else None
 
 
 @dataclass(frozen=True, slots=True)

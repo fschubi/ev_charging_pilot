@@ -64,6 +64,9 @@ SCHEMAS: dict[str, vol.Schema] = {
     "cp_wakeup": vol.Schema({}),
     "charge_test": vol.Schema({}),
     "test_price_push": vol.Schema({}),
+    "set_external_price": vol.Schema({
+        vol.Required("id"): cv.string,
+        vol.Required("price"): vol.All(vol.Coerce(str), vol.Length(min=1, max=20))}),
     "reset_error": vol.Schema({}),
     "start_climate": vol.Schema({
         vol.Optional("minutes", default=10): vol.All(vol.Coerce(int), vol.In([5, 10, 15]))}),
@@ -168,6 +171,8 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 await center.async_run(lambda now: engine.wakeup(now, CommandKind.OVMS_WAKEUP))
             case "cp_wakeup":
                 await center.async_run(lambda now: engine.wakeup(now, CommandKind.CP_PULSE))
+            case "set_external_price":
+                await center.async_set_external_price(data["id"], data["price"])
             case "test_price_push":
                 await center.async_test_price_push()
             case "charge_test":

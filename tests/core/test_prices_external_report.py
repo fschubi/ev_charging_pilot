@@ -349,3 +349,13 @@ def test_typed_price_answers():
     assert parse_price_input("") is None
     assert parse_price_input("weiß nicht") is None
     assert parse_price_input("450") is None  # 4,50 €/kWh is no plausible price
+
+
+def test_quick_pick_price_setting():
+    from custom_components.ev_charging_pilot.core.prices import parse_price_list
+
+    assert parse_price_list("0,39; 0,49; 0,59; 0,69") == (0.39, 0.49, 0.59, 0.69)
+    assert parse_price_list("49 ; 59ct ; quatsch ; 0,49 ; 0,79 ; 0,89") == (0.49, 0.59, 0.79,
+                                                                              0.89)
+    assert parse_price_list("") == ()
+    assert Settings.from_options({}).external_price_buttons == (0.39, 0.49, 0.59, 0.69)

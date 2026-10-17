@@ -72,7 +72,7 @@ custom_components/ev_charging_pilot/
   notifications.py     Push + Actionable Notification (mobile_app_notification_action)
   price_source.py      PriceFetcher: Tibber-Service alle 30 min oder Preis-Entität
   reports.py           PDF erzeugen/listen, ReportView (/api/ev_charging_pilot/report, Login nötig)
-  services.py (23), websocket_api.py, export.py, diagnostics.py, config_flow.py
+  services.py (24), websocket_api.py, export.py, diagnostics.py, config_flow.py
   sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs ev_pilot_* (§12)
   frontend/ev-pilot-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
   settings_schema.py   Optionen als Formular-Schema für den Einstellungen-Reiter (get/set_settings)
@@ -134,9 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.14.1 Kein Plug-Event nach Neustart.** `Engine.tick`: Kabel „aus“ zählt
-  als unbekannt, solange `ovms_plug` konfiguriert, aber noch nicht verfügbar ist (auch für
-  den Executor). Erster Ladetest bei Frank ok: ohne Wecken, 7,9 kW (Halo max. 12 A).
 - **2026-10-17 – v0.15.0 Ladestrom.** `charge_current_a` je Plan/One-Shot (None = Wallbox
   lassen), Optionen `default_current_a`/`manual_current_a` (live)/`phases`; `Desired.current_a`,
   `Engine._set_current` → `CommandKind.SET_CURRENT` → `number.set_value` (min/max geklemmt),
@@ -151,3 +148,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-17 – v0.16.1 Push-Test Preisabfrage.** Dienst `test_price_push` →
   `Coordinator.async_test_price_push` (Aktion `ext_price:test-…`), Antwort in
   `price_push_test` (WS-State), Diagnose-Karte; Test-IDs ändern keine Fremdladung.
+- **2026-10-17 – v0.17.0 Preis per Knopf/Ziffernblock.** Push-Aktionen
+  `EV_PILOT_EXT_PRICE|<id>|<preis>` aus Option `external_price_buttons` (`prices.parse_price_list`),
+  Push-`url` `/ev-pilot?external_price=<id>` → Panel-Dialog (`inputmode=decimal`) → Dienst
+  `set_external_price`. iOS-Textfeld entfernt (Tastatur nicht steuerbar). Frank wollte Ziffernblock.

@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import Any
 
 from .costs import PricePoint
+from .prices import parse_price_list
 
 
 class RunMode(StrEnum):
@@ -104,6 +105,7 @@ OPT_EXTERNAL_DETECTION = "external_detection"
 OPT_EXTERNAL_MIN_KWH = "external_min_kwh"
 OPT_EXTERNAL_SOC_JUMP = "external_soc_jump_pct"
 OPT_EXTERNAL_PRICE = "external_price_eur_kwh"
+OPT_EXTERNAL_PRICE_BUTTONS = "external_price_buttons"
 OPT_NOTIFY_EXTERNAL = "notify_external"
 OPT_REPORT_AUTO = "report_auto_monthly"
 OPT_NOTIFY_REPORT = "notify_report"
@@ -184,6 +186,8 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_EXTERNAL_MIN_KWH: 1.0,
     OPT_EXTERNAL_SOC_JUMP: 5,
     OPT_EXTERNAL_PRICE: 0.59,
+    # Quick-pick buttons in the price push of a detected external charge.
+    OPT_EXTERNAL_PRICE_BUTTONS: "0,39; 0,49; 0,59; 0,69",
     OPT_NOTIFY_EXTERNAL: True,
     OPT_REPORT_AUTO: True,
     OPT_NOTIFY_REPORT: True,
@@ -307,6 +311,7 @@ class Settings:
     external_min_kwh: float = 1.0
     external_soc_jump_pct: float = 5
     external_price_eur_kwh: float = 0.59
+    external_price_buttons: tuple[float, ...] = (0.39, 0.49, 0.59, 0.69)
     report_auto_monthly: bool = True
     manual_target_soc: int = 100
     learn_charging: bool = True
@@ -403,6 +408,7 @@ class Settings:
             external_min_kwh=float(o[OPT_EXTERNAL_MIN_KWH]),
             external_soc_jump_pct=float(o[OPT_EXTERNAL_SOC_JUMP]),
             external_price_eur_kwh=float(o[OPT_EXTERNAL_PRICE]),
+            external_price_buttons=parse_price_list(str(o[OPT_EXTERNAL_PRICE_BUTTONS] or "")),
             report_auto_monthly=bool(o[OPT_REPORT_AUTO]),
             manual_target_soc=int(o[OPT_MANUAL_TARGET_SOC]),
             learn_charging=bool(o[OPT_LEARN_CHARGING]),

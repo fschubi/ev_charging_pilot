@@ -654,6 +654,10 @@
       "name": "CP wakeup",
       "description": "CP pulse via the Shelly – only with a verified failsafe."
     },
+    "set_external_price": {
+      "name": "Set external charge price",
+      "description": "€ per kWh of a detected external charge, e.g. 0.49."
+    },
     "test_price_push": {
       "name": "Test: price question push",
       "description": "Sends the external charge price question as a test; the answer shows up in the diagnostics tab."

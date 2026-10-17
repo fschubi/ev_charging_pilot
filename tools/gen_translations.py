@@ -354,6 +354,9 @@ SERVICES = {
     "cp_wakeup": (T("CP-Wakeup", "CP wakeup"),
                   T("CP-Puls über den Shelly – nur mit verifiziertem Failsafe.",
                     "CP pulse via the Shelly – only with a verified failsafe.")),
+    "set_external_price": (T("Preis einer Fremdladung setzen", "Set external charge price"),
+                           T("€ pro kWh für eine erkannte Fremdladung, z. B. 0,49.",
+                             "€ per kWh of a detected external charge, e.g. 0.49.")),
     "test_price_push": (T("Test: Preisabfrage per Push", "Test: price question push"),
                         T("Schickt die Preisabfrage einer Fremdladung als Test aufs Handy; "
                           "die Antwort erscheint im Diagnose-Reiter.",
@@ -396,6 +399,7 @@ SERVICES = {
 FIELDS = {
     "mode": T("Modus", "Mode"), "duration_min": T("Dauer", "Duration"),
     "until": T("Bis", "Until"), "target_soc": T("Ziel-SOC", "Target SOC"),
+    "price": T("Preis (€/kWh)", "Price (€/kWh)"),
     "charge_current_a": T("Ladestrom (0 = Standard)", "Charging current (0 = default)"),
     "departure_time": T("Abfahrtszeit", "Departure time"), "minutes": T("Minuten", "Minutes"),
     "departure_at": T("Abfahrt (Datum und Uhrzeit)", "Departure (date and time)"),

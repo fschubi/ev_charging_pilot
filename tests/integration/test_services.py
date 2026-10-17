@@ -140,29 +140,34 @@ async def test_charge_test_service(hass, entry, halo):
 async def test_price_typed_into_the_push_completes_the_external_charge(hass, entry, halo):
     from custom_components.ev_charging_pilot.const import ACTION_EXT_PRICE
     from custom_components.ev_charging_pilot.core.statistics import ExternalCharge
-    from custom_components.ev_charging_pilot.notifications import _action
+    from custom_components.ev_charging_pilot.notifications import _actions
 
-    button = _action("ext_price:auto-202610171200")
-    assert button["behavior"] == "textInput"
-    assert button["action"] == f"{ACTION_EXT_PRICE}|auto-202610171200"
+    buttons = _actions("ext_price:auto-202610171200", (0.39, 0.49))
+    assert [b["title"] for b in buttons] == ["0,39 €/kWh", "0,49 €/kWh"]
+    assert buttons[1]["action"] == f"{ACTION_EXT_PRICE}|auto-202610171200|0.49"
 
     await _setup(hass, entry)
     center = entry.runtime_data
     center.monitor.add_external(ExternalCharge(
         "auto-202610171200", dt_util.now().date(), "public", 10.0, price_eur_kwh=0.59,
         detected=True, quality="ESTIMATED"))
+    # Quick-pick button in the push.
     hass.bus.async_fire("mobile_app_notification_action", {
-        "action": f"{ACTION_EXT_PRICE}|auto-202610171200", "reply_text": "0,49 €"})
+        "action": f"{ACTION_EXT_PRICE}|auto-202610171200|0.49"})
     await hass.async_block_till_done()
     charge = center.monitor.data.external[0]
     assert charge.price_eur_kwh == 0.49
     assert charge.total_cost == 4.9
     assert any(e["code"] == "EXTERNAL_PRICE_SET" for e in center.events)
-    hass.bus.async_fire("mobile_app_notification_action", {
-        "action": f"{ACTION_EXT_PRICE}|auto-202610171200", "reply_text": "keine Ahnung"})
-    await hass.async_block_till_done()
-    assert center.monitor.data.external[0].price_eur_kwh == 0.49
-    assert any(e["code"] == "EXTERNAL_PRICE_INVALID" for e in center.events)
+    # Typed in the panel dialog (numeric keypad).
+    await hass.services.async_call(DOMAIN, "set_external_price",
+                                   {"id": "auto-202610171200", "price": "0,55"}, blocking=True)
+    assert center.monitor.data.external[0].price_eur_kwh == 0.55
+    with pytest.raises(ServiceValidationError, match="nicht erkannt"):
+        await hass.services.async_call(DOMAIN, "set_external_price",
+                                       {"id": "auto-202610171200", "price": "abc"},
+                                       blocking=True)
+    assert center.monitor.data.external[0].price_eur_kwh == 0.55
 
 
 async def test_price_push_test_round_trip(hass, entry, halo):
@@ -180,12 +185,16 @@ async def test_price_push_test_round_trip(hass, entry, halo):
     await hass.services.async_call(DOMAIN, "test_price_push", {}, blocking=True)
     await hass.async_block_till_done()
     center = entry.runtime_data
-    action = pushes[-1].data["data"]["actions"][0]
-    assert action["behavior"] == "textInput"
-    assert action["action"] == f"{ACTION_EXT_PRICE}|{center.price_push_test['id']}"
-    hass.bus.async_fire("mobile_app_notification_action",
-                        {"action": action["action"], "reply_text": "49 ct"})
+    push = pushes[-1].data["data"]
+    test_id = center.price_push_test["id"]
+    assert push["url"] == f"/ev-pilot?external_price={test_id}"
+    assert [a["action"] for a in push["actions"]] == [
+        f"{ACTION_EXT_PRICE}|{test_id}|{p}" for p in (0.39, 0.49, 0.59, 0.69)]
+    hass.bus.async_fire("mobile_app_notification_action", {"action": push["actions"][1]["action"]})
     await hass.async_block_till_done()
     assert center.price_push_test["price_eur_kwh"] == 0.49
-    assert center.price_push_test["reply"] == "49 ct"
+    # The panel dialog answers the test the same way.
+    await hass.services.async_call(DOMAIN, "set_external_price",
+                                   {"id": test_id, "price": "0,52"}, blocking=True)
+    assert center.price_push_test["price_eur_kwh"] == 0.52
     assert center.monitor.data.external == []

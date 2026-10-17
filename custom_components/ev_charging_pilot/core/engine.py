@@ -56,6 +56,12 @@ from .statistics import ExternalCharge
 from .trips import Trip, TripTracker
 
 HEALTH_PUSH_DEBOUNCE_S = 300
+
+
+def external_price_url(charge_id: str) -> str:
+    """Panel page with the price dialog (numeric keypad) for one external charge."""
+    return f"/ev-pilot?external_price={charge_id}"
+
 # A current command the wallbox has not taken over yet is repeated after this.
 CURRENT_RETRY_S = 120
 ENFORCE_TARGET_MARGIN_PCT = 1
@@ -94,6 +100,8 @@ class Notification:
     actionable: bool = False
     # Extra buttons, e.g. ("retry",) after a failed start.
     actions: tuple[str, ...] = ()
+    # Page a tap on the push opens (default: the panel).
+    url: str | None = None
 
 
 @dataclass(slots=True)
@@ -712,9 +720,10 @@ class Engine:
                     result.notifications.append(Notification(
                         "external", "normal", "Fremdladung erkannt",
                         f"Ca. {charge.energy_kwh:.1f} kWh außer Haus geladen (geschätzt). "
-                        "Was hast du pro kWh bezahlt? Lange drücken bzw. aufziehen und "
-                        "„Preis eingeben“ wählen.",
-                        actions=(f"ext_price:{charge.id}",)))
+                        "Was hast du pro kWh bezahlt? Antippen zum Eintippen oder lange "
+                        "drücken für die Preis-Knöpfe.",
+                        actions=(f"ext_price:{charge.id}",),
+                        url=external_price_url(charge.id)))
 
         if self.soc.quality is Quality.GOOD:
             self.monitor.record_soc(now, float(self.soc.normalized))

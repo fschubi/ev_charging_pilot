@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.17.0 – 2026-10-17
+
+- **Preis-Knöpfe statt Textfeld:** Die Push-Nachricht nach einer erkannten Fremdladung (und
+  der Push-Test) zeigt beim langen Drücken Knöpfe mit festen Preisen, Standard
+  **0,39 / 0,49 / 0,59 / 0,69 €/kWh**. Ein Tipp speichert den Preis. Die Preise legst du unter
+  Einstellungen → Fremdladen → „Preis-Knöpfe in der Push-Nachricht“ fest (bis zu vier,
+  getrennt mit Semikolon).
+- **Antippen öffnet ein Eingabefenster mit Ziffernblock:** Ein einfacher Tipp auf die
+  Mitteilung öffnet das Panel mit dem Fenster „Preis der Fremdladung“. Das Feld öffnet auf
+  dem iPhone den Ziffernblock mit Komma, die Preis-Knöpfe stehen dort ebenfalls bereit.
+  Das iOS-Textfeld in der Mitteilung selbst kann keinen Ziffernblock zeigen und entfällt
+  deshalb.
+- Neuer Dienst `ev_charging_pilot.set_external_price` (id, price).
+
 ## 0.16.1 – 2026-10-17
 
 - **Neu: Push-Test für die Preisabfrage** im Diagnose-Reiter. „Test-Push senden“ schickt

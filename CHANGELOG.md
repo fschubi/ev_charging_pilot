@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.1 – 2026-10-17
+
+- **Preis-Fenster aufgeräumt:** Das Fenster „Preis der Fremdladung“ ist jetzt eine eigene,
+  deckende Seite, das Cockpit scheint nicht mehr durch. Das Eingabefeld geht über die volle
+  Breite mit großer Schrift, die Preis-Knöpfe stehen groß im 2×2-Raster, darunter
+  „Abbrechen“ und „Speichern“. Zwei CSS-Namenskonflikte haben die untere Knopfzeile
+  abgeschnitten; sie sind behoben.
+
 ## 0.17.0 – 2026-10-17
 
 - **Preis-Knöpfe statt Textfeld:** Die Push-Nachricht nach einer erkannten Fremdladung (und

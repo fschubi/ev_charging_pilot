@@ -134,10 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.15.0 Ladestrom.** `charge_current_a` je Plan/One-Shot (None = Wallbox
-  lassen), Optionen `default_current_a`/`manual_current_a` (live)/`phases`; `Desired.current_a`,
-  `Engine._set_current` → `CommandKind.SET_CURRENT` → `number.set_value` (min/max geklemmt),
-  nur wenn Halo an sein soll; `VehicleParams.current_a` begrenzt die Prognoseleistung.
 - **2026-10-17 – v0.15.1 Statistik-Korrekturen.** `OdometerSource.AUTO` (Default; OVMS wenn
   gemappt, `Monitor.ovms_odometer`), `trips.net_energy` (used − recd, None bei recd > used),
   kWh/100 km erst ab 1 km, Temperaturstatistik nur Fahrten mit Strecke+Energie, Preis =
@@ -152,3 +148,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `EV_PILOT_EXT_PRICE|<id>|<preis>` aus Option `external_price_buttons` (`prices.parse_price_list`),
   Push-`url` `/ev-pilot?external_price=<id>` → Panel-Dialog (`inputmode=decimal`) → Dienst
   `set_external_price`. iOS-Textfeld entfernt (Tastatur nicht steuerbar). Frank wollte Ziffernblock.
+- **2026-10-17 – v0.17.1 Preis-Fenster.** Overlay deckend (Hintergrundfarbe), `.pform`/`.pbar`
+  statt `.form`/`.bar` (Konflikt mit Grid bzw. 8-px-Fortschrittsbalken), Knöpfe 2×2.
+  Frank: Knöpfe und Ziffernblock auf dem iPhone funktionieren.

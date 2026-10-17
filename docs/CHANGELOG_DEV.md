@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.15.0 Ladestrom.** `charge_current_a` je Plan/One-Shot (None = Wallbox
+  lassen), Optionen `default_current_a`/`manual_current_a` (live)/`phases`; `Desired.current_a`,
+  `Engine._set_current` → `CommandKind.SET_CURRENT` → `number.set_value` (min/max geklemmt),
+  nur wenn Halo an sein soll; `VehicleParams.current_a` begrenzt die Prognoseleistung.
 - **2026-10-17 – v0.14.1 Kein Plug-Event nach Neustart.** `Engine.tick`: Kabel „aus“ zählt
   als unbekannt, solange `ovms_plug` konfiguriert, aber noch nicht verfügbar ist (auch für
   den Executor). Erster Ladetest bei Frank ok: ohne Wecken, 7,9 kW (Halo max. 12 A).

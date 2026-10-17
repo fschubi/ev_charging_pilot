@@ -255,10 +255,20 @@ async function shrinkImage(file, maxWidth) {
 }
 
 const STYLE = `
-  .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 10;
-             display: flex; align-items: flex-start; justify-content: center; padding: 72px 16px 16px; }
-  .overlay .dialog { width: 100%; max-width: 420px; }
-  .overlay .dialog input[name=price] { font-size: 1.4em; width: 100%; }
+  /* Price dialog: a page of its own (opaque), so the cockpit does not shine through. */
+  .overlay { position: fixed; inset: 0; z-index: 100; overflow: auto;
+             background: var(--primary-background-color);
+             display: flex; align-items: flex-start; justify-content: center;
+             padding: max(24px, env(safe-area-inset-top)) 16px 16px; box-sizing: border-box; }
+  .overlay .dialog { width: 100%; max-width: 440px; box-sizing: border-box; padding: 20px; }
+  .overlay .dialog h2 { font-size: 1.3em; margin: 0 0 4px; }
+  .overlay .dialog label { display: block; font-size: 0.95em; }
+  .overlay .dialog input[name=price] { display: block; box-sizing: border-box; width: 100%;
+             font-size: 1.8em; padding: 10px 14px; margin-top: 6px; text-align: center; }
+  .overlay .quick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 16px 0; }
+  .overlay .quick .act { font-size: 1.1em; padding: 12px 0; }
+  .overlay .pbar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .overlay .pbar .act { padding: 12px 0; font-size: 1.05em; }
   details > summary { cursor: pointer; font-weight: 500; padding: 6px 0; color: var(--primary-color); }
   details[open] > summary { margin-bottom: 8px; }
   :host { display: block; background: var(--primary-background-color); min-height: 100vh;
@@ -528,16 +538,16 @@ class EvPilotPanel extends HTMLElement {
     const info = d.id.startsWith("test-") ? "Nur ein Test – es wird nichts gespeichert."
       : c ? `${dateOnly(c.date)} · ca. ${num(c.energy_kwh, 1, "kWh")}${c.note ? ` · ${esc(c.note)}` : ""}` : "Erkannte Fremdladung";
     const buttons = ((s && s.settings.external_price_buttons) || []).map((p) =>
-      `<button class="act" data-action="price-pick" data-price="${p}">${num(p, 2, "€")}</button>`).join("");
+      `<button class="act" data-action="price-pick" data-price="${p}">${num(p, 2, "€/kWh")}</button>`).join("");
     return `<div class="overlay"><div class="card dialog">
       <h2>Preis der Fremdladung</h2>
       <p class="sub">${info}</p>
-      <div class="form" data-form="pricedialog">
-        <label>€ pro kWh<input type="text" inputmode="decimal" autocomplete="off" name="price" placeholder="0,49"></label>
+      <div class="pform" data-form="pricedialog">
+        <label>Bezahlter Preis in € pro kWh<input type="text" inputmode="decimal" autocomplete="off" name="price" placeholder="z. B. 0,49"></label>
       </div>
-      ${buttons ? `<div class="actions">${buttons}</div>` : ""}
-      <div class="actions"><button class="act primary" data-action="price-save">Speichern</button>
-        <button class="act" data-action="price-cancel">Abbrechen</button></div>
+      ${buttons ? `<div class="sub">oder direkt wählen:</div><div class="quick">${buttons}</div>` : ""}
+      <div class="pbar"><button class="act" data-action="price-cancel">Abbrechen</button>
+        <button class="act primary" data-action="price-save">Speichern</button></div>
     </div></div>`;
   }
 

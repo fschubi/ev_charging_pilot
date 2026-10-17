@@ -463,8 +463,20 @@ class EvPilotPanel extends HTMLElement {
       this._toast(label || "Erledigt");
       this._cache = {};
       await this._refresh();
+      return true;
     } catch (err) {
       this._toast(`Fehler: ${err.message || err}`);
+      return false;
+    }
+  }
+
+  // Submit a form; its typed values are kept until the call succeeded.
+  async _submit(form, service, data, label) {
+    const draft = this._formDrafts && this._formDrafts[form];
+    if (this._formDrafts) delete this._formDrafts[form];
+    if (!(await this._call(service, data, label)) && draft) {
+      this._formDrafts[form] = draft;
+      this._render(true);
     }
   }
 
@@ -601,6 +613,11 @@ class EvPilotPanel extends HTMLElement {
     this.shadowRoot.querySelectorAll(".scroll").forEach((el, i) => {
       if (scrolls[i]) [el.scrollTop, el.scrollLeft] = scrolls[i];
     });
+    // Live data re-renders the page every few seconds: keep what the user typed.
+    this.shadowRoot.querySelectorAll("[data-form] [name]").forEach((el) => {
+      const draft = this._formDrafts && this._formDrafts[el.closest("[data-form]").dataset.form];
+      if (draft && el.name in draft) el.value = draft[el.name];
+    });
     this._bind();
   }
 
@@ -616,6 +633,12 @@ class EvPilotPanel extends HTMLElement {
       }));
     root.querySelectorAll("[data-action]").forEach((el) =>
       el.addEventListener(el.tagName === "BUTTON" ? "click" : "change", (ev) => this._action(el.dataset.action, el, ev)));
+    root.querySelectorAll("[data-form] [name]").forEach((el) =>
+      ["input", "change"].forEach((type) => el.addEventListener(type, () => {
+        const form = el.closest("[data-form]").dataset.form;
+        this._formDrafts = this._formDrafts || {};
+        this._formDrafts[form] = { ...(this._formDrafts[form] || {}), [el.name]: el.value };
+      })));
     root.querySelectorAll('input[type=range]').forEach((el) =>
       el.addEventListener("input", () => {
         const label = el.closest("label") && el.closest("label").querySelector("b.val");
@@ -693,7 +716,7 @@ class EvPilotPanel extends HTMLElement {
       case "oneshot-add": {
         const data = this._form("oneshot");
         if (!data.departure_at) { this._toast("Bitte Datum und Uhrzeit wählen"); break; }
-        this._call("start_one_shot", data, "Einmalige Abfahrt geplant");
+        this._submit("oneshot", "start_one_shot", data, "Einmalige Abfahrt geplant");
         break;
       }
       case "events-reload":
@@ -777,13 +800,13 @@ class EvPilotPanel extends HTMLElement {
   _addExternal() {
     const data = this._form("external");
     if (!data.date || !data.energy_kwh) { this._toast("Datum und kWh angeben"); return; }
-    this._call("add_external_charge", data, "Fremdladung erfasst");
+    this._submit("external", "add_external_charge", data, "Fremdladung erfasst");
   }
 
   _addOdometer() {
     const data = this._form("odometer");
     if (!data.odometer_km) { this._toast("Kilometerstand angeben"); return; }
-    this._call("add_manual_odometer", data, "Kilometerstand erfasst");
+    this._submit("odometer", "add_manual_odometer", data, "Kilometerstand erfasst");
   }
 
   _settingsView(s) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.7 – 2026-10-17
+
+- **Eingaben bleiben stehen:** Das Panel zeichnet sich bei neuen Live-Werten (SOC,
+  Leistung …) alle paar Sekunden neu. Dabei wurden die Formulare „Einmalige Abfahrt“,
+  „Fremdladung“ und „Kilometerstand“ auf ihre Vorgaben zurückgesetzt (z. B. morgen 07:00
+  und 100 %), sobald man ein Feld verlassen hatte. Eingetippte Werte bleiben jetzt erhalten,
+  bis sie erfolgreich gespeichert sind.
+
 ## 0.13.6 – 2026-10-17
 
 - **Kostenprognose realistisch:** Die Prognose rechnete volle Ladeleistung über den ganzen

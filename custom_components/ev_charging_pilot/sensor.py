@@ -306,6 +306,9 @@ class ChargingSensor(ChargingEntity, SensorEntity):
         if reset == "session":
             session = self.center.engine.sessions.open
             return session.started_at if session else None
-        local = dt_util.now(self.center.tz)
-        start = local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # The period the published figures were computed for – never the bare clock,
+        # or the new month would start with last month's total (negative LTS sum).
+        start = self.center.statistics_month_start
+        if start is None:
+            return None
         return start.replace(month=1) if reset == "year" else start

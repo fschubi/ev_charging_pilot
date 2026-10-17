@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.17.3 Start im Cockpit.** `localStorage` `ev-pilot-view` entfernt;
+  `connectedCallback` nach `disconnectedCallback` setzt den Reiter auf Cockpit (außer bei
+  offenem `_settingsDraft`). Frank wollte nach HA-Seitenwechsel nicht im alten Reiter landen.
 - **2026-10-17 – v0.17.2 Test-Center.** Diagnose: System-, Lade- und Push-Test in
   `<details data-details="tests">` am Ende; offen bei laufendem Ladetest bzw. Push-Test < 10 min.
 - **2026-10-17 – v0.17.1 Preis-Fenster.** Overlay deckend (Hintergrundfarbe), `.pform`/`.pbar`

@@ -135,9 +135,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.17.3 Start im Cockpit.** `localStorage` `ev-pilot-view` entfernt;
-  `connectedCallback` nach `disconnectedCallback` setzt den Reiter auf Cockpit (außer bei
-  offenem `_settingsDraft`). Frank wollte nach HA-Seitenwechsel nicht im alten Reiter landen.
 - **2026-10-17 – v0.18.0 Monatsbericht per Mail.** `core/mail.py` (Presets, `monthly_mail`,
   `build_message`, `send` im Executor), Optionen `mail_*`/`report_push_targets`, Feldtyp
   `password` (nie zurück, leer = behalten), `async_send_report_mail` am 1. + Dienst
@@ -153,3 +150,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   + `_failed_window` im `_initial_state`, `_fail` sperrt Halo, Disable im Cooldown → COOLDOWN;
   Sessions schließen bei CHARGE_ENDED; Klima `wake_allowed=False`; `_expire` CP-maskiert.
   Regressionstests `tests/core/test_review_fixes.py`.
+- **2026-10-18 – v0.19.3 Prüfbericht Stufe 1 HA.** `statistics_month_start` (last_reset aus
+  der berechneten Periode, Refresh bei Periodenwechsel vor `_handle`); `COMMAND_TIMEOUT_S` = 30 um
+  `ports.execute`. Stufe 1 damit komplett.

@@ -78,6 +78,8 @@ from .price_source import PriceFetcher
 from .reports import async_create_report, previous_month
 
 _LOGGER = logging.getLogger(__name__)
+# Upper bound for one hardware/cloud command (switch, number, OVMS, script).
+COMMAND_TIMEOUT_S = 30
 
 DRIFT_CHECK_INTERVAL = timedelta(minutes=15)
 MODE_MESSAGES = {
@@ -140,6 +142,7 @@ class ChargingCenter:
         self._unsubs: list[CALLBACK_TYPE] = []
         self._lock = asyncio.Lock()
         self._statistics_at: datetime | None = None
+        self.statistics_month_start: datetime | None = None
         suffix = entry.entry_id
         self._state_store: Store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY_STATE}.{suffix}")
         self._event_store: Store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY_EVENTS}.{suffix}")
@@ -393,10 +396,13 @@ class ChargingCenter:
             self.engine.set_shadow(self.mode is not RunMode.LIVE)
             result = self.engine.tick(now, self._raw_states())
             self._sample_history(now)
-            await self._handle(result)
-            if self._statistics_at is None or \
+            # A new month/year must be computed before any state is written: the
+            # TOTAL sensors would otherwise publish last month's total under the new
+            # last_reset, and the recorder would book it as a negative month.
+            if self._statistics_at is None or self._new_period(now) or \
                     (now - self._statistics_at).total_seconds() >= STATISTICS_REFRESH_S:
                 self.refresh_statistics(now)
+            await self._handle(result)
 
     async def _async_backfill_history(self) -> None:
         """Cockpit chart after a restart: the last 24 h come from the recorder."""
@@ -480,11 +486,16 @@ class ChargingCenter:
         for command in result.commands:
             if self.mode is RunMode.LIVE:
                 try:
-                    await self.ports.execute(command, self.settings)
+                    # A hanging cloud call (wallbox, OVMS) must not hold the lock – the
+                    # control loop (target stop, loss detection) would stand still.
+                    async with asyncio.timeout(COMMAND_TIMEOUT_S):
+                        await self.ports.execute(command, self.settings)
                 except Exception as err:  # noqa: BLE001 – a port must never kill the tick
                     self.recorder.record(now, command, False)
+                    reason = f"keine Antwort nach {COMMAND_TIMEOUT_S} s" \
+                        if isinstance(err, TimeoutError) else str(err)
                     self._log(Event(now, Category.CHARGING, Severity.ERROR, "COMMAND_FAILED",
-                                    f"{command.describe()} fehlgeschlagen: {err}"))
+                                    f"{command.describe()} fehlgeschlagen: {reason}"))
                     continue
                 self.recorder.record(now, command, True)
             else:
@@ -517,11 +528,19 @@ class ChargingCenter:
 
     # ----------------------------------------------------------- statistics
 
+    def _new_period(self, now: datetime) -> bool:
+        return self.statistics_month_start is None or \
+            now.astimezone(self.tz).replace(day=1, hour=0, minute=0, second=0,
+                                            microsecond=0) != self.statistics_month_start
+
     def refresh_statistics(self, now: datetime | None = None) -> None:
         now = now or dt_util.utcnow()
         local = now.astimezone(self.tz)
         today = local.date()
         self._statistics_at = now
+        # The period the figures belong to – the sensors' last_reset comes from here.
+        self.statistics_month_start = local.replace(day=1, hour=0, minute=0, second=0,
+                                                    microsecond=0)
         year = self.monitor.year(local.year, self.settings, today)
         year.pop("months", None)
         self.statistics = {

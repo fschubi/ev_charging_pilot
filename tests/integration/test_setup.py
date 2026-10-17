@@ -220,3 +220,40 @@ async def test_existing_install_gets_the_ovms_plug(hass, full_entry, halo):
     assert full_entry.data["ovms_plug"] == plug.entity_id
     assert full_entry.data["ovms_location"] == tracker.entity_id
     assert full_entry.runtime_data.engine.values[Inp.CABLE_CONNECTED].normalized is True
+
+
+async def test_month_sensors_switch_period_together_with_their_values(hass, entry, halo, freezer):
+    from datetime import datetime
+
+    from homeassistant.util import dt as dt_util
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+
+    tz = dt_util.get_default_time_zone()
+    freezer.move_to(datetime(2026, 10, 31, 23, 59, 30, tzinfo=tz))
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    assert center.statistics["month"]["month"] == 10
+    freezer.move_to(datetime(2026, 11, 1, 0, 0, 5, tzinfo=tz))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    # Figures and last_reset change in the same tick – no "new period, old total".
+    assert center.statistics["month"]["month"] == 11
+    state = hass.states.get("sensor.ev_pilot_month_home_energy")
+    assert state.attributes["last_reset"].startswith("2026-11-01T00:00:00")
+
+
+async def test_hanging_wallbox_command_times_out_and_frees_the_loop(hass, entry, halo):
+    await _setup(hass, entry)
+    await hass.services.async_call(
+        "switch", "turn_off", {"entity_id": "switch.ev_pilot_dry_run"}, blocking=True)
+    await hass.async_block_till_done()
+    center = entry.runtime_data
+
+    async def hang(command, settings):
+        raise TimeoutError  # what asyncio.timeout raises around a hanging cloud call
+
+    with patch.object(center.ports, "execute", hang):
+        await hass.services.async_call(DOMAIN, "start_charging", {}, blocking=True)
+    assert any(e["code"] == "COMMAND_FAILED" and "keine Antwort nach 30 s" in e["message"]
+               for e in center.events)
+    assert not center._lock.locked()

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.3 – 2026-10-18
+
+Korrekturen aus dem Prüfbericht vom 18.10., Stufe 1 (HA):
+- **H1 – Monatswechsel in der Langzeitstatistik:** Die Monats- und Jahres-Sensoren
+  (Energie, Fremdenergie, Strecke, Kosten) wechselten den Rücksetzzeitpunkt nach der Uhr,
+  den Wert aber erst bis zu 60 s später. HA verbuchte dadurch bei jedem Monatswechsel den
+  Vormonat als negativen Betrag in der Langzeitstatistik und im Energie-Dashboard. Jetzt
+  wechseln Werte und Rücksetzzeitpunkt im selben Takt.
+- **H2 – Zeitlimit für Befehle an Wallbox und Auto:** Hängt ein Cloud-Aufruf (Halo,
+  OVMS), wird er nach 30 s abgebrochen und gemeldet („keine Antwort nach 30 s“). Vorher
+  konnte er die Steuerung (Zielabschaltung, Abbrucherkennung) blockieren.
+
 ## 0.19.2 – 2026-10-18
 
 Korrekturen aus dem Prüfbericht vom 18.10., Stufe 1 (Lade-Kern):

@@ -20,7 +20,7 @@ const STATE_LABELS = {
   COOLDOWN: "Pause", START_FAILED: "Start fehlgeschlagen",
 };
 const REASON_LABELS = {
-  safety_lock: "Sicherheitssperre", override: "Override", rfid: "RFID", one_shot: "Heute Nacht",
+  safety_lock: "Sicherheitssperre", override: "Override", rfid: "RFID", one_shot: "Einmalig",
   target_soc_reached: "Ziel-SOC erreicht", climate: "Vorklimatisierung", schedule: "Wochenplan",
   default_off: "Standard aus", automation_off: "Automatik aus",
 };
@@ -1011,7 +1011,7 @@ class EvPilotPanel extends HTMLElement {
               <span class="pill ${plugged ? "info" : "muted"}">${plugged ? "eingesteckt" : "nicht eingesteckt"}</span>
               <span class="pill ${healthClass}">${esc(HEALTH_LABELS[health] || health)}</span>
               ${s.override ? `<span class="pill info">Override: ${esc(s.override.mode)}</span>` : ""}
-              ${s.one_shot ? `<span class="pill info">Heute Nacht bis ${time(s.one_shot.departure_at)}</span>` : ""}
+              ${s.one_shot ? `<span class="pill info">Einmalig: Abfahrt ${dateTime(s.one_shot.departure_at)}</span>` : ""}
               ${!s.automation_enabled ? `<span class="pill warn">Automatik aus</span>` : ""}
               ${ex.failure_code ? `<span class="pill bad">${esc(ex.failure_code)}</span>` : ""}
             </div>

@@ -19,7 +19,7 @@ from .settings import Settings
 
 MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
           "September", "Oktober", "November", "Dezember"]
-REASONS = {"schedule": "Wochenplan", "one_shot": "Heute Nacht", "override": "Override",
+REASONS = {"schedule": "Wochenplan", "one_shot": "Einmalig", "override": "Override",
            "rfid": "RFID", "climate": "Klima", "target_soc_reached": "Ziel-SOC",
            "default_off": "–", "automation_off": "–", "safety_lock": "–"}
 WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]

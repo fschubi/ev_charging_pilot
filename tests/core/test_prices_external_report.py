@@ -110,7 +110,10 @@ def test_engine_charges_only_in_cheap_block():
     window = world.engine.next_window
     assert window.price_optimized
     assert window.blocks[0][0] >= local(2026, 10, 14, 2)
-    assert window.estimate.cost_eur is not None
+    # Only the energy the car needs, at the cheap block's price – not full power
+    # over the whole block including the reserve.
+    estimate = window.estimate
+    assert estimate.needed_kwh * 0.17 <= estimate.cost_eur <= estimate.needed_kwh * 0.18 + 0.01
     world.run(60)
     assert world.engine.desired.charger_enabled is False
     world.now = window.blocks[0][0] - timedelta(seconds=5)

@@ -411,10 +411,16 @@ def _window(
             if best is not None and best[0]:
                 blocks = tuple(best[0])
                 start = blocks[0][0]
-                cost = round(best[1], 2)
+                cost = best[1]
         if cost is None and prices:
-            raw = prices.energy_cost(start, start + needed, params.expected_power_kw)
-            cost = round(raw, 2) if raw is not None else None
+            cost = prices.energy_cost(start, start + needed, params.expected_power_kw)
+        if cost is not None:
+            # The search prices full power over the whole block including the reserve;
+            # the estimate only pays the energy the car actually needs, at the block's
+            # average price.
+            drawn = params.expected_power_kw * needed.total_seconds() / 3600
+            needed_kwh, _ = charge_duration(float(soc.normalized), preferred_pct, params)
+            cost = round(cost / drawn * needed_kwh, 2) if drawn > 0 else None
     else:
         local_departure = departure.astimezone(tz)
         start = _local(local_departure.date(), charge_start_time, tz)
@@ -508,7 +514,7 @@ def one_shot_window(
         soc=soc,
         params=params,
         climate=one_shot.climate,
-        name="Heute Nacht",
+        name="Einmalige Abfahrt",
         prices=prices,
         price_blocks=price_blocks,
     )

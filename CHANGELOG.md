@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.6 – 2026-10-17
+
+- **Kostenprognose realistisch:** Die Prognose rechnete volle Ladeleistung über den ganzen
+  Block inklusive Reserve und zeigte so deutlich zu viel an (z. B. 2,40 € für 4 kWh). Jetzt
+  zählt nur die benötigte Energie zum Durchschnittspreis des gewählten Blocks.
+- Eine einmalige Abfahrt heißt im Ladeplan und Cockpit jetzt „Einmalige Abfahrt“ bzw.
+  „Einmalig: Abfahrt So., 18.10., 15:50“ statt „Heute Nacht“, weil sie auf jeden Tag fallen
+  kann.
+
 ## 0.13.5 – 2026-10-17
 
 - **Wichtig für Pendeltage: Preisblock nur festhalten, wenn das Auto eingesteckt ist.**

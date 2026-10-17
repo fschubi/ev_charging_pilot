@@ -639,6 +639,10 @@
         "target_soc": {
           "name": "Target SOC",
           "description": "Target SOC"
+        },
+        "charge_current_a": {
+          "name": "Charging current (0 = default)",
+          "description": "Charging current (0 = default)"
         }
       }
     },
@@ -656,7 +660,35 @@
     },
     "set_external_price": {
       "name": "Set external charge price",
-      "description": "€ per kWh of a detected external charge, e.g. 0.49."
+      "description": "€ per kWh of a detected external charge, e.g. 0.49.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "ID"
+        },
+        "price": {
+          "name": "Price (€/kWh)",
+          "description": "Price (€/kWh)"
+        }
+      }
+    },
+    "send_report_mail": {
+      "name": "Send monthly report by mail",
+      "description": "Sends the PDF report (default: last month) to the configured recipients.",
+      "fields": {
+        "year": {
+          "name": "Year",
+          "description": "Year"
+        },
+        "month": {
+          "name": "Month",
+          "description": "Month"
+        },
+        "test": {
+          "name": "Mark as test",
+          "description": "Mark as test"
+        }
+      }
     },
     "test_price_push": {
       "name": "Test: price question push",

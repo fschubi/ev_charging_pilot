@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.18.0 – 2026-10-17
+
+- **Neu: Monatsbericht per E-Mail.** Am 1. des Monats geht der PDF-Bericht des Vormonats an
+  bis zu zwei Empfänger. Der Betreff nennt schon das Wichtigste, z. B. „Smarty –
+  Ladebericht September 2026: 40,2 kWh = 16,48 €“. Im Mailtext stehen die zu Hause
+  geladenen kWh, die Kosten mit Ø-Preis, Fremdladungen und gefahrene Kilometer.
+- **Einrichtung im Einstellungen-Reiter → „Monatsbericht per E-Mail“:** Anbieter wählen
+  (Gmail, GMX, web.de, T-Online, iCloud, Outlook oder eigener Server), Benutzername,
+  Passwort und Empfänger eintragen. Bei Gmail und iCloud wird ein **App-Passwort**
+  benötigt. Das Passwort wird nie zurück ins Panel geschickt; ein leeres Feld behält das
+  gespeicherte.
+- **Betrag zusätzlich per Push:** Weitere Handys (z. B. `notify.mobile_app_…`) bekommen am
+  1. die kWh und den Betrag des Vormonats.
+- **Test-Center:** neue Karte „Monatsbericht per E-Mail“ mit „Test-Mail senden“. Sie zeigt
+  das Ergebnis oder einen verständlichen Fehler, z. B. „Anmeldung abgelehnt – App-Passwort
+  verwenden“. Schlägt der automatische Versand fehl, kommt eine Push-Nachricht.
+- Neuer Dienst `ev_charging_pilot.send_report_mail` (year, month, test).
+- Mail-Zugangsdaten und Empfänger werden in der Diagnose-Datei geschwärzt.
+
 ## 0.17.3 – 2026-10-17
 
 - **Panel startet immer im Cockpit:** Bisher merkte sich das Panel den zuletzt offenen

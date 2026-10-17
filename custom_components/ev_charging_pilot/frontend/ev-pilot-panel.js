@@ -944,6 +944,15 @@ class EvPilotPanel extends HTMLElement {
       if (f.type === "number") {
         return `<div class="unitbox"><input type="number" inputmode="decimal" min="${f.min}" max="${f.max}" step="${f.step}" value="${esc(v)}" ${attrs}>${f.unit ? `<span>${esc(f.unit)}</span>` : ""}</div>`;
       }
+      if (f.type === "password") {
+        const stored = (this._cache.settings && this._cache.settings.values[`${f.key}_set`]) || false;
+        return `<input type="password" autocomplete="new-password" value="${esc(v ?? "")}" placeholder="${stored ? "gespeichert – leer lassen zum Behalten" : ""}" ${attrs}>`;
+      }
+      if (f.suggest === "notify") {
+        const list = ((this._cache.settings && this._cache.settings.notify_services) || [])
+          .map((n) => `<option value="${esc(n)}"></option>`).join("");
+        return `<input type="text" list="dl-${f.key}" value="${esc(v ?? "")}" placeholder="notify.mobile_app_…" ${attrs}><datalist id="dl-${f.key}">${list}</datalist>`;
+      }
       if (f.type === "date") return `<input type="date" value="${esc(v)}" ${attrs}>`;
       if (f.type === "time") return `<input type="time" value="${esc(String(v || "").slice(0, 5))}" ${attrs}>`;
       return `<input type="text" value="${esc(v ?? "")}" ${attrs} ${f.type === "entity" ? 'placeholder="sensor.…"' : ""}>`;
@@ -1449,6 +1458,17 @@ class EvPilotPanel extends HTMLElement {
     return this._openDetails && this._openDetails.has(id) ? "open" : "";
   }
 
+  _mailCard(s) {
+    const r = s.mail_result;
+    const result = !r ? "" : r.ok
+      ? `<span class="pill ok">gesendet</span> an ${esc(r.recipients.join(", "))}`
+      : `<span class="pill bad">fehlgeschlagen</span> ${esc(r.error || "")}`;
+    return `<div class="card wide"><h2>Monatsbericht per E-Mail</h2>
+      <p class="sub">Schickt den PDF-Bericht des Vormonats mit kWh und Kosten im Mailtext an die Empfänger aus den Einstellungen (Betreff mit „[Test]“). ${s.mail_enabled ? "Automatischer Versand am 1.: an." : "Automatischer Versand am 1.: aus (Einstellungen → Monatsbericht per E-Mail)."}</p>
+      <div class="actions"><button class="act primary" data-service="send_report_mail" data-payload='{"test": true}' data-label="Test-Mail gesendet">Test-Mail senden</button>${result}</div>
+      ${r ? `<div class="hint">${r.test ? "Test" : "Versand"} ${dateTime(r.at)} · Bericht ${esc(r.month)}${r.subject ? ` · „${esc(r.subject)}“` : ""}</div>` : ""}</div>`;
+  }
+
   _pricePushCard(s) {
     const t = s.price_push_test;
     let result = "";
@@ -1539,7 +1559,7 @@ class EvPilotPanel extends HTMLElement {
           ${(last.mismatches || []).length ? `<p><span class="pill bad">Abweichungen</span> ${last.mismatches.map((m) => `${dateTime(m.at)} ${m.on ? "an" : "aus"}`).join(", ")}</p>` : ""}` : ""}
       </div>
       <details class="testcenter" data-details="tests" ${this._open("tests") || (testRunning ? "open" : "")}>
-        <summary>Test-Center <span class="sub">· Systemtest, Ladetest, Push-Test Preisabfrage</span></summary>
+        <summary>Test-Center <span class="sub">· Systemtest, Ladetest, Push-Test Preisabfrage, Monatsbericht per Mail</span></summary>
         <div class="grid">
           <div class="card wide"><h2>Systemtest</h2>
             <p class="sub">Prüft Wallbox, CP-Relais, Fahrzeugdaten, Befehlsweg, Push und Strompreis – ohne etwas zu schalten und ohne das Auto zu wecken.</p>
@@ -1548,6 +1568,7 @@ class EvPilotPanel extends HTMLElement {
             ${check ? `<div class="checks">${checkRows}</div><div class="hint">Stand ${dateTime(check.at)}</div>` : ""}</div>
           ${this._chargeTestCard(s)}
           ${this._pricePushCard(s)}
+          ${this._mailCard(s)}
         </div>
       </details>
     </div>`;

@@ -639,6 +639,10 @@
         "target_soc": {
           "name": "Ziel-SOC",
           "description": "Ziel-SOC"
+        },
+        "charge_current_a": {
+          "name": "Ladestrom (0 = Standard)",
+          "description": "Ladestrom (0 = Standard)"
         }
       }
     },
@@ -656,7 +660,35 @@
     },
     "set_external_price": {
       "name": "Preis einer Fremdladung setzen",
-      "description": "€ pro kWh für eine erkannte Fremdladung, z. B. 0,49."
+      "description": "€ pro kWh für eine erkannte Fremdladung, z. B. 0,49.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "ID"
+        },
+        "price": {
+          "name": "Preis (€/kWh)",
+          "description": "Preis (€/kWh)"
+        }
+      }
+    },
+    "send_report_mail": {
+      "name": "Monatsbericht per Mail senden",
+      "description": "Schickt den PDF-Bericht (Standard: Vormonat) an die eingestellten Empfänger.",
+      "fields": {
+        "year": {
+          "name": "Jahr",
+          "description": "Jahr"
+        },
+        "month": {
+          "name": "Monat",
+          "description": "Monat"
+        },
+        "test": {
+          "name": "Als Test kennzeichnen",
+          "description": "Als Test kennzeichnen"
+        }
+      }
     },
     "test_price_push": {
       "name": "Test: Preisabfrage per Push",

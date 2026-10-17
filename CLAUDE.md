@@ -63,6 +63,7 @@ custom_components/ev_charging_pilot/
     executor.py        Soll/Ist-State-Machine §6, Kaskade, CP-Maskierung, manuelle Wakeups
     climate.py, health.py, costs.py, sessions.py, trips.py, statistics.py, monitor.py
     replay.py          Datensätze, Poll-Nachbildung, Abgleich mit realem Schalten
+    mail.py            Monatsbericht-Mail: Text, Anbieter-Presets, SMTP mit PDF-Anhang
     prices.py          Preis-Parser (Tibber/Nordpool/EPEX), PriceSchedule, cheapest_blocks
     external.py        Automatische Fremdladeerkennung (OVMS live + SOC-Sprung)
     pdf.py / report.py Eigener PDF-Writer (cp1252, Helvetica), Monats-/Jahresbericht
@@ -72,7 +73,7 @@ custom_components/ev_charging_pilot/
   notifications.py     Push + Actionable Notification (mobile_app_notification_action)
   price_source.py      PriceFetcher: Tibber-Service alle 30 min oder Preis-Entität
   reports.py           PDF erzeugen/listen, ReportView (/api/ev_charging_pilot/report, Login nötig)
-  services.py (24), websocket_api.py, export.py, diagnostics.py, config_flow.py
+  services.py (26), websocket_api.py, export.py, diagnostics.py, config_flow.py
   sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs ev_pilot_* (§12)
   frontend/ev-pilot-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
   settings_schema.py   Optionen als Formular-Schema für den Einstellungen-Reiter (get/set_settings)
@@ -134,9 +135,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.16.1 Push-Test Preisabfrage.** Dienst `test_price_push` →
-  `Coordinator.async_test_price_push` (Aktion `ext_price:test-…`), Antwort in
-  `price_push_test` (WS-State), Diagnose-Karte; Test-IDs ändern keine Fremdladung.
 - **2026-10-17 – v0.17.0 Preis per Knopf/Ziffernblock.** Push-Aktionen
   `EV_PILOT_EXT_PRICE|<id>|<preis>` aus Option `external_price_buttons` (`prices.parse_price_list`),
   Push-`url` `/ev-pilot?external_price=<id>` → Panel-Dialog (`inputmode=decimal`) → Dienst
@@ -149,3 +147,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-17 – v0.17.3 Start im Cockpit.** `localStorage` `ev-pilot-view` entfernt;
   `connectedCallback` nach `disconnectedCallback` setzt den Reiter auf Cockpit (außer bei
   offenem `_settingsDraft`). Frank wollte nach HA-Seitenwechsel nicht im alten Reiter landen.
+- **2026-10-17 – v0.18.0 Monatsbericht per Mail.** `core/mail.py` (Presets, `monthly_mail`,
+  `build_message`, `send` im Executor), Optionen `mail_*`/`report_push_targets`, Feldtyp
+  `password` (nie zurück, leer = behalten), `async_send_report_mail` am 1. + Dienst
+  `send_report_mail`, Push an Zusatzziele. Frank: Gmail (App-Passwort), Empfängerin Melanie.

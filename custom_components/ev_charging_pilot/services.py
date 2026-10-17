@@ -18,7 +18,7 @@ from .core.planner import OverrideMode, WeeklySchedule
 from .core.ports import CommandKind
 from .core.statistics import ExternalCharge
 from .export import DATASETS, render, rows
-from .reports import async_create_report
+from .reports import async_create_report, previous_month
 
 EXTERNAL_SOURCES = ("public", "workplace", "other_home")
 
@@ -64,6 +64,10 @@ SCHEMAS: dict[str, vol.Schema] = {
     "cp_wakeup": vol.Schema({}),
     "charge_test": vol.Schema({}),
     "test_price_push": vol.Schema({}),
+    "send_report_mail": vol.Schema({
+        vol.Optional("year"): vol.All(vol.Coerce(int), vol.Range(min=2020, max=2100)),
+        vol.Optional("month"): vol.All(vol.Coerce(int), vol.Range(min=1, max=12)),
+        vol.Optional("test", default=True): cv.boolean}),
     "set_external_price": vol.Schema({
         vol.Required("id"): cv.string,
         vol.Required("price"): vol.All(vol.Coerce(str), vol.Length(min=1, max=20))}),
@@ -118,7 +122,7 @@ SCHEMAS: dict[str, vol.Schema] = {
     }),
 }
 RESPONSE = {"add_external_charge", "export", "start_replay", "create_replay_dataset",
-            "create_report", "refresh_prices", "configure_shelly"}
+            "create_report", "refresh_prices", "configure_shelly", "send_report_mail"}
 
 
 def _center(hass: HomeAssistant) -> ChargingCenter:
@@ -173,6 +177,13 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 await center.async_run(lambda now: engine.wakeup(now, CommandKind.CP_PULSE))
             case "set_external_price":
                 await center.async_set_external_price(data["id"], data["price"])
+            case "send_report_mail":
+                year, month = previous_month(dt_util.now())
+                result = await center.async_send_report_mail(
+                    data.get("year", year), data.get("month", month), test=data["test"])
+                if not result["ok"]:
+                    raise ServiceValidationError(result["error"])
+                return result
             case "test_price_push":
                 await center.async_test_price_push()
             case "charge_test":

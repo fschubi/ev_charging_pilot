@@ -101,6 +101,32 @@ GROUPS: list[dict[str, Any]] = [
         _b("notify_weekly", "Wochenrückblick am Sonntagabend",
            help="kWh, Kosten, Ladungen, Weckvorgänge und Kilometer der letzten 7 Tage."),
     ]},
+    {"id": "mail", "title": "Monatsbericht per E-Mail", "icon": "mdi:email-outline",
+     "description": "Am 1. des Monats den PDF-Bericht des Vormonats mit kWh und Kosten "
+                    "verschicken – z. B. an die Person, die den Hausstrom bezahlt.",
+     "fields": [
+        _b("mail_enabled", "Monatsbericht am 1. per E-Mail senden",
+           help="Braucht „Monatsbericht (PDF) am 1. erstellen“ unter Benachrichtigungen."),
+        _s("mail_provider", "Mail-Anbieter", {
+            "gmail": "Gmail", "gmx": "GMX", "webde": "web.de", "tonline": "T-Online",
+            "icloud": "iCloud", "outlook": "Outlook / Hotmail", "custom": "eigener Server"}),
+        _f("mail_host", "Mailserver (SMTP)", "text", show_if={"mail_provider": "custom"}),
+        _n("mail_port", "Port", 1, 65535, 1, show_if={"mail_provider": "custom"}),
+        _s("mail_security", "Verschlüsselung", {"starttls": "STARTTLS (meist Port 587)",
+                                                "ssl": "SSL/TLS (meist Port 465)",
+                                                "none": "keine"},
+           show_if={"mail_provider": "custom"}),
+        _f("mail_user", "Benutzername (deine Mailadresse)", "text"),
+        _f("mail_password", "Passwort", "password",
+           help="Gmail und iCloud: ein App-Passwort, nicht das normale Passwort "
+                "(Gmail: myaccount.google.com/apppasswords, 2-Faktor-Anmeldung nötig)."),
+        _f("mail_from", "Absender (leer = Benutzername)", "text", advanced=True),
+        _f("mail_to_1", "Empfänger 1", "text"),
+        _f("mail_to_2", "Empfänger 2 (optional)", "text"),
+        _f("report_push_targets", "Betrag zusätzlich per Push an", "text", suggest="notify",
+           help="Push-Ziele, kommagetrennt, z. B. notify.mobile_app_iphone_von_melanie. "
+                "Sie bekommen am 1. die kWh und den Betrag des Vormonats."),
+    ]},
     {"id": "climate", "title": "Vorklimatisierung", "icon": "mdi:fan",
      "description": "Das Auto vor der Abfahrt heizen oder kühlen (braucht „Lesen & Schreiben“).",
      "fields": [
@@ -256,6 +282,11 @@ def current_values(options: dict[str, Any]) -> dict[str, Any]:
     out["vehicle_name"] = options.get("vehicle_name") or "Mein EV"
     out[PRICE_FIELD] = float(history[-1]["eur_per_kwh"])
     out[PRICE_VALID_FROM] = str(history[-1]["valid_from"])
+    for key, field in FIELDS.items():
+        if field["type"] == "password":
+            # A stored secret never travels back to the browser.
+            out[f"{key}_set"] = bool(out.get(key))
+            out[key] = ""
     return out
 
 
@@ -293,6 +324,8 @@ def apply_changes(options: dict[str, Any], changes: dict[str, Any]) -> dict[str,
     for key, value in changes.items():
         if key not in FIELDS:
             raise ValueError(f"Unbekannte Einstellung {key}")
+        if FIELDS[key]["type"] == "password" and not value:
+            continue  # empty = keep the stored password
         new[key] = _coerce(FIELDS[key], value)
     if price is not None or valid_from is not None:
         history = list(new.get(OPT_PRICE_HISTORY) or DEFAULT_OPTIONS[OPT_PRICE_HISTORY])

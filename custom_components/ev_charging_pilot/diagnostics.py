@@ -15,7 +15,8 @@ from .websocket_api import snapshot
 # The Halo API key lives in the Chargeamps integration, never here – but host
 # names, push targets and MQTT topics identify the installation.
 TO_REDACT = {CONF_SHELLY_HOST, CONF_NOTIFY_SERVICE, CONF_OVMS_COMMAND_TOPIC, "api_key",
-             "password", "token"}
+             "password", "token", "mail_password", "mail_user", "mail_from", "mail_to_1",
+             "mail_to_2", "report_push_targets", "mail", "user", "sender", "recipients"}
 
 
 async def async_get_config_entry_diagnostics(
@@ -25,7 +26,7 @@ async def async_get_config_entry_diagnostics(
     return {
         "config": async_redact_data(dict(entry.data), TO_REDACT),
         "options": async_redact_data(dict(entry.options), TO_REDACT),
-        "settings": asdict(c.settings),
+        "settings": async_redact_data(asdict(c.settings), TO_REDACT),
         "state": async_redact_data(snapshot(c), TO_REDACT),
         "engine": c.engine.as_dict(),
         "commands": [

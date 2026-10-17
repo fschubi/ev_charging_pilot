@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import Any
 
 from .costs import PricePoint
+from .mail import MailConfig, mail_config
 from .prices import parse_price_list
 
 
@@ -106,6 +107,17 @@ OPT_EXTERNAL_MIN_KWH = "external_min_kwh"
 OPT_EXTERNAL_SOC_JUMP = "external_soc_jump_pct"
 OPT_EXTERNAL_PRICE = "external_price_eur_kwh"
 OPT_EXTERNAL_PRICE_BUTTONS = "external_price_buttons"
+OPT_MAIL_ENABLED = "mail_enabled"
+OPT_MAIL_PROVIDER = "mail_provider"
+OPT_MAIL_HOST = "mail_host"
+OPT_MAIL_PORT = "mail_port"
+OPT_MAIL_SECURITY = "mail_security"
+OPT_MAIL_USER = "mail_user"
+OPT_MAIL_PASSWORD = "mail_password"
+OPT_MAIL_FROM = "mail_from"
+OPT_MAIL_TO_1 = "mail_to_1"
+OPT_MAIL_TO_2 = "mail_to_2"
+OPT_REPORT_PUSH_TARGETS = "report_push_targets"
 OPT_NOTIFY_EXTERNAL = "notify_external"
 OPT_REPORT_AUTO = "report_auto_monthly"
 OPT_NOTIFY_REPORT = "notify_report"
@@ -188,6 +200,19 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     OPT_EXTERNAL_PRICE: 0.59,
     # Quick-pick buttons in the price push of a detected external charge.
     OPT_EXTERNAL_PRICE_BUTTONS: "0,39; 0,49; 0,59; 0,69",
+    # Monthly report by e-mail (sent on the 1st together with the PDF).
+    OPT_MAIL_ENABLED: False,
+    OPT_MAIL_PROVIDER: "gmail",
+    OPT_MAIL_HOST: "",
+    OPT_MAIL_PORT: 587,
+    OPT_MAIL_SECURITY: "starttls",
+    OPT_MAIL_USER: "",
+    OPT_MAIL_PASSWORD: "",
+    OPT_MAIL_FROM: "",
+    OPT_MAIL_TO_1: "",
+    OPT_MAIL_TO_2: "",
+    # Extra push targets for the monthly amount, e.g. notify.mobile_app_<phone>.
+    OPT_REPORT_PUSH_TARGETS: "",
     OPT_NOTIFY_EXTERNAL: True,
     OPT_REPORT_AUTO: True,
     OPT_NOTIFY_REPORT: True,
@@ -312,6 +337,10 @@ class Settings:
     external_soc_jump_pct: float = 5
     external_price_eur_kwh: float = 0.59
     external_price_buttons: tuple[float, ...] = (0.39, 0.49, 0.59, 0.69)
+    mail_enabled: bool = False
+    mail: MailConfig = field(default_factory=lambda: mail_config(
+        "gmail", "", 587, "starttls", "", "", "", []))
+    report_push_targets: tuple[str, ...] = ()
     report_auto_monthly: bool = True
     manual_target_soc: int = 100
     learn_charging: bool = True
@@ -409,6 +438,16 @@ class Settings:
             external_soc_jump_pct=float(o[OPT_EXTERNAL_SOC_JUMP]),
             external_price_eur_kwh=float(o[OPT_EXTERNAL_PRICE]),
             external_price_buttons=parse_price_list(str(o[OPT_EXTERNAL_PRICE_BUTTONS] or "")),
+            mail_enabled=bool(o[OPT_MAIL_ENABLED]),
+            mail=mail_config(
+                str(o[OPT_MAIL_PROVIDER] or "custom"), str(o[OPT_MAIL_HOST] or ""),
+                int(o[OPT_MAIL_PORT] or 587), str(o[OPT_MAIL_SECURITY] or "starttls"),
+                str(o[OPT_MAIL_USER] or ""), str(o[OPT_MAIL_PASSWORD] or ""),
+                str(o[OPT_MAIL_FROM] or ""),
+                [str(o[OPT_MAIL_TO_1] or ""), str(o[OPT_MAIL_TO_2] or "")]),
+            report_push_targets=tuple(
+                t.strip() for t in str(o[OPT_REPORT_PUSH_TARGETS] or "").split(",")
+                if t.strip().startswith("notify.")),
             report_auto_monthly=bool(o[OPT_REPORT_AUTO]),
             manual_target_soc=int(o[OPT_MANUAL_TARGET_SOC]),
             learn_charging=bool(o[OPT_LEARN_CHARGING]),

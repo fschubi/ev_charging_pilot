@@ -63,6 +63,8 @@ from .core.engine import (
     external_price_url,
 )
 from .core.inputs import Inp, RawState, to_value
+from .core.mail import MONTHS, build_message, friendly_error, monthly_mail
+from .core.mail import send as send_mail
 from .core.model import Category, Event, Severity
 from .core.monitor import Monitor
 from .core.ports import CommandRecorder
@@ -123,6 +125,8 @@ class ChargingCenter:
         self.notifier.price_buttons = self.settings.external_price_buttons
         # Diagnose: test of the price question of an external charge (push with text field).
         self.price_push_test: dict[str, Any] | None = None
+        # Last report e-mail (Test-Center).
+        self.mail_result: dict[str, Any] | None = None
         self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
         self.recorder = CommandRecorder()
         self.events: deque[dict[str, Any]] = deque(maxlen=20000)
@@ -291,7 +295,69 @@ class ChargingCenter:
             await self.notifier.async_send(Notification(
                 "report", "normal", "Monatsbericht",
                 f"Der Bericht für {month:02d}/{year} liegt im Panel unter Hausstrom bereit."))
+        if self.settings.mail_enabled:
+            await self.async_send_report_mail(year, month, report)
+        await self._push_report_amount(year, month)
         return report
+
+    def _month_numbers(self, year: int, month: int) -> tuple[dict[str, Any], int]:
+        today = datetime.now(self.tz).date()
+        summary = self.monitor.month(year, month, self.settings, today)
+        external = sum(1 for e in self.monitor.data.external
+                       if e.date.year == year and e.date.month == month)
+        return summary, external
+
+    async def async_send_report_mail(self, year: int, month: int,
+                                     report: dict[str, Any] | None = None,
+                                     *, test: bool = False) -> dict[str, Any]:
+        """Monthly PDF by e-mail; the result is kept for the Test-Center."""
+        now = dt_util.utcnow()
+        config = self.settings.mail
+        result: dict[str, Any] = {"at": now.isoformat(), "month": f"{month:02d}/{year}",
+                                  "recipients": list(config.recipients), "test": test}
+        try:
+            if missing := config.missing():
+                raise ValueError(f"E-Mail nicht eingerichtet: {missing}")
+            report = report or await async_create_report(self, year, month)
+            summary, external = self._month_numbers(year, month)
+            subject, body = monthly_mail(summary, self.vehicle_name, year, month, external)
+            if test:
+                subject = f"[Test] {subject}"
+            pdf = await self.hass.async_add_executor_job(
+                (self.data_dir / "reports" / report["file"]).read_bytes)
+            message = build_message(config, subject, body, (report["file"], pdf),
+                                    sender_name=f"{self.vehicle_name} Charging Pilot")
+            await self.hass.async_add_executor_job(send_mail, config, message)
+        except Exception as err:  # noqa: BLE001 – any SMTP/file problem is reported
+            text = str(err) if isinstance(err, ValueError) else friendly_error(err)
+            result.update(ok=False, error=text)
+            self._log(Event(now, Category.CONFIG, Severity.WARNING, "REPORT_MAIL_FAILED",
+                            f"Monatsbericht per Mail fehlgeschlagen: {text}"))
+            if not test:
+                await self.notifier.async_send(Notification(
+                    "report", "high", "Bericht nicht versendet",
+                    f"Der Monatsbericht {month:02d}/{year} konnte nicht gemailt werden: {text}"))
+        else:
+            result.update(ok=True, subject=subject)
+            self._log(Event(now, Category.CONFIG, Severity.INFO, "REPORT_MAIL_SENT",
+                            f"Monatsbericht {month:02d}/{year} gemailt an "
+                            f"{', '.join(config.recipients)}"))
+        self.mail_result = result
+        self._notify_listeners()
+        return result
+
+    async def _push_report_amount(self, year: int, month: int) -> None:
+        """The monthly amount as a push to extra phones (e.g. whoever pays the power)."""
+        if not self.settings.report_push_targets:
+            return
+        summary, _ = self._month_numbers(year, month)
+        kwh = f"{summary.get('home_energy_kwh') or 0:.1f}".replace(".", ",")
+        eur = f"{summary.get('home_cost_eur') or 0:.2f}".replace(".", ",")
+        text = (f"{MONTHS[month - 1]} {year}: zu Hause {kwh} kWh geladen = {eur} €. "
+                "Antippen öffnet den Bericht im Panel.")
+        for target in self.settings.report_push_targets:
+            await self.notifier.async_send(
+                Notification("report_amount", "normal", "Ladekosten Vormonat", text), target)
 
     def apply_options(self, options: dict[str, Any]) -> None:
         """Mode change only – no reload needed (the switch writes the option)."""

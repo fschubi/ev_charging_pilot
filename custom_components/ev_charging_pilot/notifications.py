@@ -53,8 +53,10 @@ class Notifier:
         # Quick-pick prices of the external charge push (from the settings).
         self.price_buttons: tuple[float, ...] = ()
 
-    async def async_send(self, notification: Notification) -> None:
-        if not self.service:
+    async def async_send(self, notification: Notification, service: str | None = None) -> None:
+        """Push to the configured phone, or to ``service`` (notify.mobile_app_…)."""
+        target = service.removeprefix("notify.") if service else self.service
+        if not target:
             return
         data: dict[str, Any] = {
             "push": {"interruption-level": INTERRUPTION.get(notification.priority, "active")},
@@ -73,14 +75,14 @@ class Notifier:
         data["url"] = data["clickAction"] = notification.url or "/ev-pilot"
         try:
             await self.hass.services.async_call(
-                "notify", self.service,
+                "notify", target,
                 {"title": f"{self.vehicle_name}: {notification.title}",
                  "message": notification.message,
                  "data": data},
                 blocking=False,
             )
         except Exception:  # noqa: BLE001 – a broken notifier must not break charging
-            _LOGGER.exception("Push über notify.%s fehlgeschlagen", self.service)
+            _LOGGER.exception("Push über notify.%s fehlgeschlagen", target)
 
     @callback
     def async_listen_actions(

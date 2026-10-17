@@ -144,6 +144,8 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
         "one_shot": engine.one_shot.as_dict() if engine.one_shot else None,
         "charge_test": engine.charge_test.as_dict() if engine.charge_test else None,
         "price_push_test": center.price_push_test,
+        "mail_result": center.mail_result,
+        "mail_enabled": center.settings.mail_enabled,
         "climate": None if engine.climate_plan is None else {
             "duration_min": engine.climate_plan.duration_min,
             "start_at": _iso(engine.climate_plan.start_at),
@@ -380,6 +382,10 @@ def ws_get_settings(hass, connection, msg) -> None:
             "price_history": list(dict(center.entry.options).get("price_history")
                                   or DEFAULT_OPTIONS["price_history"]),
             "is_admin": connection.user.is_admin,
+            # Suggestions for push-target fields (the phones known to HA).
+            "notify_services": sorted(
+                f"notify.{name}" for name in hass.services.async_services().get("notify", {})
+                if name.startswith("mobile_app_")),
         })
 
 

@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.16.1 Push-Test Preisabfrage.** Dienst `test_price_push` →
+  `Coordinator.async_test_price_push` (Aktion `ext_price:test-…`), Antwort in
+  `price_push_test` (WS-State), Diagnose-Karte; Test-IDs ändern keine Fremdladung.
 - **2026-10-17 – v0.16.0 Fremdladen-Preis per Push.** Notification-Aktion `ext_price:<id>` →
   `textInput`-Button `EV_PILOT_EXT_PRICE|<id>`; `reply_text` → `parse_price_input` (ct > 5) →
   `Coordinator._set_external_price`. Panel: `<details data-details>` mit `_openDetails`.

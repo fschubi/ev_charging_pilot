@@ -61,6 +61,22 @@ vehicle_wakeup:
 cp_wakeup:
 charge_test:
 test_price_push:
+send_report_mail:
+  fields:
+    year:
+      selector:
+        number:
+          min: 2020
+          max: 2100
+    month:
+      selector:
+        number:
+          min: 1
+          max: 12
+    test:
+      default: true
+      selector:
+        boolean:
 set_external_price:
   fields:
     id:

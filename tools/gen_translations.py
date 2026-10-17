@@ -357,6 +357,10 @@ SERVICES = {
     "set_external_price": (T("Preis einer Fremdladung setzen", "Set external charge price"),
                            T("€ pro kWh für eine erkannte Fremdladung, z. B. 0,49.",
                              "€ per kWh of a detected external charge, e.g. 0.49.")),
+    "send_report_mail": (T("Monatsbericht per Mail senden", "Send monthly report by mail"),
+                         T("Schickt den PDF-Bericht (Standard: Vormonat) an die eingestellten "
+                           "Empfänger.", "Sends the PDF report (default: last month) to the "
+                           "configured recipients.")),
     "test_price_push": (T("Test: Preisabfrage per Push", "Test: price question push"),
                         T("Schickt die Preisabfrage einer Fremdladung als Test aufs Handy; "
                           "die Antwort erscheint im Diagnose-Reiter.",
@@ -400,6 +404,7 @@ FIELDS = {
     "mode": T("Modus", "Mode"), "duration_min": T("Dauer", "Duration"),
     "until": T("Bis", "Until"), "target_soc": T("Ziel-SOC", "Target SOC"),
     "price": T("Preis (€/kWh)", "Price (€/kWh)"),
+    "test": T("Als Test kennzeichnen", "Mark as test"),
     "charge_current_a": T("Ladestrom (0 = Standard)", "Charging current (0 = default)"),
     "departure_time": T("Abfahrtszeit", "Departure time"), "minutes": T("Minuten", "Minutes"),
     "departure_at": T("Abfahrt (Datum und Uhrzeit)", "Departure (date and time)"),
@@ -418,7 +423,9 @@ FIELDS = {
 SERVICE_FIELDS = {
     "start_charging": ["mode", "duration_min", "until", "target_soc"],
     "set_override": ["mode", "duration_min", "until", "target_soc"],
-    "start_one_shot": ["departure_time", "departure_at", "target_soc"],
+    "start_one_shot": ["departure_time", "departure_at", "target_soc", "charge_current_a"],
+    "set_external_price": ["id", "price"],
+    "send_report_mail": ["year", "month", "test"],
     "start_climate": ["minutes"],
     "add_external_charge": ["date", "energy_kwh", "source", "cost_eur", "price_eur_kwh",
                             "odometer_km", "soc_before", "soc_after", "provider", "note"],

@@ -281,3 +281,18 @@ def test_one_off_departure_with_date_and_target():
     assert shot.minimum_departure_soc_pct == 80
     with pytest.raises(ValueError):
         world.engine.start_one_shot(world.now, departure_at=datetime(2026, 11, 30, 7, 0))
+
+
+def test_restart_before_the_ovms_plug_is_known_is_no_plug_in():
+    from custom_components.ev_charging_pilot.core.inputs import Inp as I
+
+    world = World(datetime(2026, 10, 17, 20, 49, tzinfo=TZ),
+                  configured=WITH_OVMS | {I.OVMS_PLUG})
+    # Halo locked: it reports no cable; the OVMS integration has not loaded yet.
+    world.set(I.CABLE_CONNECTED, "off")
+    world.run(10)
+    world.set(I.OVMS_PLUG, "yes")
+    world.run(10)
+    assert world.engine.values[I.CABLE_CONNECTED].normalized is True
+    assert "PLUGGED_IN" not in world.events
+    assert "CABLE_CONNECTED" not in world.events

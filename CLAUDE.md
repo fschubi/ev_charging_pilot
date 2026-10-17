@@ -134,9 +134,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-17 – v0.13.6 Kostenprognose, Name One-Shot.** `_window`: Kosten = Blockkosten
-  / (Leistung × Blockdauer) × `needed_kwh` statt volle Leistung inkl. Reserve. One-Shot heißt
-  „Einmalige Abfahrt“ (Planner, Report, Panel-Pill mit Datum).
 - **2026-10-17 – v0.13.7 Formular-Entwürfe.** Panel merkt `[data-form] [name]`-Eingaben in
   `_formDrafts` und setzt sie nach jedem Render wieder ein; `_submit` löscht den Entwurf nur
   bei Erfolg. Vorher: Fokus weg → nächster Poll setzte One-Shot auf morgen 07:00/100 %.
@@ -151,3 +148,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Executor-Events, Ende 60 s nach CHARGE_STABLE, max. 8 min, dann Halo-aus-Prüfung);
   `Engine.start_charge_test` = DURATION-Override, nur live/eingesteckt; Dienst `charge_test`,
   WS-State `charge_test`, Diagnose-Karte. `async_run` setzt Shadow vor der Aktion.
+- **2026-10-17 – v0.14.1 Kein Plug-Event nach Neustart.** `Engine.tick`: Kabel „aus“ zählt
+  als unbekannt, solange `ovms_plug` konfiguriert, aber noch nicht verfügbar ist (auch für
+  den Executor). Erster Ladetest bei Frank ok: ohne Wecken, 7,9 kW (Halo max. 12 A).

@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-17 – v0.13.6 Kostenprognose, Name One-Shot.** `_window`: Kosten = Blockkosten
+  / (Leistung × Blockdauer) × `needed_kwh` statt volle Leistung inkl. Reserve. One-Shot heißt
+  „Einmalige Abfahrt“ (Planner, Report, Panel-Pill mit Datum).
 - **2026-10-17 – v0.13.5 Latch nur eingesteckt.** `Engine._latch` friert Start/Blöcke nur
   ein, wenn `_cable is not False`; ein verpasster Block (Auto unterwegs) wird ab jetzt neu
   geplant. Frank: Büroplan Mo–Mi 05:20, Tagespreise liegen sonst im Bürozeitraum.

@@ -206,6 +206,12 @@ class Engine:
 
         cable = values[Inp.CABLE_CONNECTED]
         cable_flag = bool(cable.normalized) if cable.available else None
+        if cable_flag is False and Inp.OVMS_PLUG in self.config.configured \
+                and not values[Inp.OVMS_PLUG].available:
+            # Right after a restart the OVMS plug may not be there yet: "no cable" from
+            # the locked Halo alone says nothing – otherwise the car seems plugged in anew.
+            cable_flag = None
+            cable = cable.with_quality(Quality.UNAVAILABLE)
         plugged_in_event = self._cable is False and cable_flag is True \
             and not self.executor.cp_masked(now)
         if cable_flag is not None and cable_flag != self._cable \

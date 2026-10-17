@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.1 – 2026-10-17
+
+- **Kein falsches „Eingesteckt“ nach einem Neustart:** Direkt nach dem Start von HA ist
+  die OVMS-Integration oft noch nicht geladen. Für ein paar Sekunden sah der Pilot nur die
+  gesperrte Wallbox („kein Kabel“) und hielt die anschließende OVMS-Meldung „Stecker
+  erkannt“ für ein neues Einstecken. Die Folge war eine Push-Nachricht „Eingesteckt – Wie
+  soll geladen werden?“, obwohl das Auto schon seit Stunden steckte. Solange der
+  OVMS-Stecker noch keinen Wert hat, gilt „kein Kabel“ der gesperrten Wallbox jetzt nicht
+  mehr als Information.
+
 ## 0.14.0 – 2026-10-17
 
 - **Neu: Ladetest im Diagnose-Reiter.** Ein Knopf prüft einmal die ganze Startkette wie in

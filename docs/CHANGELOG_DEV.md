@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.19.0 Preisformate + Prüfung.** `prices.py`: Paare `[ts, preis]`
+  (s/ms), ENTSO-e, mehr Schlüssel, €/MWh per Einheit, Fallback auf beliebige Liste;
+  `describe_prices`; WS `check_prices` → `PriceFetcher.async_check`; Einstellungszeile
+  „Preisquelle prüfen“. Frank nutzt Tibber-Dienst (nicht `sensor.tibber_preisprognose`).
 - **2026-10-17 – v0.18.0 Monatsbericht per Mail.** `core/mail.py` (Presets, `monthly_mail`,
   `build_message`, `send` im Executor), Optionen `mail_*`/`report_push_targets`, Feldtyp
   `password` (nie zurück, leer = behalten), `async_send_report_mail` am 1. + Dienst

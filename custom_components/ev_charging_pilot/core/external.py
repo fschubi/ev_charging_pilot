@@ -101,8 +101,11 @@ class ExternalChargeDetector:
         if soc_now and self.live is None:
             current = float(soc.normalized)
             # Without the home counter at both ends the jump cannot be explained – skip it.
+            # Plugged in at home: a jump is a home charge (perhaps with a lagging wallbox
+            # counter), never an external one. The counter must be fresh (GOOD) to explain.
             if self.last_soc is not None and current - self.last_soc[1] >= self.soc_jump \
-                    and not charging and home_kwh is not None \
+                    and not charging and cable_connected is not True \
+                    and halo_total.quality is Quality.GOOD and home_kwh is not None \
                     and self.last_home_kwh is not None:
                 explained = max(0.0, home_kwh - self.last_home_kwh) * self.efficiency
                 needed = (current - self.last_soc[1]) / 100 * self.capacity
@@ -147,7 +150,7 @@ class ExternalChargeDetector:
         kwh = round(grid_kwh, 2)
         return ExternalCharge(
             id=f"auto-{start.strftime('%Y%m%d%H%M')}",
-            date=end.date(),
+            date=end.astimezone(self.tz).date(),  # the local day, not the UTC one
             source="public",
             energy_kwh=kwh,
             price_eur_kwh=self.price,

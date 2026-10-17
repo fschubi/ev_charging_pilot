@@ -73,8 +73,10 @@ def test_trip_closes_after_merge_gap_and_short_stops_merge():
     trip = trips[0]
     assert trip.distance_km == pytest.approx(18)
     assert trip.vehicle_energy_used_kwh == pytest.approx(3.0)
+    # The recuperation counter restarts with each drive (0 → 0.3 twice): both count.
+    assert trip.recovered_energy_kwh == pytest.approx(0.6)
     # Net: drawn minus recuperated energy (OVMS counts both separately).
-    assert trip.consumption_kwh_100km == pytest.approx((3.0 - 0.3) / 18 * 100, rel=1e-3)
+    assert trip.consumption_kwh_100km == pytest.approx((3.0 - 0.6) / 18 * 100, rel=1e-3)
     assert trip.quality == "GOOD"
     assert trip.season == "autumn"
 

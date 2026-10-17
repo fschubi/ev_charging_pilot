@@ -89,6 +89,14 @@ def _counter_delta(start: float | None, end: float | None) -> float | None:
     return round(end - start if end >= start else end, 4)
 
 
+def _with_acc(trip: dict[str, Any], key: str) -> float | None:
+    delta = _counter_delta(trip[f"{key}_start"], trip[f"{key}_end"])
+    acc = trip.get(f"{key}_acc") or 0.0
+    if delta is None:
+        return round(acc, 4) if acc else None
+    return round(delta + acc, 4)
+
+
 class TripTracker:
     def __init__(self, merge_gap_min: int, tz: ZoneInfo) -> None:
         self.merge_gap = timedelta(minutes=merge_gap_min)
@@ -123,6 +131,13 @@ class TripTracker:
         elif self.open is not None:
             if self.open["off_since"] is None:
                 self.open["off_since"] = now
+            if km is not None and (self.open["odometer_end"] is None
+                                   or km > self.open["odometer_end"]):
+                # The last metres after switching off – or everything driven while HA
+                # was down during the trip – belong to this trip.
+                self.open["odometer_end"] = km
+                if self.open["odometer_start"] is None:
+                    self.open["odometer_start"] = km
             if now - self.open["off_since"] >= self.merge_gap:
                 closed.append(self._close(partial=not known))
         elif km is not None and self.last_odometer is not None \
@@ -149,6 +164,10 @@ class TripTracker:
             "used_end": None,
             "recd_end": None,
             "aux_end": None,
+            # Energy of earlier drives when OVMS resets its trip counters per drive.
+            "used_acc": 0.0,
+            "recd_acc": 0.0,
+            "aux_acc": 0.0,
             "soc_start": _num(soc),
             "soc_end": _num(soc),
             "temp_sum": 0.0,
@@ -165,6 +184,13 @@ class TripTracker:
         for key, value in (("used", used), ("recd", recd), ("aux", aux)):
             number = _num(value)
             if number is not None:
+                last = trip[f"{key}_end"]
+                if last is not None and number < last and trip[f"{key}_start"] is not None:
+                    # Counter reset (new drive inside a merged trip): keep what the
+                    # previous drive used and count the new one from zero.
+                    trip[f"{key}_acc"] = trip.get(f"{key}_acc", 0.0) + \
+                        max(0.0, last - trip[f"{key}_start"])
+                    trip[f"{key}_start"] = 0.0
                 trip[f"{key}_end"] = number
                 if trip[f"{key}_start"] is None:
                     trip[f"{key}_start"] = number
@@ -187,8 +213,8 @@ class TripTracker:
             distance = round(t["odometer_end"] - t["odometer_start"], 2)
             self.last_odometer = t["odometer_end"]
             self.last_odometer_at = ended
-        used = _counter_delta(t["used_start"], t["used_end"])
-        recovered = _counter_delta(t["recd_start"], t["recd_end"])
+        used = _with_acc(t, "used")
+        recovered = _with_acc(t, "recd")
         net = net_energy(used, recovered)
         duration_min = round((ended - t["started_at"]).total_seconds() / 60, 1)
         quality = "GOOD"
@@ -208,7 +234,7 @@ class TripTracker:
             if distance and duration_min > 0 else None,
             vehicle_energy_used_kwh=used,
             recovered_energy_kwh=recovered,
-            auxiliary_energy_kwh=_counter_delta(t["aux_start"], t["aux_end"]),
+            auxiliary_energy_kwh=_with_acc(t, "aux"),
             consumption_kwh_100km=round(net / distance * 100, 2)
             if net is not None and distance and distance >= MIN_CONSUMPTION_KM else None,
             outside_temp_avg_c=round(t["temp_sum"] / t["temp_n"], 1) if t["temp_n"] else None,

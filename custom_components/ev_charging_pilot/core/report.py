@@ -180,8 +180,23 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
     ])
 
     daily = [0.0] * days
-    sessions = [s for s in monitor.data.sessions
-                if start <= _local(s.started_at, tz) < end]
+
+    def in_month(session) -> tuple[float, float] | None:
+        """kWh and € of a session inside this month (it may cross the month end)."""
+        items = [i for i in session.energy_intervals
+                 if start <= _local(datetime.fromisoformat(i["start"]), tz) < end]
+        if session.energy_intervals:
+            if not items:
+                return None
+            kwh = sum(float(i["kwh"]) for i in items)
+            cost = sum(float(i["kwh"]) * float(i.get("eur_per_kwh") or 0) for i in items)
+            return kwh, cost or (session.cost_eur * kwh / session.grid_energy_kwh
+                                 if session.grid_energy_kwh else 0.0)
+        if start <= _local(session.started_at, tz) < end:
+            return session.grid_energy_kwh, session.cost_eur
+        return None
+
+    sessions = [(s, part) for s in monitor.data.sessions if (part := in_month(s)) is not None]
     for session in monitor.data.sessions:
         for interval in session.energy_intervals:
             moment = _local(datetime.fromisoformat(interval["start"]), tz)
@@ -192,15 +207,15 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
 
     w.heading(f"Lade-Sessions ({len(sessions)})")
     rows = []
-    for s in sessions:
+    for s, (kwh, cost) in sessions:
         begin = _local(s.started_at, tz)
         finish = _local(s.ended_at, tz) if s.ended_at else None
-        avg = s.cost_eur / s.grid_energy_kwh if s.grid_energy_kwh else None
+        avg = cost / kwh if kwh else None
         wake = "+".join(x for x, used in (("OVMS", s.ovms_wakeup_used), ("CP", s.cp_wakeup_used))
                         if used) or "–"
         rows.append([f"{WEEKDAYS[begin.weekday()]} {begin:%d.%m.}", begin.strftime("%H:%M"),
-                     finish.strftime("%H:%M") if finish else "–", _n(s.grid_energy_kwh, 2),
-                     _n(s.cost_eur, 2), _n(avg, 3), REASONS.get(s.reason, s.reason), wake,
+                     finish.strftime("%H:%M") if finish else "–", _n(kwh, 2),
+                     _n(cost, 2), _n(avg, 3), REASONS.get(s.reason, s.reason), wake,
                      "ok" if s.success else (s.failure_code or "Fehler")])
     w.table(["Tag", "Start", "Ende", "kWh", "€", "€/kWh", "Grund", "Wakeup", "Ergebnis"], rows,
             [48, 32, 32, 38, 38, 40, 55, 40, 112], right=(3, 4, 5))

@@ -75,7 +75,7 @@ from .core.summary import weekly_text
 from .ha_ports import HaPorts, PortError, shelly_deviations
 from .notifications import Notifier
 from .price_source import PriceFetcher
-from .reports import async_create_report, previous_month
+from .reports import async_create_report, previous_month, report_name
 
 _LOGGER = logging.getLogger(__name__)
 # Upper bound for one hardware/cloud command (switch, number, OVMS, script).
@@ -129,6 +129,10 @@ class ChargingCenter:
         self.price_push_test: dict[str, Any] | None = None
         # Last report e-mail (Test-Center).
         self.mail_result: dict[str, Any] | None = None
+        # Set on unload: a tick or price refresh still in flight must not act any more.
+        self._closed = False
+        # Monthly report waiting for a running session to end (year, month).
+        self._report_due: tuple[int, int] | None = None
         self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
         self.recorder = CommandRecorder()
         self.events: deque[dict[str, Any]] = deque(maxlen=20000)
@@ -192,8 +196,10 @@ class ChargingCenter:
         self.vehicle_image_version = await self.hass.async_add_executor_job(
             image_version, self.hass)
         await self.async_tick()
+        await self._catch_up_report()
 
     async def async_shutdown(self) -> None:
+        self._closed = True
         self.price_fetcher.stop()
         for unsub in self._unsubs:
             unsub()
@@ -257,6 +263,8 @@ class ChargingCenter:
 
     @callback
     def _on_prices(self, slots: list[PriceSlot]) -> None:
+        if self._closed:
+            return
         self.engine.set_prices(slots)
         self._schedule_save()
         self.hass.async_create_task(self.async_tick())
@@ -272,7 +280,43 @@ class ChargingCenter:
     @callback
     def _on_report_time(self, now: datetime) -> None:
         if now.astimezone(self.tz).day == 1 and self.settings.report_auto_monthly:
-            self.hass.async_create_task(self.async_monthly_report(now))
+            self._report_due = previous_month(now.astimezone(self.tz))
+            self._run_due_report()
+
+    @callback
+    def _run_due_report(self) -> None:
+        """The monthly report waits for a charge still running across midnight."""
+        if self._report_due is None or self.engine.sessions.open is not None:
+            return
+        year, month = self._report_due
+        self._report_due = None
+        self.hass.async_create_task(self._monthly_report_safe(year, month))
+
+    async def _monthly_report_safe(self, year: int, month: int) -> None:
+        try:
+            await self.async_monthly_report(datetime(year, month, 1, tzinfo=self.tz)
+                                            + timedelta(days=32))
+        except Exception as err:  # noqa: BLE001 – report it instead of a silent task error
+            _LOGGER.exception("Monatsbericht %02d/%d fehlgeschlagen", month, year)
+            await self._handle(TickResult(
+                events=[Event(dt_util.utcnow(), Category.CONFIG, Severity.ERROR,
+                              "REPORT_FAILED",
+                              f"Monatsbericht {month:02d}/{year} fehlgeschlagen: {err}")],
+                notifications=[Notification(
+                    "report_failed", "high", "Monatsbericht fehlgeschlagen",
+                    f"Der Bericht für {month:02d}/{year} konnte nicht erstellt werden: {err}")]))
+
+    async def _catch_up_report(self) -> None:
+        """HA was down at 06:00 on the 1st: produce last month's report later."""
+        if not self.settings.report_auto_monthly:
+            return
+        local = dt_util.now(self.tz)
+        if local.day > 7 or (local.day == 1 and local.hour < 6):
+            return
+        year, month = previous_month(local)
+        path = self.data_dir / "reports" / report_name(year, month)
+        if not await self.hass.async_add_executor_job(path.exists):
+            self._report_due = (year, month)
 
     @callback
     def _on_weekly_time(self, now: datetime) -> None:
@@ -388,7 +432,7 @@ class ChargingCenter:
         return raw
 
     async def async_tick(self) -> None:
-        if self._lock.locked():
+        if self._lock.locked() or self._closed:
             return
         async with self._lock:
             now = dt_util.utcnow()
@@ -403,6 +447,7 @@ class ChargingCenter:
                     (now - self._statistics_at).total_seconds() >= STATISTICS_REFRESH_S:
                 self.refresh_statistics(now)
             await self._handle(result)
+            self._run_due_report()
 
     async def _async_backfill_history(self) -> None:
         """Cockpit chart after a restart: the last 24 h come from the recorder."""

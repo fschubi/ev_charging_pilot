@@ -85,3 +85,22 @@ def test_password_never_leaves_and_empty_keeps_it():
     assert kept["mail_password"] == "geheim"
     changed = apply_changes({"mail_password": "geheim"}, {"mail_password": "neu"})
     assert changed["mail_password"] == "neu"
+
+
+async def test_monthly_report_waits_for_a_running_charge(hass, entry, halo):
+    entry = await _setup(hass, entry, {})
+    center = entry.runtime_data
+    created = []
+
+    async def fake(year, month):
+        created.append((year, month))
+
+    with patch.object(center, "_monthly_report_safe", fake):
+        center.engine.sessions.open = object()  # a charge running across midnight
+        center._on_report_time(datetime(2026, 11, 1, 6, 0, tzinfo=dt_util.get_default_time_zone()))
+        await hass.async_block_till_done()
+        assert created == []
+        center.engine.sessions.open = None
+        await center.async_tick()
+        await hass.async_block_till_done()
+    assert created == [(2026, 10)]

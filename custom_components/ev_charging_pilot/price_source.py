@@ -48,6 +48,8 @@ class PriceFetcher:
         self.last_error: str | None = None
         self._failures = 0
         self._retry: CALLBACK_TYPE | None = None
+        self._start_unsub: CALLBACK_TYPE | None = None
+        self._stopped = False
 
     def start(self, settings: Settings) -> None:
         self.stop()
@@ -59,17 +61,23 @@ class PriceFetcher:
         if settings.price_source is PriceSource.ENTITY and settings.price_entity:
             self._unsubs.append(async_track_state_change_event(
                 self.hass, [settings.price_entity], self._entity_changed))
+        self._stopped = False
         if self.hass.state is CoreState.running:
             self.hass.async_create_task(self.async_refresh())
         else:
             # Other integrations (Tibber, Nordpool) are not ready before HA has started.
-            self._unsubs.append(self.hass.bus.async_listen_once(
-                EVENT_HOMEASSISTANT_STARTED, self._started))
+            # Kept apart: once the event fired, removing it again logs an error.
+            self._start_unsub = self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_STARTED, self._started)
 
     def stop(self) -> None:
+        self._stopped = True
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
+        if self._start_unsub is not None:
+            self._start_unsub()
+            self._start_unsub = None
         self._cancel_retry()
 
     def _cancel_retry(self) -> None:
@@ -79,6 +87,7 @@ class PriceFetcher:
 
     @callback
     def _started(self, _event) -> None:
+        self._start_unsub = None
         self.hass.async_create_task(self.async_refresh())
 
     @callback
@@ -116,12 +125,16 @@ class PriceFetcher:
         self._cancel_retry()
         self._failures = 0
         self.last_error = None
+        if self._stopped:
+            return []
         self.last_update = dt_util.utcnow()
         self._on_prices(slots)
         return slots
 
     def _failed(self, message: str) -> None:
         self._cancel_retry()
+        if self._stopped:
+            return  # a refresh still in flight while the entry unloads
         if self._failures < len(RETRY_DELAYS_S):
             delay = RETRY_DELAYS_S[self._failures]
             self._failures += 1

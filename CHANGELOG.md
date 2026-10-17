@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.19.5 – 2026-10-18
+
+Korrekturen aus dem Prüfbericht vom 18.10., Stufe 2 (Statistik und HA):
+- **S1 – Fremdladungen bekommen das lokale Datum.** Eine Ladung bis 00:30 Uhr am 1.
+  landete bisher im Vortag bzw. Vormonat.
+- **S2 – zusammengefasste Fahrten verlieren keine Energie mehr**, wenn OVMS seine Zähler
+  pro Fahrt zurücksetzt.
+- **S3 – Kilometer bleiben erhalten**, wenn HA während einer Fahrt neu startet, und die
+  letzten Meter nach dem Abschalten zählen mit.
+- **S4 – der Monatsbericht wartet auf eine noch laufende Nachtladung**, holt einen
+  verpassten Bericht nach (HA um 06:00 am 1. aus) und meldet Fehler per Push, statt still
+  auszufallen.
+- **S5 – seltene manuelle Kilometerstände** werden anteilig auf die Monate verteilt, statt
+  einem Monat die ganze Lücke zuzuschlagen.
+- **S6 – PDF:** Eine Ladung über das Monatsende zählt in der Tabelle mit ihrem Monatsanteil
+  und passt damit zur Monatssumme.
+- **S7 – keine falsche Fremdladung**, wenn der Ladestand springt, während das Auto zu Hause
+  eingesteckt ist, oder wenn der Wallbox-Zähler hängt.
+- **S8 – €/100 km** rechnet mit demselben Ladestand-Ausgleich wie kWh/100 km.
+- **H3 – kleinere Datenbank:** Das Attribut `updated_at` wird nicht mehr bei jedem Poll
+  aufgezeichnet.
+- **H4 – sauberes Aufräumen:** Schlägt der Start der Integration fehl, bleibt keine
+  verwaiste Instanz zurück. Nach dem Entladen handelt die alte Instanz nicht mehr.
+- **H5 – kein ERROR mehr im Log** beim ersten Speichern der Einstellungen nach einem
+  HA-Start.
+- **H6 – Admin-Rechte:** Shelly konfigurieren, Bericht mailen, Export und Replay sind
+  Admins vorbehalten. Automationen dürfen weiterhin.
+
 ## 0.19.4 – 2026-10-18
 
 Korrekturen aus dem Prüfbericht vom 18.10., Stufe 2 (Lade-Kern und Preise):

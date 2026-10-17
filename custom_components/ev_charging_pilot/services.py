@@ -8,7 +8,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError, Unauthorized
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
@@ -121,6 +121,9 @@ SCHEMAS: dict[str, vol.Schema] = {
                                                              vol.Range(min=0, max=900)),
     }),
 }
+# Device configuration, real e-mails and file access: admins only (automations may).
+ADMIN_SERVICES = {"configure_shelly", "send_report_mail", "create_replay_dataset",
+                  "start_replay", "export"}
 RESPONSE = {"add_external_charge", "export", "start_replay", "create_replay_dataset",
             "create_report", "refresh_prices", "configure_shelly", "send_report_mail"}
 
@@ -269,6 +272,10 @@ def async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def handler(call: ServiceCall) -> ServiceResponse:
+        if call.service in ADMIN_SERVICES and call.context.user_id:
+            user = await hass.auth.async_get_user(call.context.user_id)
+            if user is None or not user.is_admin:
+                raise Unauthorized(context=call.context)
         return await _handle(hass, call)
 
     for name, schema in SCHEMAS.items():

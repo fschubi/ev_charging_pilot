@@ -295,3 +295,105 @@ def test_p5_hourly_prices_replace_old_quarter_hours():
     world.engine.set_prices([PriceSlot(start, start + timedelta(hours=1), 0.2)])
     assert world.engine.price_schedule.price_at(start + timedelta(minutes=20)) == 0.2
     assert len(world.engine.price_schedule.slots) == 1
+
+
+def test_s5_sparse_manual_readings_are_spread_over_the_months():
+    from custom_components.ev_charging_pilot.core.statistics import MonitorData, Reading, _distance
+
+    data = MonitorData([], [], [], [Reading(datetime(2026, 1, 1, tzinfo=TZ), 10_000),
+                                    Reading(datetime(2026, 3, 15, tzinfo=TZ), 13_000)], [], set())
+    feb, exact = _distance(data, [], datetime(2026, 2, 1, tzinfo=TZ),
+                           datetime(2026, 3, 1, tzinfo=TZ), "manual")
+    assert 1100 < feb < 1200 and exact is False  # 28 of 73 days, not 0 km
+    march, _ = _distance(data, [], datetime(2026, 3, 1, tzinfo=TZ),
+                         datetime(2026, 4, 1, tzinfo=TZ), "manual")
+    assert march < 700  # not the whole 3000 km since January
+
+
+def test_s7_soc_jump_while_plugged_in_at_home_is_no_external_charge():
+    from custom_components.ev_charging_pilot.core.external import ExternalChargeDetector
+    from custom_components.ev_charging_pilot.core.model import Value
+
+    det = ExternalChargeDetector(capacity_kwh=16.7, efficiency=0.88, min_kwh=1.0,
+                                 soc_jump_pct=5, price_eur_kwh=0.59, threshold_w=300, tz=TZ)
+    off = Value("off", False, "ovms", NIGHT, Quality.GOOD)
+    total = Value("1000", 1000.0, "halo", NIGHT, Quality.GOOD)
+    det.update(NIGHT, vehicle_charging=off, vehicle_power=Value.unavailable("ovms"),
+               soc=Value("40", 40.0, "ovms", NIGHT, Quality.GOOD),
+               halo_power=Value("0", 0.0, "halo", NIGHT), cable_connected=True,
+               halo_total=total)
+    later = NIGHT + timedelta(hours=4)
+    found = det.update(later, vehicle_charging=off, vehicle_power=Value.unavailable("ovms"),
+                       soc=Value("70", 70.0, "ovms", later, Quality.GOOD),
+                       halo_power=Value("0", 0.0, "halo", later), cable_connected=True,
+                       halo_total=Value("1000", 1000.0, "halo", later, Quality.GOOD))
+    assert found == []
+
+
+def test_s8_cost_per_100km_has_the_same_soc_correction_as_kwh():
+    from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+    from custom_components.ev_charging_pilot.core.settings import Settings
+    from custom_components.ev_charging_pilot.core.statistics import (
+        MonitorData,
+        Reading,
+        period_summary,
+    )
+    from custom_components.ev_charging_pilot.core.trips import Trip
+
+    start, end = datetime(2026, 10, 1, tzinfo=TZ), datetime(2026, 11, 1, tzinfo=TZ)
+    charge = datetime(2026, 10, 10, 2, tzinfo=TZ)
+    session = ChargeSession("s", charge, reason="schedule", grid_energy_kwh=30.0, cost_eur=9.0,
+                            energy_intervals=[{"start": charge.isoformat(),
+                                               "end": (charge + timedelta(hours=3)).isoformat(),
+                                               "kwh": 30.0, "eur_per_kwh": 0.30}])
+    trip = Trip("t", datetime(2026, 10, 5, 8, tzinfo=TZ), datetime(2026, 10, 5, 9, tzinfo=TZ),
+                0, 100, 100, 60, 100, 15, 2, 0, 13, 10, "autumn", 80, 60)
+    soc_log = [Reading(start, 30), Reading(end - timedelta(hours=1), 80)]  # +50 % in the battery
+    summary = period_summary(MonitorData([session], [trip], [], [], soc_log, set()), start, end,
+                             prices=FixedPriceHistory(Settings.from_options({}).price_history, TZ),
+                             capacity_kwh=17.6, efficiency=0.88, odometer_source="ovms")
+    assert summary["grid_consumption_kwh_100km"] == 20.0
+    # 20 kWh at the month's 0.30 €/kWh → 6 €/100 km (raw cost would say 9 €).
+    assert summary["cost_per_100km_eur"] == 6.0
+
+
+def test_s1_external_charge_gets_the_local_date():
+    from datetime import UTC
+
+    from custom_components.ev_charging_pilot.core.external import ExternalChargeDetector
+
+    det = ExternalChargeDetector(capacity_kwh=16.7, efficiency=0.88, min_kwh=1.0,
+                                 soc_jump_pct=5, price_eur_kwh=0.59, threshold_w=300, tz=TZ)
+    end = datetime(2026, 10, 31, 23, 30, tzinfo=UTC)  # 00:30 on 1 Nov in Berlin
+    charge = det._charge(end - timedelta(hours=1), end, 5.0, 40, 70, "soc_jump")
+    assert charge.date == date(2026, 11, 1)
+
+
+def test_s2_s3_merged_drives_and_restart_keep_energy_and_km():
+    from custom_components.ev_charging_pilot.core.model import Value
+    from custom_components.ev_charging_pilot.core.trips import TripTracker
+
+    def v(value, at):
+        return Value(str(value), value, "ovms", at, Quality.GOOD)
+
+    tracker = TripTracker(30, TZ)
+    t = datetime(2026, 10, 10, 8, 0, tzinfo=TZ)
+
+    def tick(at, on, km, used):
+        return tracker.update(at, vehicle_on=v(on, at), odometer=v(km, at),
+                              energy_used=v(used, at), energy_recd=v(0.0, at), aux=v(0.0, at),
+                              soc=v(70, at), outside_temp=v(10.0, at))
+
+    tick(t, True, 1000.0, 0.0)
+    tick(t + timedelta(minutes=15), True, 1010.0, 3.0)       # drive 1: 3 kWh
+    tick(t + timedelta(minutes=20), False, 1010.0, 3.0)      # short stop
+    tick(t + timedelta(minutes=30), True, 1010.0, 0.0)       # counter reset per drive
+    tick(t + timedelta(minutes=45), True, 1020.0, 2.0)       # drive 2: 2 kWh
+    # HA down from here; the car drives on to 1050 km and parks.
+    trips = []
+    for minutes in range(60, 130, 5):
+        trips += tick(t + timedelta(minutes=minutes), False, 1050.0, 2.0)
+    assert len(trips) == 1
+    assert trips[0].vehicle_energy_used_kwh == 5.0
+    assert trips[0].distance_km == 50.0

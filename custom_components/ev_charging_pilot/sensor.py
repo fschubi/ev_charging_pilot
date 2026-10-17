@@ -283,6 +283,8 @@ async def async_setup_entry(
 class ChargingSensor(ChargingEntity, SensorEntity):
     platform_domain = "sensor"
     entity_description: ChargingSensorDescription
+    # Changes with every poll of an identical value – recording it bloats the database.
+    _unrecorded_attributes = frozenset({"updated_at"})
 
     def __init__(self, center: ChargingCenter, description: ChargingSensorDescription) -> None:
         self.entity_description = description

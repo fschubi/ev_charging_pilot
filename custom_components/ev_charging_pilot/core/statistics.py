@@ -128,8 +128,8 @@ def _distance(data: MonitorData, trips: list[Trip], start: datetime, end: dateti
         return round(sum(t.distance_km or 0 for t in trips), 1), all(
             t.quality == "GOOD" for t in trips)
     readings = sorted(data.odometer_readings, key=lambda r: r.at)
-    at_start = _value_at(readings, start)
-    at_end = _value_at(readings, end)
+    at_start, start_exact = _odometer_at(readings, start)
+    at_end, end_exact = _odometer_at(readings, end)
     inside = [r for r in readings if start <= r.at < end]
     if at_end is None:
         return None, False
@@ -137,7 +137,27 @@ def _distance(data: MonitorData, trips: list[Trip], start: datetime, end: dateti
         if not inside:
             return None, False
         return round(at_end - inside[0].value, 1), False
-    return round(at_end - at_start, 1), True
+    return round(at_end - at_start, 1), start_exact and end_exact
+
+
+ODOMETER_EXACT_WITHIN = timedelta(days=2)
+
+
+def _odometer_at(readings: Sequence[Reading], moment: datetime) -> tuple[float | None, bool]:
+    """Odometer at ``moment``: a nearby reading is exact; between sparse readings the
+    distance is spread linearly (a month must not get the whole gap since January)."""
+    before = [r for r in readings if r.at <= moment]
+    after = [r for r in readings if r.at > moment]
+    if not before:
+        return None, False
+    last = before[-1]
+    if moment - last.at <= ODOMETER_EXACT_WITHIN:
+        return last.value, True
+    if after:
+        nxt = after[0]
+        share = (moment - last.at) / (nxt.at - last.at)
+        return last.value + (nxt.value - last.value) * share, False
+    return last.value, False
 
 
 def period_summary(
@@ -217,7 +237,12 @@ def period_summary(
         "home_cost_eur": home_cost,
         "external_cost_eur": external_cost,
         "cost_eur": cost_total,
-        "cost_per_100km_eur": round(cost_total / distance * 100, 2) if distance else None,
+        # Same SOC correction as the kWh figure: energy still in (or taken from) the
+        # battery is valued at the period's average price.
+        "cost_per_100km_eur": round(
+            (cost_total - soc_term / efficiency * cost_total / grid_documented
+             if grid_documented > 0 else cost_total) / distance * 100, 2)
+        if distance else None,
         "sessions": len(successful),
         "failed_sessions": len(sessions) - len(successful),
         "trips": len(trips),

@@ -198,3 +198,16 @@ async def test_price_push_test_round_trip(hass, entry, halo):
                                    {"id": test_id, "price": "0,52"}, blocking=True)
     assert center.price_push_test["price_eur_kwh"] == 0.52
     assert center.monitor.data.external == []
+
+
+async def test_admin_only_services_refuse_normal_users(hass, entry, halo, hass_read_only_user):
+    from homeassistant.core import Context
+    from homeassistant.exceptions import Unauthorized
+
+    await _setup(hass, entry)
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(DOMAIN, "send_report_mail", {}, blocking=True,
+                                       context=Context(user_id=hass_read_only_user.id))
+    # Everyday services stay open for everyone.
+    await hass.services.async_call(DOMAIN, "cancel_one_shot", {}, blocking=True,
+                                   context=Context(user_id=hass_read_only_user.id))

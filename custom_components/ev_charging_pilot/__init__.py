@@ -41,7 +41,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> 
         _LOGGER.info("OVMS-Steckererkennung übernommen: %s", plug)
         hass.config_entries.async_update_entry(entry, data={**entry.data, **plug})
     center = ChargingCenter(hass, entry)
-    await center.async_setup()
+    try:
+        await center.async_setup()
+    except Exception:
+        # Timers and listeners are already running – never leave an orphaned center
+        # behind that could still switch the wallbox (and add up on every retry).
+        await center.async_shutdown()
+        raise
     entry.runtime_data = center
     if entry.title != center.name:
         hass.config_entries.async_update_entry(entry, title=center.name)

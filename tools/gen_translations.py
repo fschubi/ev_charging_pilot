@@ -43,6 +43,7 @@ INPUTS = {
     "ovms_aux_consumption": T("Fahrzeug: Nebenverbrauch", "Vehicle: auxiliary consumption"),
     "ovms_12v": T("Fahrzeug: 12-V-Spannung", "Vehicle: 12 V voltage"),
     "ovms_plug": T("Fahrzeug: Ladestecker erkannt", "Vehicle: charge plug detected"),
+    "ovms_hvac": T("Fahrzeug: Klimaanlage aktiv", "Vehicle: climate (HVAC) active"),
     "ovms_location": T("Fahrzeug: Standort (Tracker)", "Vehicle: location (tracker)"),
     "outside_temp": T("Außentemperatur (HA-Sensor)", "Outside temperature (HA sensor)"),
     "weather": T("Wetter (Rückfall Außentemperatur)", "Weather (fallback outside temperature)"),
@@ -85,6 +86,10 @@ FIELD_HELP = {
                    "Ladepunkt – damit wird das Einstecken auch bei gesperrter Wallbox erkannt.",
                    "The car reports a plugged-in charge cable. Some wallboxes (e.g. Halo) only "
                    "report the cable while enabled – this detects plugging in while locked."),
+    "ovms_hvac": T("Meldet das Auto, dass die Klimaanlage läuft (…_hvac_active). Die Wallbox "
+                   "gibt zur Vorklimatisierung nur so lange frei, danach gilt wieder das Ladeziel.",
+                   "The car reports running climate control. The wallbox stays enabled for "
+                   "pre-climatisation only that long, then the charge target applies again."),
     "ovms_location": T("Standort des Autos (device_tracker …_location). Steckt das Auto "
                        "nicht zu Hause, zählt der Stecker nicht als Wallbox-Kabel.",
                        "Location of the car. Away from home the plug does not count as the "

@@ -136,16 +136,13 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.
 - Preisoptimierung lädt standardmäßig in einem Block (Wakeup-Schonung); 2 Blöcke optional.
 - Noch nicht gebaut: OCPP (Prüfauftrag §16 #9).
-- **Geplant (Frank, 18.10.):** v0.20.1 Vorklimatisierung erst nach bestätigter Halo-Freigabe
-  (Halo-Schalter „an“, Wartezeit ~60 s aus dem Klimatest 18.10. 15:53); ohne Bestätigung
-  Klima ausfallen lassen + Push. Danach v0.21.0 Spalte „Klima“ (kWh/€) in der Session-Tabelle
-  – Aufteilung Netz − Akku (OVMS), Klima-Signal von OVMS erst nach dem Test bekannt.
+- **Geplant (Frank, 18.10.):** v0.20.2 `sensor.ev_pilot_status` (Text aus `summary`, inkl.
+  Vorklimatisierung), Zusammenfassung/`next_charge_start` ohne vergangene Blöcke; danach
+  Mushroom-Karte (Dashboard „Smarthome“, Home) darauf umstellen. v0.21.0 Spalte „Klima“
+  (kWh/€) – Netz minus `battery_power` (OVMS) solange `hvac_active`.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.6 Prüfbericht Panel.** Render in `#app`, Toasts in `#toasts`;
-  Signatur erst nach echtem Render; Select-Blur; Settings ohne Render bei offener Leiste;
-  Berichte per `auth/sign_path`; `FAILURE_LABELS`/`failure_hint`; `dateOnly` lokal; Zeitleiste.
 - **2026-10-18 – v0.19.7 Prüfbericht Stufe 3.** `MISSING_STATES` case-sensitiv (Halo
   „Unavailable“), `BLIND_WHEN_LOCKED`, kein Wecken bei unbekanntem Kabel, alte Leistung ≠ fließt,
   `OFF_RETRY_AFTER`, MWh-Schwelle 70, Gleichstand → spät, Verlust ≤ 40 %, Privatsphäre, `plug_discovery_done`.
@@ -160,3 +157,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   ([s ab Start, Halo W, OVMS W, SOC], 1/min, max. 1440); `get_sessions` ohne `trace`,
   `get_session_detail` mit Ereignissen und Recorder-Fallback (`async_recorder_minutes`,
   auch fürs Cockpit); Panel: Zeile klickbar (`sess-*`-Klassen, `srow` ist Einstellungen).
+- **2026-10-18 – v0.20.1 Klima nach Feldtest.** Executor wartet mit `CLIMATE_START` auf
+  Halo „an“ (`CLIMATE_CONFIRM_TIMEOUT` 60 s, sonst `CLIMATE_SKIPPED` + Push); Engine
+  `_climate_lock`/`climate_phase` (due→sent→running→done|skipped, im Store), Ende bei
+  `Inp.OVMS_HVAC` aus; `climate_sent` im Executor-Store; HV-Aktivität inkl. Start/Klima;
+  `discovery.async_discover_late` (`LATE_DISCOVERY`) statt Steckererkennung allein.

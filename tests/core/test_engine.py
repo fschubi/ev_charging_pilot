@@ -204,9 +204,9 @@ def test_data_conflict_is_flagged():
     assert "DATA_CONFLICT" in world.events
 
 
-def climate_world(policy: str) -> World:
+def climate_world(policy: str, configured=WITH_OVMS) -> World:
     """Tuesday 05:10, departure 05:30, target 90 % already reached, 10 °C outside → 10 min."""
-    world = World(local(2026, 10, 13, 5, 10), configured=WITH_OVMS, ovms_port=True,
+    world = World(local(2026, 10, 13, 5, 10), configured=configured, ovms_port=True,
                   climate_enabled=True, ovms_enabled=True, climate_after_target_soc=policy,
                   ovms_climate_command="homelink {level}")
     world.set(Inp.OVMS_SOC, "92")
@@ -312,3 +312,85 @@ def test_one_off_departure_stops_at_its_own_target():
     world.set(Inp.OVMS_SOC, "70")
     world.run(60)
     assert world.engine.desired.charger_enabled is False
+
+
+CLIMATE_START_AT = (2026, 10, 13, 5, 18, 30)  # 05:30 − 10 min − 2 min
+
+
+def hvac_world() -> World:
+    world = climate_world("allow_topup", WITH_OVMS | {Inp.OVMS_HVAC})
+    world.set(Inp.OVMS_HVAC, "off")
+    world.set(Inp.OVMS_HV_CYCLES, "100")
+    return world
+
+
+def test_climate_command_waits_for_the_halo_release():
+    world = climate_world("allow_topup")
+    world.now = local(*CLIMATE_START_AT)
+    world.tick()
+    assert world.commands == [CommandKind.ENABLE_CHARGER]  # Halo first, no climate yet
+    world.tick()
+    assert world.commands.index(CommandKind.CLIMATE_START) > \
+        world.commands.index(CommandKind.ENABLE_CHARGER)
+
+
+def test_climate_is_skipped_when_the_halo_does_not_confirm():
+    world = climate_world("allow_topup")
+    original = world.apply
+
+    def halo_refuses(result):
+        original(result)
+        world.set(Inp.CHARGER_ENABLE, "off")
+    world.apply = halo_refuses
+    world.now = local(*CLIMATE_START_AT)
+    world.run(70)
+    assert CommandKind.CLIMATE_START not in world.commands
+    assert "CLIMATE_SKIPPED" in world.events
+    assert "start_failed" in world.notifications
+    assert world.engine.climate_phase == "skipped"
+    world.run(10)
+    assert world.engine.desired.reason is not Reason.CLIMATE
+
+
+def test_climate_wish_ends_when_the_car_reports_hvac_off():
+    world = hvac_world()
+    world.now = local(*CLIMATE_START_AT)
+    world.run(10)
+    assert world.engine.climate_phase == "sent"
+    world.set(Inp.OVMS_HVAC, "on")
+    world.set(Inp.OVMS_HV_CYCLES, "99")  # the HV contactor closes for the climate
+    world.run(60)
+    assert world.engine.climate_phase == "running"
+    assert world.engine.desired.reason is Reason.CLIMATE
+    world.set(Inp.OVMS_HVAC, "off")
+    world.run(10)
+    assert "CLIMATE_ENDED" in world.events
+    # 92 % ≥ 90 %: the target rules again and the Halo goes off before departure.
+    assert world.engine.desired.reason is Reason.TARGET_SOC_REACHED
+    assert world.engine.desired.charger_enabled is False
+    assert "HV_CYCLE_WITHOUT_ACTIVITY" not in world.events
+    assert world.commands.count(CommandKind.CLIMATE_START) == 1
+
+
+def test_climate_start_is_frozen_once_reached():
+    world = climate_world("allow_topup")
+    world.now = local(*CLIMATE_START_AT)
+    world.run(10)
+    world.set(Inp.OVMS_OUTSIDE_TEMP, "-5")  # would mean 15 min – must not send again
+    world.run(60)
+    assert world.commands.count(CommandKind.CLIMATE_START) == 1
+    assert world.engine.climate_plan.duration_min == 10
+
+
+def test_climate_is_not_sent_twice_after_a_restart():
+    world = climate_world("allow_topup")
+    world.now = local(*CLIMATE_START_AT)
+    world.run(10)
+    stored = world.engine.as_dict()
+    fresh = climate_world("allow_topup")
+    fresh.now = world.now
+    fresh.engine.restore(stored)
+    fresh.set(Inp.CHARGER_ENABLE, "on")
+    fresh.run(30)
+    assert CommandKind.CLIMATE_START not in fresh.commands
+    assert fresh.engine.climate_phase == "sent"

@@ -45,6 +45,9 @@ STATE_TEXT = {
     ExecState.CHARGE_ENDED: "Auto hat fertig geladen",
     ExecState.START_FAILED: "Start fehlgeschlagen",
 }
+# Pre-climatisation on grid power: the OVMS command only goes out once the Halo
+# confirmed its release (field 18.10.2026: 7 s). Without confirmation it is skipped.
+CLIMATE_CONFIRM_TIMEOUT = timedelta(seconds=60)
 # After the wallbox refused to confirm "off" several times, wait this long.
 OFF_RETRY_AFTER = timedelta(minutes=30)
 # How often a "close the CP" command is repeated while the relay stays open.
@@ -172,6 +175,8 @@ class Executor:
         self._violation_reported_for: str | None = None
         self._last_cp_close_at: datetime | None = None
         self._climate_sent: str | None = None
+        # (request key, since): waiting for the Halo before the climate command.
+        self._climate_wait: tuple[str, datetime] | None = None
         self._peak_w: float = 0.0
         self._last_flow_w: float | None = None
         # Dry-run/replay: decisions are only logged, so a missing reaction of the
@@ -298,6 +303,8 @@ class Executor:
             "cp_not_restored": self.cp_not_restored,
             "last_switch_at": self._last_switch_at.isoformat() if self._last_switch_at else None,
             "last_wakeup_at": self._last_wakeup_at.isoformat() if self._last_wakeup_at else None,
+            # A restart during the climate window must not send the command twice.
+            "climate_sent": self._climate_sent,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -313,6 +320,7 @@ class Executor:
         switch_at, wakeup_at = data.get("last_switch_at"), data.get("last_wakeup_at")
         self._last_switch_at = datetime.fromisoformat(switch_at) if switch_at else None
         self._last_wakeup_at = datetime.fromisoformat(wakeup_at) if wakeup_at else None
+        self._climate_sent = data.get("climate_sent")
 
     def prune_expired(self, now: datetime, keep_last: int = 20) -> None:
         """Drop counters of windows that ended more than a day ago – keeps the store small."""
@@ -579,11 +587,26 @@ class Executor:
             return
         if not request.start_at <= snap.now < request.until:
             return
-        self._climate_sent = request.key
         if not self.config.climate_available:
+            self._climate_sent = request.key
             self._event(snap.now, Category.CLIMATE, Severity.WARNING, "CLIMATE_UNAVAILABLE",
                         "Klimatisierung geplant, aber OVMS-Befehl nicht verfügbar")
             return
+        if snap.desired.charger_enabled is True and _flag(snap.charger_on) is not True:
+            # Plugged in: grid power first, then the climate – otherwise the car heats
+            # from its battery until the cloud-polled Halo has switched.
+            if self._climate_wait is None or self._climate_wait[0] != request.key:
+                self._climate_wait = (request.key, snap.now)
+            if snap.now - self._climate_wait[1] < CLIMATE_CONFIRM_TIMEOUT:
+                return
+            self._climate_sent = request.key
+            self._event(snap.now, Category.CLIMATE, Severity.WARNING, "CLIMATE_SKIPPED",
+                        "Vorklimatisierung ausgefallen: Wallbox hat die Freigabe nicht "
+                        f"innerhalb von {int(CLIMATE_CONFIRM_TIMEOUT.total_seconds())} s "
+                        "bestätigt")
+            return
+        self._climate_sent = request.key
+        self._climate_wait = None
         self._command(CommandKind.CLIMATE_START, duration_min=request.duration_min)
         self._event(snap.now, Category.CLIMATE, Severity.INFO, "CLIMATE_START",
                     f"Vorklimatisierung {request.duration_min} min",

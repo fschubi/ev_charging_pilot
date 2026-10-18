@@ -80,6 +80,31 @@ def test_suggest_maps_ovms_plug_and_location_of_the_hacs_integration():
     assert found["ovms_location"] == "device_tracker.car_location"
 
 
+def test_suggest_maps_ovms_hvac_of_the_hacs_integration():
+    found = suggest([
+        Candidate("switch.car_climate_control", "ovms"),
+        Candidate("binary_sensor.car_hvac_active", "ovms"),
+        Candidate("sensor.car_cabin_fan", "ovms"),
+    ])
+    assert found["ovms_hvac"] == "binary_sensor.car_hvac_active"
+
+
+async def test_existing_installation_gets_the_hvac_input_once(hass):
+    from custom_components.ev_charging_pilot.discovery import (
+        HVAC_DISCOVERY_DONE,
+        PLUG_DISCOVERY_DONE,
+        async_discover_late,
+    )
+
+    registry = er.async_get(hass)
+    registry.async_get_or_create("binary_sensor", "ovms", "hvac",
+                                 suggested_object_id="car_hvac_active")
+    data = {"ovms_soc": "sensor.car_battery_level", PLUG_DISCOVERY_DONE: True}
+    late = async_discover_late(hass, data)
+    assert late == {"ovms_hvac": "binary_sensor.car_hvac_active", HVAC_DISCOVERY_DONE: True}
+    assert async_discover_late(hass, {**data, **late}) == {}
+
+
 def test_nothing_found_without_wallbox():
     assert suggest([Candidate("switch.kitchen_light", "hue")]) == {}
 

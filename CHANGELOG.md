@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.20.1 – 2026-10-18
+
+Vorklimatisierung nach dem ersten echten Test (18.10., 15:53, 5 min bei 8,7 °C):
+- **Erst Netzstrom, dann Klima:** Der OVMS-Klimabefehl geht erst raus, wenn die Wallbox
+  die Freigabe bestätigt hat (im Test nach 7 s). Bestätigt sie nicht innerhalb von 60 s,
+  fällt die Vorklimatisierung aus – das Auto wird nicht geweckt, du bekommst eine Push.
+- **Wallbox nur so lange wie die Klimaanlage:** Neuer OVMS-Eingang „Klimaanlage aktiv“
+  (`…_hvac_active`, wird bei bestehenden Installationen automatisch übernommen). Meldet
+  das Auto die Klimaanlage aus, gilt sofort wieder das Ladeziel. Im Test lief die Klima
+  bis 15:58, die Wallbox lud aber bis 16:00 weiter auf 92 %.
+- **Klimastart wird festgehalten:** Ändert sich die Außentemperatur während der
+  Vorklimatisierung, wird kein zweiter Befehl gesendet; auch nicht nach einem Neustart.
+- **Keine falsche HV-Warnung mehr:** „HV-Kontaktor geschaltet, ohne dass das Auto lud“
+  kam, weil das Auto beim Ladestart bzw. für die Klimaanlage den Kontaktor schloss, bevor
+  die Ladung als stabil galt. Start und Klima zählen jetzt als Aktivität.
+
 ## 0.20.0 – 2026-10-18
 
 Ladekurve und Details je Ladung (Reiter „Hausstrom“):

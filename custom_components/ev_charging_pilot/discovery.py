@@ -128,6 +128,7 @@ OVMS_RULES: dict[Inp, tuple[str, ...]] = {
     Inp.OVMS_12V: ("v_b_12v_voltage", "12v"),
     Inp.OVMS_PLUG: ("v_c_pilot", "charge_plug_detected", "plug_detected", "pilot"),
     Inp.OVMS_LOCATION: ("location", "v_p_location", "position"),
+    Inp.OVMS_HVAC: ("v_e_hvac", "hvac_active", "hvac"),
 }
 
 
@@ -136,7 +137,7 @@ def _ovms_rule(inp: Inp, words: tuple[str, ...]):
         if not (c.platform == "ovms" or c.has("ovms")):
             return 0
         domains = ("device_tracker",) if inp is Inp.OVMS_LOCATION \
-            else ("sensor", "binary_sensor")
+            else ("binary_sensor",) if inp is Inp.OVMS_HVAC else ("sensor", "binary_sensor")
         if c.domain not in domains:
             return 0
         if inp is Inp.OVMS_SOC and c.has("soh"):
@@ -172,16 +173,25 @@ PLUG_KEYS = (Inp.OVMS_PLUG.value, Inp.OVMS_LOCATION.value)
 # Set once the automatic plug/location lookup ran – a field the user cleared later
 # must not come back on the next start.
 PLUG_DISCOVERY_DONE = "plug_discovery_done"
+HVAC_DISCOVERY_DONE = "hvac_discovery_done"
+# OVMS inputs added after the first release: looked up once for existing installations.
+LATE_DISCOVERY: dict[str, tuple[str, ...]] = {
+    PLUG_DISCOVERY_DONE: PLUG_KEYS,                  # 0.13.4
+    HVAC_DISCOVERY_DONE: (Inp.OVMS_HVAC.value,),     # 0.20.1
+}
 
 
-def async_discover_plug(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
-    """0.13.4: suggest the OVMS plug and location for an existing installation.
+def async_discover_late(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+    """Suggest newer OVMS inputs for an existing installation (once per group).
 
     Uses the entity registry, because at startup the OVMS entities may not
-    have a state yet.
+    have a state yet. Returns the entry data to add, including the done flags.
     """
-    if not data.get(Inp.OVMS_SOC.value) or any(k in data for k in PLUG_KEYS) \
-            or data.get(PLUG_DISCOVERY_DONE):
+    if not data.get(Inp.OVMS_SOC.value):
+        return {}
+    pending = {flag: keys for flag, keys in LATE_DISCOVERY.items()
+               if not data.get(flag) and not any(k in data for k in keys)}
+    if not pending:
         return {}
     taken = {v for v in data.values() if isinstance(v, str)}
     candidates = [
@@ -191,7 +201,11 @@ def async_discover_plug(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, 
         for e in er.async_get(hass).entities.values()
         if e.disabled_by is None and e.entity_id not in taken]
     found = suggest(candidates)
-    return {k: found[k] for k in PLUG_KEYS if k in found}
+    out: dict[str, Any] = {}
+    for flag, keys in pending.items():
+        out.update({k: found[k] for k in keys if k in found and found[k] not in taken})
+        out[flag] = True
+    return out
 
 
 def async_discover(hass: HomeAssistant) -> dict[str, Any]:

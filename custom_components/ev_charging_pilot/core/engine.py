@@ -199,6 +199,11 @@ class Engine:
         self.next_window: ChargeWindow | None = None
         self.climate_plan: ClimateRequest | None = None
         self.climate_blocked: str | None = None
+        # The climate request once its start is reached: frozen (a temperature change
+        # must not move it and send a second command) with its progress:
+        # due → sent → running (car reports HVAC on) → done; or skipped.
+        self._climate_lock: ClimateRequest | None = None
+        self.climate_phase: str | None = None
         self.data_conflict = False
         self.last_activity_at: datetime | None = None
         # Last moment the wallbox delivered power – charging changes the SOC only slowly.
@@ -319,6 +324,7 @@ class Engine:
                     self._virtual_charger = True
                 elif command.kind is CommandKind.DISABLE_CHARGER:
                     self._virtual_charger = False
+        self._climate_progress(now, result)
         self._charge_test(now, result)
         self._monitor(now, result)
         self._notifications(now, result, plugged_in_event, cable_flag)
@@ -362,6 +368,7 @@ class Engine:
             (Inp.OVMS_ENERGY_RECD, rule(ages.odometer_s)),
             (Inp.OVMS_AUX_CONSUMPTION, rule(ages.odometer_s)),
             (Inp.OVMS_12V, rule(ages.temperature_s)),
+            (Inp.OVMS_HVAC, rule(ages.vehicle_charging_s)),
         ):
             values[key] = classify(values[key], now, r, self._activity_for_quality())
         for key, r in (
@@ -636,13 +643,55 @@ class Engine:
         elif self.next_window is not None and self.automation_enabled:
             minutes = planned_duration(self.next_window.climate, self.outside, self.settings)
             self.climate_plan = climate_request(self.next_window.departure, minutes)
+        lock = self._climate_lock
+        if lock is not None and (now >= lock.until or (
+                self.manual_climate is not None and self.manual_climate.key != lock.key)):
+            lock = self._climate_lock = None
+            self.climate_phase = None
+        if lock is not None:
+            self.climate_plan = lock
+        elif self.climate_plan is not None and self.climate_plan.start_at <= now \
+                < self.climate_plan.until:
+            self._climate_lock = self.climate_plan
+            self.climate_phase = "due"
         degraded = self.health.status is not HealthStatus.HEALTHY
         self.climate_blocked = climate_blocker(self.soc, self.settings, degraded) \
             if self.climate_plan else None
 
+    def _climate_progress(self, now: datetime, result: TickResult) -> None:
+        """Follow the running climate: command sent, car reports HVAC on, then off.
+
+        Grid power is only granted while the climate runs: once the car reports
+        its HVAC off again, the climate wish ends and the target SOC rules again
+        (field 18.10.2026: HVAC off at 15:58, but the Halo charged on to 16:00).
+        Without the HVAC input the wish lasts until departure, as before.
+        """
+        if self._climate_lock is None:
+            return
+        for event in result.events:
+            if event.code == "CLIMATE_START":
+                self.climate_phase = "sent"
+            elif event.code == "CLIMATE_SKIPPED":
+                self.climate_phase = "skipped"
+        hvac = self.values.get(Inp.OVMS_HVAC)
+        if hvac is None or not hvac.available or hvac.normalized is None:
+            return
+        if self.climate_phase == "sent" and hvac.normalized:
+            self.climate_phase = "running"
+        elif self.climate_phase == "running" and not hvac.normalized:
+            self.climate_phase = "done"
+            result.events.append(Event(now, Category.CLIMATE, Severity.INFO, "CLIMATE_ENDED",
+                                       "Vorklimatisierung beendet – Auto meldet Klima aus"))
+
+    @property
+    def climate_active(self) -> bool:
+        """The climate command went out and the climate has not ended yet."""
+        return self.climate_phase in ("sent", "running")
+
     def _arbitrate(self, now: datetime, plugged_in: bool) -> Desired:
         s = self.settings
-        climate_req = self.climate_plan if self.climate_blocked is None else None
+        climate_req = self.climate_plan if self.climate_blocked is None \
+            and self.climate_phase not in ("done", "skipped") else None
         climate_running = climate_req is not None and climate_req.start_at <= now < \
             climate_req.until
         wishes: list[Desired | None] = [override_wish(self.override)]
@@ -814,8 +863,12 @@ class Engine:
                     or float(odometer.normalized) - readings[-1].value >= 1:
                 self.monitor.add_odometer(now, float(odometer.normalized))
 
-        active = self.executor.state is ExecState.CHARGING or bool(
-            v[Inp.OVMS_VEHICLE_ON].normalized)
+        # Starting a charge or running the climate closes the HV contactor, too
+        # (field 18.10.2026: a warning while the Halo waited for the first power).
+        hvac = v.get(Inp.OVMS_HVAC)
+        active = self.executor.state is ExecState.CHARGING or self.executor.starting \
+            or self.climate_active or bool(v[Inp.OVMS_VEHICLE_ON].normalized) \
+            or bool(hvac is not None and hvac.available and hvac.normalized)
         for code in self.hv.update(v[Inp.OVMS_HV_CYCLES], local_day, active):
             message = ("HV-Kontaktor geschaltet, ohne dass das Auto lud oder fuhr"
                        if code == "HV_CYCLE_WITHOUT_ACTIVITY"
@@ -842,6 +895,10 @@ class Engine:
             elif event.code == "CP_NOT_RESTORED" and n.cp:
                 out.append(Notification("cp", "critical", "CP nicht zurückgestellt",
                                         "Shelly-Relais nach dem Puls nicht geschlossen – prüfen!"))
+            elif event.code == "CLIMATE_SKIPPED" and n.start_failed:
+                out.append(Notification("start_failed", "high", "Vorklimatisierung ausgefallen",
+                                        f"{event.message}. Das Auto wurde nicht geweckt; "
+                                        "bitte Wallbox prüfen."))
             elif event.code.startswith("HV_CYCLE") and n.hv_cycles:
                 out.append(Notification("hv_cycles", "normal", "HV-Kontaktor auffällig",
                                         event.message))
@@ -1014,6 +1071,8 @@ class Engine:
 
     def stop_climate(self, now: datetime) -> TickResult:
         self.manual_climate = None
+        if self._climate_lock is not None:
+            self.climate_phase = "done"
         result = TickResult()
         result.extend(self.executor.request_climate_stop(now))
         return result
@@ -1085,6 +1144,10 @@ class Engine:
             "target_hold": self._target_hold,
             "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
             "last_unplug_at": self.last_unplug_at.isoformat() if self.last_unplug_at else None,
+            "climate_lock": {"duration_min": self._climate_lock.duration_min,
+                             "start_at": self._climate_lock.start_at.isoformat(),
+                             "until": self._climate_lock.until.isoformat(),
+                             "phase": self.climate_phase} if self._climate_lock else None,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -1113,3 +1176,9 @@ class Engine:
         offer, unplug = data.get("plug_offer_at"), data.get("last_unplug_at")
         self.plug_offer_at = datetime.fromisoformat(offer) if offer else None
         self.last_unplug_at = datetime.fromisoformat(unplug) if unplug else None
+        lock = data.get("climate_lock")
+        if lock:
+            self._climate_lock = ClimateRequest(
+                int(lock["duration_min"]), datetime.fromisoformat(lock["start_at"]),
+                datetime.fromisoformat(lock["until"]))
+            self.climate_phase = lock.get("phase")

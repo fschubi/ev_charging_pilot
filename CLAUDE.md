@@ -136,15 +136,11 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.
 - Preisoptimierung lädt standardmäßig in einem Block (Wakeup-Schonung); 2 Blöcke optional.
 - Noch nicht gebaut: OCPP (Prüfauftrag §16 #9).
-- **Geplant (Frank, 18.10.):** Mushroom-Karte (Dashboard „Smarthome“, Home) auf
-  `sensor.ev_pilot_status` umstellen. v0.21.0 Spalte „Klima“
-  (kWh/€) – Netz minus `battery_power` (OVMS) solange `hvac_active`.
+- Franks Mushroom-Karte (Dashboard „Smarthome“, Home) zeigt `sensor.ev_pilot_status`
+  (Headline) – Texte dort also nur über `core/summary.py` ändern.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.8 Prüfbericht Texte/Doku.** `health.REASON_TEXT/STATUS_TEXT`,
-  `OVERRIDE_TEXT`, `STATE_TEXT`, PDF-Labels, Panel-Labels, einheitliche Begriffe, README/ROADMAP.
-  Prüfbericht vollständig abgearbeitet (Status oben im Bericht).
 - **2026-10-18 – v0.19.9 Erste echte Ladung.** Nacht sauber (Freigabe 10 s, kein Wecken,
   Aus bei 90 %). Fixes: `HvCycleMonitor` zählt Betrag (Restzähler fällt); `summary._upcoming`
   „Ziel erreicht“ bei `needed_kwh ≤ 0`, nur künftige Blöcke; `SessionTracker` Basis bei
@@ -161,3 +157,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-18 – v0.20.2 Statussensor.** `sensor.ev_pilot_status` = `summary()`-Headline
   (Attribute detail/tone/climate_*); `summary._with_climate`/`_climate_note`/
   `_climate_running`; „Kein Laden mehr geplant“ nach letztem Block; `sensor._next_start`.
+- **2026-10-18 – v0.21.0 Klima-Energie.** `Inp.OVMS_BATTERY_POWER`; `SessionTracker._climate`
+  (Halo − Akku/η je 15-min-Slot, nur bei `Engine._climate_heating`), `ChargeSession.
+  climate_energy_kwh/climate_cost_eur`; Statistik, Panel-Spalte „Klima“, PDF-Zeile.

@@ -102,3 +102,35 @@ def test_session_keeps_a_power_curve_once_per_minute():
     assert all(b - a >= 60 for a, b in zip(offsets, offsets[1:], strict=False))
     restored = type(session).from_dict(session.as_dict())
     assert restored.trace == session.trace
+
+
+def test_climate_share_of_the_grid_energy():
+    """Field 18.10.2026: Halo 8.8 kW, battery 5.4 kW while heating."""
+    tracker = SessionTracker()
+    battery = Value(5400, 5400, "ovms", T0, Quality.GOOD)
+    halo = Value(8800, 8800, "halo", None)
+
+    def tick(at, total, events=(), climate=True):
+        return tracker.update(
+            T0 + timedelta(seconds=at), list(events), total_energy=kwh(total), power=halo,
+            vehicle_power=Value.unavailable("ovms"), soc=Value(89, 89, "ovms", None),
+            reason="climate", prices=PRICES, climate=climate, battery_power=battery,
+            efficiency=0.88)
+
+    tick(0, 4.55, [ev("CHARGER_ENABLE")])
+    tick(5, 4.56, [ev("CHARGE_STABLE")])
+    for at in range(10, 305, 5):  # five minutes of heating
+        tick(at, 4.56 + at * 8.8 / 3600)
+    tick(310, 5.30, climate=False)  # HVAC off: charging only
+    tick(400, 5.52, [ev("SESSION_END")], climate=False)
+    session = tick(400 + TAIL_S, 5.52, climate=False)[0]
+    heating_kw = 8.8 - 5.4 / 0.88  # ≈ 2.66 kW
+    assert abs(session.climate_energy_kwh - heating_kw * 300 / 3600) < 0.01
+    assert abs(session.climate_cost_eur - session.climate_energy_kwh * 0.38) < 0.001
+
+
+def test_no_climate_share_without_climate():
+    tracker = SessionTracker()
+    night(tracker)
+    session = step(tracker, 1416 + TAIL_S, 4.55)[0]
+    assert session.climate_energy_kwh is None and session.climate_cost_eur is None

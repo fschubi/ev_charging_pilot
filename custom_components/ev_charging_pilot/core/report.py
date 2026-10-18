@@ -171,6 +171,9 @@ def month_report(monitor: Monitor, settings: Settings, year: int, month: int,
         ("Kosten Heimladen", _n(summary["home_cost_eur"], 2, "€")),
         ("Ø Preis", _n(summary["home_cost_eur"] / summary["home_energy_kwh"], 3, "€/kWh")
          if summary["home_energy_kwh"] else "–"),
+        *([("davon Vorklimatisierung", f"{_n(summary['climate_energy_kwh'], 2, 'kWh')} / "
+            f"{_n(summary['climate_cost_eur'], 2, '€')}")]
+          if summary.get("climate_energy_kwh") else []),
         ("Fremdladen", _n(summary["external_energy_kwh"], 2, "kWh")),
         ("Kosten Fremdladen", _n(summary["external_cost_eur"], 2, "€")),
         ("Kosten gesamt", _n(summary["cost_eur"], 2, "€")),

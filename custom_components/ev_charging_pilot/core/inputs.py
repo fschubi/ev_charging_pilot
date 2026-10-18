@@ -52,6 +52,7 @@ class Inp(StrEnum):
     OVMS_12V = "ovms_12v"
     OVMS_PLUG = "ovms_plug"
     OVMS_HVAC = "ovms_hvac"
+    OVMS_BATTERY_POWER = "ovms_battery_power"
     OVMS_LOCATION = "ovms_location"
     OUTSIDE_TEMP = "outside_temp"
     WEATHER = "weather"
@@ -83,6 +84,7 @@ KINDS: dict[Inp, Kind] = {
     Inp.OVMS_12V: Kind.NUMBER,
     Inp.OVMS_PLUG: Kind.BOOL,
     Inp.OVMS_HVAC: Kind.BOOL,
+    Inp.OVMS_BATTERY_POWER: Kind.POWER_W,
     Inp.OVMS_LOCATION: Kind.BOOL,
     Inp.OUTSIDE_TEMP: Kind.NUMBER,
     Inp.WEATHER: Kind.WEATHER_TEMP,

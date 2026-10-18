@@ -129,6 +129,7 @@ OVMS_RULES: dict[Inp, tuple[str, ...]] = {
     Inp.OVMS_PLUG: ("v_c_pilot", "charge_plug_detected", "plug_detected", "pilot"),
     Inp.OVMS_LOCATION: ("location", "v_p_location", "position"),
     Inp.OVMS_HVAC: ("v_e_hvac", "hvac_active", "hvac"),
+    Inp.OVMS_BATTERY_POWER: ("v_b_power", "battery_power"),
 }
 
 
@@ -174,10 +175,12 @@ PLUG_KEYS = (Inp.OVMS_PLUG.value, Inp.OVMS_LOCATION.value)
 # must not come back on the next start.
 PLUG_DISCOVERY_DONE = "plug_discovery_done"
 HVAC_DISCOVERY_DONE = "hvac_discovery_done"
+BATTERY_POWER_DISCOVERY_DONE = "battery_power_discovery_done"
 # OVMS inputs added after the first release: looked up once for existing installations.
 LATE_DISCOVERY: dict[str, tuple[str, ...]] = {
     PLUG_DISCOVERY_DONE: PLUG_KEYS,                  # 0.13.4
     HVAC_DISCOVERY_DONE: (Inp.OVMS_HVAC.value,),     # 0.20.1
+    BATTERY_POWER_DISCOVERY_DONE: (Inp.OVMS_BATTERY_POWER.value,),  # 0.21.0
 }
 
 

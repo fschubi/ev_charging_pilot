@@ -79,6 +79,7 @@
           "ovms_12v": "Vehicle: 12 V voltage",
           "ovms_plug": "Vehicle: charge plug detected",
           "ovms_hvac": "Vehicle: climate (HVAC) active",
+          "ovms_battery_power": "Vehicle: battery power",
           "ovms_location": "Vehicle: location (tracker)",
           "outside_temp": "Outside temperature (HA sensor)",
           "weather": "Weather (fallback outside temperature)",
@@ -88,6 +89,7 @@
         "data_description": {
           "ovms_plug": "The car reports a plugged-in charge cable. Some wallboxes (e.g. Halo) only report the cable while enabled – this detects plugging in while locked.",
           "ovms_hvac": "The car reports running climate control. The wallbox stays enabled for pre-climatisation only that long, then the charge target applies again.",
+          "ovms_battery_power": "Power into the battery (positive while charging). Splits the pre-climatisation energy from charging.",
           "ovms_location": "Location of the car. Away from home the plug does not count as the wallbox cable.",
           "outside_temp": "Outside temperature sensor for climate profiles. Optional.",
           "weather": "Weather entity as fallback for the outside temperature. Optional.",

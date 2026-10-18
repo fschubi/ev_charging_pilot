@@ -174,6 +174,11 @@ def period_summary(
 ) -> dict[str, Any]:
     """Balance of one period with SOC correction (§10.6)."""
     home_kwh, home_cost = _home_energy(data.sessions, start, end, prices)
+    # Part of the home energy that went into pre-climatisation (sessions by start).
+    climate = [s for s in data.sessions if start <= s.started_at < end
+               and s.climate_energy_kwh is not None]
+    climate_kwh = round(sum(s.climate_energy_kwh for s in climate), 3) if climate else None
+    climate_cost = round(sum(s.climate_cost_eur or 0.0 for s in climate), 2) if climate else None
     external = [e for e in data.external if start.date() <= e.date < end.date()]
     external_kwh = round(sum(e.energy_kwh for e in external), 3)
     external_cost = round(sum(e.total_cost for e in external), 2)
@@ -241,6 +246,8 @@ def period_summary(
         "charging_loss_pct": loss_pct,
         "grid_consumption_kwh_100km": grid_per_100,
         "home_cost_eur": home_cost,
+        "climate_energy_kwh": climate_kwh,
+        "climate_cost_eur": climate_cost,
         "external_cost_eur": external_cost,
         "cost_eur": cost_total,
         # Same SOC correction as the kWh figure: energy still in (or taken from) the

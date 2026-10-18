@@ -369,6 +369,7 @@ class Engine:
             (Inp.OVMS_AUX_CONSUMPTION, rule(ages.odometer_s)),
             (Inp.OVMS_12V, rule(ages.temperature_s)),
             (Inp.OVMS_HVAC, rule(ages.vehicle_charging_s)),
+            (Inp.OVMS_BATTERY_POWER, rule(ages.vehicle_charging_s)),
         ):
             values[key] = classify(values[key], now, r, self._activity_for_quality())
         for key, r in (
@@ -683,6 +684,13 @@ class Engine:
             result.events.append(Event(now, Category.CLIMATE, Severity.INFO, "CLIMATE_ENDED",
                                        "Vorklimatisierung beendet – Auto meldet Klima aus"))
 
+    def _climate_heating(self, values: dict[Inp, Value]) -> bool:
+        """Is the car's climate drawing power right now? The car's own report wins."""
+        hvac = values.get(Inp.OVMS_HVAC)
+        if Inp.OVMS_HVAC in self.config.configured and hvac is not None and hvac.available:
+            return bool(hvac.normalized)
+        return self.climate_active
+
     @property
     def climate_active(self) -> bool:
         """The climate command went out and the climate has not ended yet."""
@@ -799,6 +807,8 @@ class Engine:
             vehicle_power=v[Inp.OVMS_CHARGE_POWER], soc=self.soc,
             reason=self.desired.reason if self.desired else None, prices=self.prices,
             dynamic_price=self._dynamic_price,
+            climate=self._climate_heating(v), battery_power=v.get(Inp.OVMS_BATTERY_POWER),
+            efficiency=self.settings.charge_efficiency,
         )
         if self.shadow:
             # A start that "failed" only because nothing was switched is no session.

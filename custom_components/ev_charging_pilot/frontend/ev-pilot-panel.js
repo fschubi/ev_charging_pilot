@@ -1542,7 +1542,7 @@ class EvPilotPanel extends HTMLElement {
       ${(c.reports || []).length ? `<div class="card wide"><h2>PDF-Berichte</h2><div class="actions">
         ${c.reports.map((r) => `<button class="act" data-action="open-report" data-url="${esc(r.url)}">${esc(r.file)}</button>`).join("")}</div></div>` : ""}
       <div class="card"><h2>Heimladen</h2><div class="big">${num(m.home_energy_kwh, 1, "kWh")}</div>
-        <div class="sub">Wallbox-Zähler, maßgeblich für die Hausabrechnung</div></div>
+        <div class="sub">Wallbox-Zähler, maßgeblich für die Hausabrechnung${m.climate_energy_kwh ? ` · davon Vorklimatisierung ${num(m.climate_energy_kwh, 2, "kWh")} (${num(m.climate_cost_eur, 2, "€")})` : ""}</div></div>
       <div class="card"><h2>Kosten Heimladen</h2><div class="big">${num(m.home_cost_eur, 2, "€")}</div>
         <div class="sub">${num(this._state?.prices.current_eur_kwh, 3, "€/kWh")} aktuell${this._state?.prices.dynamic ? " (dynamisch)" : ""}</div></div>
       <div class="card"><h2>Sessions</h2><div class="big">${m.sessions ?? "–"}</div>
@@ -1550,12 +1550,13 @@ class EvPilotPanel extends HTMLElement {
       <div class="card wide"><h2>Monatsvergleich ${this._year}</h2>
         <svg viewBox="0 0 366 130" width="100%" height="160" role="img" aria-label="Heim-kWh pro Monat">${bars}</svg></div>
       <div class="card wide"><h2>Lade-Sessions</h2><div class="scroll"><table>
-        <tr><th>Start</th><th>Ende</th><th class="n">kWh</th><th class="n">€</th><th class="n">max kW</th><th>Grund</th><th>Wakeup</th><th>Ergebnis</th></tr>
+        <tr><th>Start</th><th>Ende</th><th class="n">kWh</th><th class="n">€</th><th class="n">max kW</th><th class="n">Klima</th><th>Grund</th><th>Wakeup</th><th>Ergebnis</th></tr>
         ${sessions.map((x) => `<tr class="sess-row${this._sessionOpen === x.session_id ? " open" : ""}" data-session="${esc(x.session_id)}" title="Details anzeigen"><td>${dateTime(x.started_at)}</td><td>${time(x.ended_at)}</td><td class="n">${num(x.grid_energy_kwh, 2)}</td>
-          <td class="n">${num(x.cost_eur, 2)}</td><td class="n">${num(x.max_power_w / 1000, 1)}</td><td>${esc(REASON_LABELS[x.reason] || x.reason)}</td>
+          <td class="n">${num(x.cost_eur, 2)}</td><td class="n">${num(x.max_power_w / 1000, 1)}</td>
+          <td class="n">${x.climate_energy_kwh !== null && x.climate_energy_kwh !== undefined ? `${num(x.climate_energy_kwh, 2, "kWh")} · ${num(x.climate_cost_eur, 2, "€")}` : "–"}</td><td>${esc(REASON_LABELS[x.reason] || x.reason)}</td>
           <td>${x.ovms_wakeup_used ? "OVMS " : ""}${x.cp_wakeup_used ? "CP" : ""}</td>
           <td>${x.success ? `<span class="pill ok">ok</span>` : `<span class="pill bad">${esc(FAILURE_LABELS[x.failure_code] || x.failure_code || "Fehler")}</span>`}</td></tr>
-          ${this._sessionOpen === x.session_id ? `<tr class="sess-open"><td colspan="8">${this._sessionDetailHtml(x)}</td></tr>` : ""}`).join("") || `<tr><td colspan="8" class="sub">Keine Sessions in diesem Monat.</td></tr>`}
+          ${this._sessionOpen === x.session_id ? `<tr class="sess-open"><td colspan="9">${this._sessionDetailHtml(x)}</td></tr>` : ""}`).join("") || `<tr><td colspan="9" class="sub">Keine Sessions in diesem Monat.</td></tr>`}
       </table></div></div>
     </div>`;
   }
@@ -1583,7 +1584,8 @@ class EvPilotPanel extends HTMLElement {
         <div>${row("Netz (Wallbox-Zähler)", num(d.grid_energy_kwh, 2, "kWh"))}${row("Im Akku (OVMS)", num(vehicle, 2, "kWh"))}
           ${row("Ladeverlust", num(loss, 0, "%"))}${row("Zähler", `${num(d.start_total_energy_kwh, 2)} → ${num(d.end_total_energy_kwh, 2, "kWh")}`)}</div>
         <div>${row("SOC", `${num(d.start_soc_pct, 0, "%")} → ${num(d.end_soc_pct, 0, "%")}`)}${row("Leistung Ø / max", `${num(d.average_power_w / 1000, 1)} / ${num(d.max_power_w / 1000, 1, "kW")}`)}
-          ${row("Kosten", num(d.cost_eur, 2, "€"))}${row("Ø Preis", num(avgPrice, 3, "€/kWh"))}</div>
+          ${row("Kosten", num(d.cost_eur, 2, "€"))}${row("Ø Preis", num(avgPrice, 3, "€/kWh"))}
+          ${d.climate_energy_kwh !== null && d.climate_energy_kwh !== undefined ? row("davon Vorklimatisierung", `${num(d.climate_energy_kwh, 2, "kWh")} · ${num(d.climate_cost_eur, 2, "€")}`) : ""}</div>
       </div>
       ${chart ? `<h3>Ladekurve</h3>${chart}${source}` : `<p class="sub">Kein Verlauf vorhanden – weder in der Session gespeichert noch in der HA-Historie.</p>`}
       ${intervals.length ? `<h3>Kosten je Viertelstunde</h3><table>

@@ -28,6 +28,8 @@ TAIL_S = 65
 # Power curve for the session detail view: one sample per minute, at most a day.
 TRACE_STEP_S = 60
 TRACE_MAX = 1440
+# Longest gap between two ticks that still counts towards the climate energy.
+CLIMATE_MAX_STEP_S = 60
 
 
 @dataclass(slots=True)
@@ -53,6 +55,9 @@ class ChargeSession:
     energy_intervals: list[dict[str, Any]] = field(default_factory=list)
     # [seconds since start, Halo W, vehicle W, SOC %] – None where unknown.
     trace: list[list[float | None]] = field(default_factory=list)
+    # Grid energy that went into the pre-climatisation (None: no climate measured).
+    climate_energy_kwh: float | None = None
+    climate_cost_eur: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -94,6 +99,9 @@ class SessionTracker:
         self._pending_cp = False
         self._vehicle_last: tuple[datetime, float] | None = None
         self._trace_at: datetime | None = None
+        # Pre-climatisation share of the grid energy per interval start (ISO).
+        self._climate_kwh: dict[str, float] = {}
+        self._climate_at: datetime | None = None
         self._dynamic: Callable[[datetime], float | None] | None = None
         # Counter reading when the wallbox was enabled (session baseline).
         self._enable_kwh: tuple[datetime, float] | None = None
@@ -115,6 +123,9 @@ class SessionTracker:
         reason: Reason | str | None,
         prices: FixedPriceHistory,
         dynamic_price: Callable[[datetime], float | None] | None = None,
+        climate: bool = False,
+        battery_power: Value | None = None,
+        efficiency: float = 0.88,
     ) -> list[ChargeSession]:
         self._dynamic = dynamic_price
         closed: list[ChargeSession] = []
@@ -126,6 +137,7 @@ class SessionTracker:
                 closed.append(self._finish(total_energy, prices))
         elif self.open is not None:
             self._accumulate(now, total_energy, power, vehicle_power, soc)
+            self._climate(now, climate, power, battery_power, efficiency)
         return closed
 
     def as_dict(self) -> dict[str, Any]:
@@ -139,6 +151,7 @@ class SessionTracker:
                            if self._enable_kwh else None),
             "closing": ([self._closing[0].isoformat(), self._closing[1], self._closing[2]]
                         if self._closing else None),
+            "climate_kwh": dict(self._climate_kwh),
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -154,6 +167,8 @@ class SessionTracker:
         closing = data.get("closing")
         self._closing = (datetime.fromisoformat(closing[0]), bool(closing[1]), closing[2]) \
             if closing and self.open is not None else None
+        self._climate_kwh = {k: float(v) for k, v in (data.get("climate_kwh") or {}).items()} \
+            if self.open is not None else {}
 
     @property
     def session_energy_kwh(self) -> float | None:
@@ -235,6 +250,32 @@ class SessionTracker:
             self._acc.add(now, float(total_energy.normalized))
         self._vehicle_last = None
         self._trace_at = None
+        self._climate_kwh = {}
+        self._climate_at = None
+
+    def _price(self, moment: datetime, prices: FixedPriceHistory) -> float:
+        return _price_at(self._dynamic, prices, moment)
+
+    def _climate(self, now, climate, power, battery_power, efficiency) -> None:
+        """Grid power not explained by charging the battery went into the climate.
+
+        climate share = Halo power − battery power ÷ charge efficiency (never
+        negative), so the charging loss stays with the charge (field 18.10.2026:
+        Halo 8.8 kW, battery 5.4 kW → about 2.7 kW heating).
+        """
+        last, self._climate_at = self._climate_at, (now if climate else None)
+        if not climate or last is None or battery_power is None:
+            return
+        seconds = (now - last).total_seconds()
+        if not 0 < seconds <= CLIMATE_MAX_STEP_S or not power.available \
+                or power.normalized is None or battery_power.quality is not Quality.GOOD \
+                or battery_power.normalized is None:
+            return
+        watts = max(0.0, float(power.normalized)
+                    - max(0.0, float(battery_power.normalized)) / efficiency)
+        minute = now.minute - now.minute % self.interval_min
+        slot = now.replace(minute=minute, second=0, microsecond=0).isoformat()
+        self._climate_kwh[slot] = self._climate_kwh.get(slot, 0.0) + watts / 1000 * seconds / 3600
 
     def _acc_energy(self, now, total_energy) -> None:
         session = self.open
@@ -315,9 +356,21 @@ class SessionTracker:
                                         else prices.price_at(interval.start), 5)
         session.energy_intervals = items
         session.cost_eur = round(sum(i["kwh"] * i["eur_per_kwh"] for i in items), 4)
+        if self._climate_kwh:
+            session.climate_energy_kwh = round(sum(self._climate_kwh.values()), 4)
+            session.climate_cost_eur = round(sum(
+                kwh * self._price(datetime.fromisoformat(slot), prices)
+                for slot, kwh in self._climate_kwh.items()), 4)
+        self._climate_kwh = {}
+        self._climate_at = None
         self.open = None
         self._acc = IntervalAccumulator(self.interval_min)
         return session
+
+
+def _price_at(dynamic, prices: FixedPriceHistory, moment: datetime) -> float:
+    price = dynamic(moment) if dynamic else None
+    return price if price is not None else prices.price_at(moment)
 
 
 def _soc(soc: Value | None) -> float | None:

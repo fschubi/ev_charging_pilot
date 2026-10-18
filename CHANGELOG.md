@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.21.0 – 2026-10-18
+
+Strom der Vorklimatisierung wird getrennt ausgewiesen:
+- **Spalte „Klima“ in den Lade-Sessions** (Reiter „Hausstrom“) mit kWh und €, in den
+  Details „davon Vorklimatisierung“, in der Monatskarte „Heimladen“ und im
+  PDF-Monatsbericht.
+- **So wird gerechnet:** Solange das Auto „Klimaanlage aktiv“ meldet, zählt der Teil
+  der Wallbox-Leistung, der nicht in den Akku geht: Netzleistung − Akkuleistung ÷
+  Lade-Wirkungsgrad (Einstellung, Standard 0,88). Der Ladeverlust bleibt so beim Laden.
+  Kosten mit dem Preis der jeweiligen Viertelstunde (Tibber genau).
+- **Neuer OVMS-Eingang „Akkuleistung“** (`…_battery_power`), wird bei bestehenden
+  Installationen automatisch übernommen. Ohne ihn bleibt die Spalte leer.
+
 ## 0.20.2 – 2026-10-18
 
 Klare Statuszeile – im Cockpit und als Sensor fürs eigene Dashboard:

@@ -44,6 +44,7 @@ INPUTS = {
     "ovms_12v": T("Fahrzeug: 12-V-Spannung", "Vehicle: 12 V voltage"),
     "ovms_plug": T("Fahrzeug: Ladestecker erkannt", "Vehicle: charge plug detected"),
     "ovms_hvac": T("Fahrzeug: Klimaanlage aktiv", "Vehicle: climate (HVAC) active"),
+    "ovms_battery_power": T("Fahrzeug: Akkuleistung", "Vehicle: battery power"),
     "ovms_location": T("Fahrzeug: Standort (Tracker)", "Vehicle: location (tracker)"),
     "outside_temp": T("Außentemperatur (HA-Sensor)", "Outside temperature (HA sensor)"),
     "weather": T("Wetter (Rückfall Außentemperatur)", "Weather (fallback outside temperature)"),
@@ -90,6 +91,10 @@ FIELD_HELP = {
                    "gibt zur Vorklimatisierung nur so lange frei, danach gilt wieder das Ladeziel.",
                    "The car reports running climate control. The wallbox stays enabled for "
                    "pre-climatisation only that long, then the charge target applies again."),
+    "ovms_battery_power": T("Leistung in den Akku (…_battery_power, beim Laden positiv). "
+                            "Damit wird der Strom der Vorklimatisierung vom Laden getrennt.",
+                            "Power into the battery (positive while charging). Splits the "
+                            "pre-climatisation energy from charging."),
     "ovms_location": T("Standort des Autos (device_tracker …_location). Steckt das Auto "
                        "nicht zu Hause, zählt der Stecker nicht als Wallbox-Kabel.",
                        "Location of the car. Away from home the plug does not count as the "

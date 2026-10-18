@@ -89,8 +89,9 @@ def test_suggest_maps_ovms_hvac_of_the_hacs_integration():
     assert found["ovms_hvac"] == "binary_sensor.car_hvac_active"
 
 
-async def test_existing_installation_gets_the_hvac_input_once(hass):
+async def test_existing_installation_gets_the_new_ovms_inputs_once(hass):
     from custom_components.ev_charging_pilot.discovery import (
+        BATTERY_POWER_DISCOVERY_DONE,
         HVAC_DISCOVERY_DONE,
         PLUG_DISCOVERY_DONE,
         async_discover_late,
@@ -99,9 +100,13 @@ async def test_existing_installation_gets_the_hvac_input_once(hass):
     registry = er.async_get(hass)
     registry.async_get_or_create("binary_sensor", "ovms", "hvac",
                                  suggested_object_id="car_hvac_active")
+    registry.async_get_or_create("sensor", "ovms", "bpower",
+                                 suggested_object_id="car_battery_power")
     data = {"ovms_soc": "sensor.car_battery_level", PLUG_DISCOVERY_DONE: True}
     late = async_discover_late(hass, data)
-    assert late == {"ovms_hvac": "binary_sensor.car_hvac_active", HVAC_DISCOVERY_DONE: True}
+    assert late == {"ovms_hvac": "binary_sensor.car_hvac_active", HVAC_DISCOVERY_DONE: True,
+                    "ovms_battery_power": "sensor.car_battery_power",
+                    BATTERY_POWER_DISCOVERY_DONE: True}
     assert async_discover_late(hass, {**data, **late}) == {}
 
 

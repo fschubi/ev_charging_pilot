@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.19.8 Prüfbericht Texte/Doku.** `health.REASON_TEXT/STATUS_TEXT`,
+  `OVERRIDE_TEXT`, `STATE_TEXT`, PDF-Labels, Panel-Labels, einheitliche Begriffe, README/ROADMAP.
+  Prüfbericht vollständig abgearbeitet (Status oben im Bericht).
 - **2026-10-18 – v0.19.7 Prüfbericht Stufe 3.** `MISSING_STATES` case-sensitiv (Halo
   „Unavailable“), `BLIND_WHEN_LOCKED`, kein Wecken bei unbekanntem Kabel, alte Leistung ≠ fließt,
   `OFF_RETRY_AFTER`, MWh-Schwelle 70, Gleichstand → spät, Verlust ≤ 40 %, Privatsphäre, `plug_discovery_done`.

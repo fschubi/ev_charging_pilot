@@ -33,6 +33,7 @@ def test_fixed_start_night_charges_and_records_session():
     world.tick(10)
     world.run(30)
     assert CommandKind.DISABLE_CHARGER in world.commands
+    world.run(60)  # the session waits for late Halo counter readings
     sessions = world.engine.monitor.data.sessions
     assert len(sessions) == 1
     assert sessions[0].success

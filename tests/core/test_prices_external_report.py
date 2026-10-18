@@ -199,7 +199,7 @@ def test_session_cost_uses_dynamic_price():
     ).OverrideMode.UNTIL_UNPLUGGED)
     world.run(30 * 60)
     world.set(Inp.CABLE_CONNECTED, "off")
-    world.tick()
+    world.run(70)  # late Halo counter readings
     session = world.engine.monitor.data.sessions[-1]
     prices = {i["eur_per_kwh"] for i in session.energy_intervals}
     assert prices <= {0.32, 0.18}

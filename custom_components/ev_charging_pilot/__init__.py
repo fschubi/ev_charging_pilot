@@ -132,7 +132,9 @@ async def _async_register_panel(hass: HomeAssistant, title: str) -> None:
                 "name": PANEL_COMPONENT,
                 "embed_iframe": False,
                 "trust_external": False,
-                "js_url": f"{PANEL_URL}?v={VERSION}",
+                # A module has its own scope: a new ?v= URL in an open tab must
+                # not redeclare the top-level constants of the old one.
+                "module_url": f"{PANEL_URL}?v={VERSION}",
             },
         },
     )

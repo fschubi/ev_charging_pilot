@@ -3,19 +3,28 @@
 The tracker listens to executor events and the Halo energy counter. A CP
 pulse never ends a session (the executor masks it, §3.4), so the tracker
 only reacts to explicit session events.
+
+The Halo counter arrives by cloud polling (~30 s, measured 18.10.2026), so it
+lags behind the switching: energy flows before CHARGE_STABLE and the last
+readings arrive after SESSION_END. The tracker therefore starts from the
+counter reading at CHARGER_ENABLE and keeps a closed session open for
+``TAIL_S`` to collect the late readings before handing it out.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from .costs import EnergyInterval, FixedPriceHistory, IntervalAccumulator
 from .model import Event, Quality, Reason, Severity, Value
 
 FAILURE_CODES = ("CHARGE_START_FAILED", "CHARGER_NOT_CONFIRMED", "CHARGE_INTERRUPTED")
+# Two Halo poll intervals: the field showed late counter readings 1 s and 31 s
+# after the wallbox was switched off.
+TAIL_S = 65
 
 
 @dataclass(slots=True)
@@ -80,6 +89,11 @@ class SessionTracker:
         self._pending_cp = False
         self._vehicle_last: tuple[datetime, float] | None = None
         self._dynamic: Callable[[datetime], float | None] | None = None
+        # Counter reading when the wallbox was enabled (session baseline).
+        self._enable_kwh: tuple[datetime, float] | None = None
+        # Session already ended, waiting for late counter readings:
+        # (ended_at, success, failure_code).
+        self._closing: tuple[datetime, bool, str | None] | None = None
 
     # ----------------------------------------------------------------- API
 
@@ -100,7 +114,11 @@ class SessionTracker:
         closed: list[ChargeSession] = []
         for event in events:
             closed += self._on_event(now, event, total_energy, soc, reason, prices)
-        if self.open is not None:
+        if self.open is not None and self._closing is not None:
+            self._acc_energy(now, total_energy)
+            if now - self._closing[0] >= timedelta(seconds=TAIL_S):
+                closed.append(self._finish(total_energy, prices))
+        elif self.open is not None:
             self._accumulate(now, total_energy, power, vehicle_power, soc)
         return closed
 
@@ -111,6 +129,10 @@ class SessionTracker:
             "last_kwh": self._acc.last_kwh,
             "pending_ovms": self._pending_ovms,
             "pending_cp": self._pending_cp,
+            "enable_kwh": ([self._enable_kwh[0].isoformat(), self._enable_kwh[1]]
+                           if self._enable_kwh else None),
+            "closing": ([self._closing[0].isoformat(), self._closing[1], self._closing[2]]
+                        if self._closing else None),
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -120,16 +142,43 @@ class SessionTracker:
         self._acc.last_kwh = data.get("last_kwh")
         self._pending_ovms = bool(data.get("pending_ovms"))
         self._pending_cp = bool(data.get("pending_cp"))
+        enable = data.get("enable_kwh")
+        self._enable_kwh = (datetime.fromisoformat(enable[0]), float(enable[1])) \
+            if enable else None
+        closing = data.get("closing")
+        self._closing = (datetime.fromisoformat(closing[0]), bool(closing[1]), closing[2]) \
+            if closing and self.open is not None else None
 
     @property
     def session_energy_kwh(self) -> float | None:
         return self._acc.total_kwh if self.open else None
 
+    @property
+    def closing(self) -> bool:
+        """The session has ended and only waits for late counter readings."""
+        return self._closing is not None
+
     # ------------------------------------------------------------- internal
 
     def _on_event(self, now, event, total_energy, soc, reason, prices) -> list[ChargeSession]:
         code = event.code
-        if code == "OVMS_WAKEUP":
+        closed: list[ChargeSession] = []
+        if self._closing is not None and (
+                code in ("CHARGE_STABLE", "CHARGE_RESUMED", "CHARGER_ENABLE")
+                or code in FAILURE_CODES):
+            # Something new begins: hand out the ending session as it is.
+            closed.append(self._finish(total_energy, prices))
+        return closed + self._handle(now, event, total_energy, soc, reason, prices)
+
+    def _handle(self, now, event, total_energy, soc, reason, prices) -> list[ChargeSession]:
+        code = event.code
+        if code == "CHARGER_ENABLE":
+            if self.open is None and total_energy.available \
+                    and total_energy.normalized is not None:
+                self._enable_kwh = (now, float(total_energy.normalized))
+        elif code == "CHARGER_DISABLE":
+            self._enable_kwh = None
+        elif code == "OVMS_WAKEUP":
             self._pending_ovms = True
         elif code == "CP_PULSE_START":
             self._pending_cp = True
@@ -137,11 +186,13 @@ class SessionTracker:
             self._start(now, event.session_id, total_energy, soc, reason)
         elif code in ("SESSION_END", "CHARGE_ENDED") or (code == "CABLE_DISCONNECTED"
                                                           and self.open):
-            if self.open is not None:
-                return [self._close(now, total_energy, soc, prices, True, None)]
+            if self.open is not None and self._closing is None:
+                self._begin_close(now, total_energy, soc, True, None)
         elif code in FAILURE_CODES and event.severity is Severity.ERROR:
+            self._enable_kwh = None
             if self.open is not None:
-                return [self._close(now, total_energy, soc, prices, False, code)]
+                self._begin_close(now, total_energy, soc, False, code)
+                return []
             failed = ChargeSession(
                 session_id=f"f-{now.strftime('%Y%m%d-%H%M%S')}",
                 started_at=now, ended_at=now, reason=str(reason or ""),
@@ -154,6 +205,13 @@ class SessionTracker:
 
     def _start(self, now, session_id, total_energy, soc, reason) -> None:
         start_kwh = float(total_energy.normalized) if total_energy.available else None
+        baseline = self._enable_kwh
+        self._enable_kwh = None
+        if baseline is not None and start_kwh is not None and baseline[1] <= start_kwh:
+            # Energy already flowed between the enable and the stable start.
+            start_kwh = baseline[1]
+        else:
+            baseline = None
         self.open = ChargeSession(
             session_id=session_id or f"s-{now.strftime('%Y%m%d-%H%M%S')}",
             started_at=now,
@@ -166,15 +224,21 @@ class SessionTracker:
         self._pending_ovms = self._pending_cp = False
         self._acc = IntervalAccumulator(self.interval_min)
         if start_kwh is not None:
-            self._acc.add(now, start_kwh)
+            self._acc.add(baseline[0] if baseline else now, start_kwh)
+        if baseline is not None:
+            self._acc.add(now, float(total_energy.normalized))
         self._vehicle_last = None
 
-    def _accumulate(self, now, total_energy, power, vehicle_power, soc) -> None:
+    def _acc_energy(self, now, total_energy) -> None:
         session = self.open
         if total_energy.available and total_energy.normalized is not None:
             self._acc.add(now, float(total_energy.normalized))
             if session.start_total_energy_kwh is None:
                 session.start_total_energy_kwh = float(total_energy.normalized)
+
+    def _accumulate(self, now, total_energy, power, vehicle_power, soc) -> None:
+        session = self.open
+        self._acc_energy(now, total_energy)
         if power.available and power.normalized is not None:
             session.max_power_w = max(session.max_power_w, float(power.normalized))
         if vehicle_power.quality is Quality.GOOD and vehicle_power.normalized is not None:
@@ -193,14 +257,21 @@ class SessionTracker:
             if session.start_soc_pct is None:
                 session.start_soc_pct = current
 
-    def _close(self, now, total_energy, soc, prices, success, failure) -> ChargeSession:
+    def _begin_close(self, now, total_energy, soc, success, failure) -> None:
         self._accumulate(now, total_energy, Value.unavailable("halo"), Value.unavailable("ovms"),
                          soc)
+        self._closing = (now, success, failure)
+
+    def _finish(self, total_energy, prices) -> ChargeSession:
+        ended_at, success, failure = self._closing
+        self._closing = None
         session = self.open
-        session.ended_at = now
+        session.ended_at = ended_at
         session.success = success
         session.failure_code = failure
-        if total_energy.available and total_energy.normalized is not None:
+        if self._acc.last_kwh is not None and session.start_total_energy_kwh is not None:
+            session.end_total_energy_kwh = self._acc.last_kwh
+        elif total_energy.available and total_energy.normalized is not None:
             session.end_total_energy_kwh = float(total_energy.normalized)
         if session.start_total_energy_kwh is not None and session.end_total_energy_kwh is not None:
             session.grid_energy_kwh = round(

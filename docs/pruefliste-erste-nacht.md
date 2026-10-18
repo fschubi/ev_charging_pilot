@@ -66,4 +66,70 @@ unten eintragen.
 
 ## Ergebnisse
 
-_(hier eintragen)_
+### Erste Nacht, So 18.10.2026 – ausgewertet um 08:30 (Ereignisse, Zustand, Sitzungen, HA-Log, Verlauf)
+
+**Ablauf (Ortszeit):**
+
+| Zeit | Ereignis | Bemerkung |
+| --- | --- | --- |
+| 01:57:46 | `EXECUTOR_STARTED` | HA-Neustart, Zustand bereit |
+| 06:00:03 | `CURRENT_SET` 14 A, `CHARGER_ENABLE` (one_shot) | Plan stand auf 14 A (nicht 12 A wie oben angenommen) |
+| 06:00:13 | `CHARGER_CONFIRMED` | Freigabe nach **10 s** bestätigt, Halo-Status „Charging“ |
+| 06:00:19 | OVMS „lädt“ = an | Auto lud **von selbst**, kein OVMS-/CP-Wakeup |
+| 06:00:43 | `CHARGE_STABLE` | 30 s nach Bestätigung = nächster Halo-Poll |
+| 06:23:39 | SOC 90 % → `SESSION_END` (target_soc_reached), `CHARGER_DISABLE` | genau beim Ziel, kein Überladen |
+| 06:23:44 | `CHARGER_OFF_CONFIRMED` | Abschaltung nach 5 s bestätigt |
+
+Danach keine weiteren Schalt- oder Weckbefehle. SOC stieg gleichmäßig ~1 %/75 s,
+Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
+
+**Abgehakt:**
+
+- [x] Freigabe um 06:00, Bestätigung in Sekunden (10 s).
+- [x] `CURRENT_SET` 14 A, Halo meldet 14 A.
+- [x] Kein Wecken nötig: Leistung ~10 s nach Freigabe → **M8 ≈ 10 s** (Status), Auto-Meldung nach 16 s.
+- [x] `CHARGE_STABLE` nach 30 s / erster Leistungswert → **M1: Halo pollt alle 30 s**.
+- [x] Abschaltung genau bei 90 % (K7 bestätigt), kein `BLOCK_EXTENDED` nötig (Block 06:00–06:36, fertig 06:23).
+- [x] Genau eine Sitzung `s-20261018-040043`, sauber geschlossen, `success`, 71 → 90 %,
+      3,31 kWh, 1,27 € (0,384 €/kWh Tibber), max. 9,17 kW, Ø 8,66 kW.
+- [x] Systemzustand HEALTHY, SOC-Qualität GOOD, keine Fehler von `ev_charging_pilot` im HA-Log.
+- [ ] Vorklimatisierung: geplant 15:53–16:00 (auto, 8,7 °C außen) – **noch offen**, nach 16:00 prüfen.
+- [ ] Neustart nach fertiger Ladung, Wochenplan ab Montag, Monatsbericht – noch offen.
+
+**Gefundene Fehler** (alle vier behoben in **v0.19.9**, mit Tests):
+
+1. **HV-Zyklen-Wächter wirkungslos (wichtig, Regel 6).** Gemappt ist
+   `sensor.vorgarten_pi_eq_16e_hv_contactor_cycles_remaining_smart_fortwo` – ein
+   **Restzähler**, der fällt (194784 → 194783 um 06:00:54). `HvCycleMonitor` erwartet einen
+   steigenden Zähler: `hv_cycles_today` zeigt **−1**, `HV_CYCLE_WITHOUT_ACTIVITY` und
+   `HV_CYCLES_HIGH` können nie auslösen. Die Auto-Erkennung (`discovery.py`,
+   Muster `contactor_cycles`) wählt diesen Sensor. Lösung: Betrag der Änderung zählen
+   (oder „remaining“ erkennen und umdrehen) + Test.
+2. **Cockpit-Text nach Ziel veraltet.** Um 08:29 (Auto 90 %, Wallbox aus) steht noch
+   „Lädt in der günstigsten Zeit 06:00–06:36“. Nach Blockende ist `active_window` leer,
+   damit ist `target_held` falsch, und `summary._upcoming` zeigt die verriegelten, schon
+   vergangenen Blöcke. Erwartet: „Ziel 90 % erreicht – Das Auto ruht bis zur Abfahrt 16:00“.
+   Lösung: vergangene Blöcke ausblenden; bei `needed_kwh == 0` „Ziel erreicht“ zeigen
+   (`duration_min` ist dann `null`, deshalb greift „Kein Laden nötig“ nicht).
+3. **Sitzungsenergie zu klein (~3,5 %).** Halo-Gesamtzähler 1,12 → 4,55 kWh = **3,43 kWh**,
+   Sitzung nur **3,31 kWh**: Start erst bei `CHARGE_STABLE` (06:00:43, 1,17 kWh; seit 06:00:13
+   lief schon Strom) und Ende bei `SESSION_END` (4,48 kWh), die letzten Cloud-Werte
+   4,54/4,55 kamen 1–30 s später. Folge: Kosten und Wirkungsgrad zu niedrig, Fahrzeug-
+   energie (3,38 kWh) liegt sogar über der Netzenergie. Lösung: Startstand vom letzten
+   Wert vor `CHARGER_ENABLE` nehmen, Endstand bis zum ersten Zählerwert nach
+   `CHARGER_OFF_CONFIRMED` (max. ~60 s) nachführen.
+4. **Panel-Skriptfehler nach Versionswechsel.** HA-Log 08:12 (Chrome und iOS):
+   `Identifier 'DOMAIN' has already been declared` / `duplicate variable 'AMPS'`. Das Panel
+   wird als klassisches Skript (`js_url`) geladen; kommt nach Neustart eine neue `?v=`-URL in
+   einen offenen Tab, kollidieren die globalen `const`. Das Panel läuft dann mit altem Code
+   bis zum Neuladen. Lösung: `module_url` statt `js_url` (Datei hat keine Importe/Exporte).
+
+**Hinweise (keine Fehler der Integration):**
+
+- `tibber.realtime` „Watchdog: Connection is down“ 359× seit 01:58 und `tibber_local`
+  „no sensors found“ – Tibber-Pulse/Echtzeitverbindung, nicht der Preisabruf; Preise kamen an.
+- Wochenplan „Büro Mo-Mi“ hat für Montag noch keine Preisblöcke (Tibber-Preise für morgen
+  kommen erst gegen 13 Uhr) – heute Nachmittag nachsehen.
+- Ausgangslage oben: Halo steht auf 14 A (≈ 9,2 kW), nicht 12 A; gelernte Leistung braucht
+  noch zwei Ladungen (`learned.sessions` = 1).
+

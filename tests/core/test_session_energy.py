@@ -1,0 +1,91 @@
+"""Session energy with the lagging Halo cloud counter (field night 18.10.2026).
+
+The Halo counter is polled about every 30 s: energy flowed before
+CHARGE_STABLE and the last readings arrived after SESSION_END. The session
+counted 3.31 kWh while the counter rose by 3.43 kWh.
+"""
+
+from datetime import date, datetime, timedelta
+
+from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory, PricePoint
+from custom_components.ev_charging_pilot.core.model import (
+    Category,
+    Event,
+    Quality,
+    Severity,
+    Value,
+)
+from custom_components.ev_charging_pilot.core.sessions import TAIL_S, SessionTracker
+
+from .world import TZ
+
+T0 = datetime(2026, 10, 18, 6, 0, 3, tzinfo=TZ)
+PRICES = FixedPriceHistory([PricePoint(date(2026, 1, 1), 0.38)], TZ)
+
+
+def kwh(n):
+    return Value(n, n, "halo", None, Quality.GOOD)
+
+
+def ev(code, severity=Severity.INFO):
+    return Event(T0, Category.CHARGING, severity, code, "")
+
+
+def step(tracker, at, total, events=()):
+    return tracker.update(
+        T0 + timedelta(seconds=at), list(events), total_energy=kwh(total),
+        power=Value(9000, 9000, "halo", None), vehicle_power=Value.unavailable("ovms"),
+        soc=Value(80, 80, "ovms", None), reason="one_shot", prices=PRICES)
+
+
+def night(tracker):
+    assert step(tracker, 0, 1.12, [ev("CHARGER_ENABLE")]) == []
+    assert step(tracker, 40, 1.17, [ev("CHARGE_STABLE")]) == []
+    assert step(tracker, 1000, 4.48) == []
+    # Target reached: the session ends, the counter is not final yet.
+    assert step(tracker, 1416, 4.48, [ev("SESSION_END"), ev("CHARGER_DISABLE")]) == []
+    assert tracker.closing
+    assert step(tracker, 1417, 4.54) == []
+    assert step(tracker, 1447, 4.55) == []
+
+
+def test_session_takes_energy_before_stable_and_after_the_end():
+    tracker = SessionTracker()
+    night(tracker)
+    closed = step(tracker, 1416 + TAIL_S, 4.55)
+    assert len(closed) == 1
+    session = closed[0]
+    assert session.start_total_energy_kwh == 1.12
+    assert session.end_total_energy_kwh == 4.55
+    assert session.grid_energy_kwh == 3.43
+    assert session.ended_at == T0 + timedelta(seconds=1416)
+    assert abs(sum(i["kwh"] for i in session.energy_intervals) - 3.43) < 1e-6
+    assert tracker.open is None and not tracker.closing
+
+
+def test_closing_session_survives_a_restart():
+    tracker = SessionTracker()
+    night(tracker)
+    restored = SessionTracker()
+    restored.restore(tracker.as_dict())
+    assert restored.closing
+    closed = step(restored, 1416 + TAIL_S, 4.55)
+    assert closed[0].grid_energy_kwh == 3.43
+
+
+def test_new_start_hands_out_the_ending_session_first():
+    tracker = SessionTracker()
+    night(tracker)
+    closed = step(tracker, 1450, 4.55, [ev("CHARGER_ENABLE")])
+    assert len(closed) == 1 and closed[0].grid_energy_kwh == 3.43
+    assert step(tracker, 1490, 4.60, [ev("CHARGE_STABLE")]) == []
+    assert tracker.open.start_total_energy_kwh == 4.55
+
+
+def test_baseline_is_dropped_when_the_wallbox_is_switched_off_again():
+    tracker = SessionTracker()
+    step(tracker, 0, 1.12, [ev("CHARGER_ENABLE")])
+    step(tracker, 30, 1.12, [ev("CHARGER_DISABLE")])
+    step(tracker, 600, 1.50)  # someone else used the Halo meanwhile
+    step(tracker, 640, 1.60, [ev("CHARGE_RESUMED")])
+    assert tracker.open.start_total_energy_kwh == 1.60

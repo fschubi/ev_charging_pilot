@@ -108,6 +108,27 @@ def test_hv_contactor_vector_uses_consumed_cycles():
     assert parse("1234") == 1234
 
 
+
+def test_hv_monitor_counts_a_falling_remaining_counter():
+    """Field 18.10.2026: the OVMS integration exposes cycles *remaining* (falling)."""
+    from datetime import date
+
+    from custom_components.ev_charging_pilot.core.model import Quality, Value
+    from custom_components.ev_charging_pilot.core.source_policy import HvCycleMonitor
+
+    def v(n):
+        return Value(raw=str(n), normalized=n, unit=None, source="ovms",
+                     updated_at=NOW, quality=Quality.GOOD)
+
+    mon = HvCycleMonitor(warn_per_day=2)
+    day = date(2026, 10, 18)
+    assert mon.update(v(194784), day, active=False) == []
+    assert mon.update(v(194783), day, active=True) == []
+    assert mon.today == 1
+    assert mon.update(v(194782), day, active=False) == ["HV_CYCLE_WITHOUT_ACTIVITY"]
+    assert "HV_CYCLES_HIGH" in mon.update(v(194781), day, active=True)
+    assert mon.today == 3
+
 def test_ovms_plug_detects_the_cable_while_the_halo_is_disabled():
     from custom_components.ev_charging_pilot.core.source_policy import plugged_in
 

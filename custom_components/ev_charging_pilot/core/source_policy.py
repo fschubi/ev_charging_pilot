@@ -60,9 +60,11 @@ def outside_temperature(vehicle: Value, ha_sensor: Value, weather: Value) -> Val
 class HvCycleMonitor:
     """Watches the HV contactor counter: every wakeup costs cycles (§1.1 rule 6).
 
-    Warns once per day when the counter rose by more than ``warn_per_day``,
-    and once per increase that happened while the car neither charged nor
-    drove (a wakeup without reason).
+    Warns once per day when the counter moved by more than ``warn_per_day``,
+    and once per change that happened while the car neither charged nor
+    drove (a wakeup without reason). The OVMS integration may expose either the
+    consumed cycles (rising) or the remaining cycles (falling), so only the
+    size of a change counts, never its direction.
     """
 
     warn_per_day: int = 10
@@ -79,12 +81,12 @@ class HvCycleMonitor:
         if self.day != local_day:
             self.day = local_day
             self.day_start = cycles
-        if self.last is not None and cycles > self.last and not active:
+        if self.last is not None and cycles != self.last and not active:
             warnings.append("HV_CYCLE_WITHOUT_ACTIVITY")
         self.last = cycles
         if (
             self.day_start is not None
-            and cycles - self.day_start > self.warn_per_day
+            and abs(cycles - self.day_start) > self.warn_per_day
             and self.warned_day != local_day
         ):
             self.warned_day = local_day
@@ -95,7 +97,7 @@ class HvCycleMonitor:
     def today(self) -> float | None:
         if self.last is None or self.day_start is None:
             return None
-        return self.last - self.day_start
+        return abs(self.last - self.day_start)
 
     def as_dict(self) -> dict:
         return {

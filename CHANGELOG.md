@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.19.9 – 2026-10-18
+
+Korrekturen nach der ersten echten Ladung (Nacht zum 18.10., 71 → 90 %, sauber bei 90 %
+abgeschaltet – siehe `docs/pruefliste-erste-nacht.md`):
+- **HV-Kontaktor-Wächter wirkt wieder:** Die OVMS-Integration liefert die *verbleibenden*
+  Zyklen (Zähler fällt). Der Wächter zählt jetzt jede Änderung, egal in welche Richtung –
+  „HV-Zyklen heute“ zeigt 1 statt −1, und die Warnungen „Zyklus ohne Laden/Fahren“ und
+  „zu viele Zyklen am Tag“ können wieder auslösen.
+- **Cockpit nach erreichtem Ziel:** Nach dem Preisblock stand noch „Lädt in der
+  günstigsten Zeit 06:00–06:36“, obwohl das Auto schon 90 % hatte. Jetzt: „Ziel 90 %
+  erreicht – Das Auto ruht bis zur Abfahrt“. Vergangene Blöcke werden nicht mehr genannt.
+- **Vollständige Sitzungsenergie:** Der Halo-Zähler kommt per Cloud nur alle ~30 s. Die
+  Sitzung beginnt jetzt beim Zählerstand der Freigabe und wartet nach dem Ende gut eine
+  Minute auf die letzten Werte (auch über einen Neustart). Die erste Nacht hätte 3,43 statt
+  3,31 kWh gezählt; Kosten und Wirkungsgrad stimmen damit.
+- **Panel nach Update ohne Skriptfehler:** Das Panel wird als JavaScript-Modul geladen.
+  Ein nach einem Update noch offener Tab meldete sonst „Identifier 'DOMAIN' has already
+  been declared“.
+
 ## 0.19.8 – 2026-10-18
 
 Texte und Doku aus dem Prüfbericht vom 18.10.:

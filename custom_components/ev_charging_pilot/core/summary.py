@@ -98,19 +98,25 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
                 f"Das Auto ruht bis zur Abfahrt {at(window.departure)}.", "ok")
     if window is None:
         return "Bereit", "Kein Ladeplan aktiv – „Jetzt laden“ startet sofort.", "info"
-    return _upcoming(engine, window, at, lambda a, b: _span(a, b, engine, now))
+    return _upcoming(engine, window, now, at, lambda a, b: _span(a, b, engine, now))
 
 
-def _upcoming(engine: Engine, window, at, span) -> tuple[str, str, str]:
+def _upcoming(engine: Engine, window, now: datetime, at, span) -> tuple[str, str, str]:
     e = window.estimate
+    if e.needed_kwh is not None and e.needed_kwh <= 0 and window.start <= now:
+        # Target reached after the (locked) block ended: no active window any
+        # more, so target_held is false – but nothing is left to charge.
+        return (f"Ziel {window.preferred_soc_pct} % erreicht",
+                f"Das Auto ruht bis zur Abfahrt {at(window.departure)}.", "ok")
     detail = f"Abfahrt {at(window.departure)}, fertig vor {at(window.ready_at)}."
     tone = "info"
     if e.minimum_reachable is False:
         detail += (f" Mindestens {window.minimum_soc_pct} % werden voraussichtlich nicht "
                    f"erreicht (erwartet {e.expected_soc_at_departure:.0f} %).")
         tone = "warn"
-    if window.blocks:
-        times = ", ".join(span(a, b) for a, b in window.blocks)
+    blocks = [(a, b) for a, b in window.blocks if b > now]
+    if blocks:
+        times = ", ".join(span(a, b) for a, b in blocks)
         return f"Lädt in der günstigsten Zeit {times}", detail, tone
     if window.fallback_without_soc:
         return (f"Lädt ab {at(window.start)}",

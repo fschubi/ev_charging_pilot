@@ -66,3 +66,29 @@ def test_weekly_summary_line():
     assert week["charges"] == 3 and week["km"] is None
     line = weekly_text(week)
     assert line.startswith("25,2 kWh zu Hause für 7,50 € · 3 Ladungen · 0× geweckt")
+
+
+def test_target_reached_in_price_block_stays_reached_after_the_block():
+    """Field 18.10.2026: at 08:29 the cockpit still said "Lädt in der günstigsten
+    Zeit 06:00–06:36" although the car had reached 90 % at 06:23."""
+    from datetime import timedelta
+
+    from .test_prices_external_report import local, night_prices
+
+    world = World(local(2026, 10, 13, 22, 0), configured=WITH_OVMS, price_source="tibber")
+    world.engine.set_prices(night_prices().slots)
+    world.set(Inp.OVMS_SOC, "70")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.tick()
+    start, end = world.engine.next_window.blocks[-1]
+    world.now = start
+    world.run(60)
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.run(60)
+    world.set(Inp.OVMS_SOC, "90")
+    world.run(60)
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.now = end + timedelta(minutes=30)
+    world.run(60)
+    assert world.engine.desired.charger_enabled is False
+    assert text(world) == "Ziel 90 % erreicht | Das Auto ruht bis zur Abfahrt 05:30."

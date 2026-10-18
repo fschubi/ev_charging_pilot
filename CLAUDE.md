@@ -142,11 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.20.1 Klima nach Feldtest.** Executor wartet mit `CLIMATE_START` auf
-  Halo „an“ (`CLIMATE_CONFIRM_TIMEOUT` 60 s, sonst `CLIMATE_SKIPPED` + Push); Engine
-  `_climate_lock`/`climate_phase` (due→sent→running→done|skipped, im Store), Ende bei
-  `Inp.OVMS_HVAC` aus; `climate_sent` im Executor-Store; HV-Aktivität inkl. Start/Klima;
-  `discovery.async_discover_late` (`LATE_DISCOVERY`) statt Steckererkennung allein.
 - **2026-10-18 – v0.20.2 Statussensor.** `sensor.ev_pilot_status` = `summary()`-Headline
   (Attribute detail/tone/climate_*); `summary._with_climate`/`_climate_note`/
   `_climate_running`; „Kein Laden mehr geplant“ nach letztem Block; `sensor._next_start`.
@@ -162,3 +157,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `get_trip_detail` (Recorder-Fallback 15 s via `async_recorder_minutes(step_s)`, Kosten
   über `monitor.home_price`); Panel `tripSvg`, Zeile `data-trip`. Mushroom-Karte umgestellt
   (Backup der alten Dashboard-Config im Browser-localStorage `ev_pilot_smarthome_backup_20261018`).
+- **2026-10-18 – v0.22.1 Fahrtende per Verriegelung.** `Inp.OVMS_LOCKED` (lock bevorzugt;
+  binary_sensor mit device_class lock: on = entriegelt); `TripTracker`: aus + entriegelt
+  (`unlocked_after_off`) + verriegelt → sofort schließen, sonst `trip_merge_gap_min`.

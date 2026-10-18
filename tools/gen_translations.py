@@ -46,6 +46,7 @@ INPUTS = {
     "ovms_hvac": T("Fahrzeug: Klimaanlage aktiv", "Vehicle: climate (HVAC) active"),
     "ovms_battery_power": T("Fahrzeug: Akkuleistung", "Vehicle: battery power"),
     "ovms_speed": T("Fahrzeug: Geschwindigkeit", "Vehicle: speed"),
+    "ovms_locked": T("Fahrzeug: verriegelt", "Vehicle: locked"),
     "ovms_location": T("Fahrzeug: Standort (Tracker)", "Vehicle: location (tracker)"),
     "outside_temp": T("Außentemperatur (HA-Sensor)", "Outside temperature (HA sensor)"),
     "weather": T("Wetter (Rückfall Außentemperatur)", "Weather (fallback outside temperature)"),
@@ -98,6 +99,10 @@ FIELD_HELP = {
                             "pre-climatisation energy from charging."),
     "ovms_speed": T("Geschwindigkeit (…_vehicle_speed) für die Fahrtkurve. Optional.",
                     "Speed for the drive curve. Optional."),
+    "ovms_locked": T("Verriegelung (lock …_vehicle_lock). Wird das Auto nach dem Abstellen "
+                     "abgeschlossen, ist die Fahrt sofort beendet statt nach der Pause.",
+                     "Vehicle lock. Locking the car after switching it off ends the trip "
+                     "at once instead of after the pause."),
     "ovms_location": T("Standort des Autos (device_tracker …_location). Steckt das Auto "
                        "nicht zu Hause, zählt der Stecker nicht als Wallbox-Kabel.",
                        "Location of the car. Away from home the plug does not count as the "

@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.20.1 Klima nach Feldtest.** Executor wartet mit `CLIMATE_START` auf
+  Halo „an“ (`CLIMATE_CONFIRM_TIMEOUT` 60 s, sonst `CLIMATE_SKIPPED` + Push); Engine
+  `_climate_lock`/`climate_phase` (due→sent→running→done|skipped, im Store), Ende bei
+  `Inp.OVMS_HVAC` aus; `climate_sent` im Executor-Store; HV-Aktivität inkl. Start/Klima;
+  `discovery.async_discover_late` (`LATE_DISCOVERY`) statt Steckererkennung allein.
 - **2026-10-18 – v0.20.0 Ladekurve + Session-Details.** `ChargeSession.trace`
   ([s ab Start, Halo W, OVMS W, SOC], 1/min, max. 1440); `get_sessions` ohne `trace`,
   `get_session_detail` mit Ereignissen und Recorder-Fallback (`async_recorder_minutes`,

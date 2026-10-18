@@ -54,6 +54,7 @@ class Inp(StrEnum):
     OVMS_HVAC = "ovms_hvac"
     OVMS_BATTERY_POWER = "ovms_battery_power"
     OVMS_SPEED = "ovms_speed"
+    OVMS_LOCKED = "ovms_locked"
     OVMS_LOCATION = "ovms_location"
     OUTSIDE_TEMP = "outside_temp"
     WEATHER = "weather"
@@ -87,6 +88,7 @@ KINDS: dict[Inp, Kind] = {
     Inp.OVMS_HVAC: Kind.BOOL,
     Inp.OVMS_BATTERY_POWER: Kind.POWER_W,
     Inp.OVMS_SPEED: Kind.NUMBER,
+    Inp.OVMS_LOCKED: Kind.BOOL,
     Inp.OVMS_LOCATION: Kind.BOOL,
     Inp.OUTSIDE_TEMP: Kind.NUMBER,
     Inp.WEATHER: Kind.WEATHER_TEMP,
@@ -177,6 +179,10 @@ def to_value(key: Inp, raw: RawState | None) -> Value:
         return Value.unavailable(source)
     state = original.lower() if isinstance(original, str) else original
     if kind is Kind.BOOL:
+        if key is Inp.OVMS_LOCKED and raw.attributes.get("device_class") == "lock" \
+                and state in ("on", "off"):
+            # A lock binary_sensor reports "on" for UNlocked.
+            return Value(raw.state, state == "off", source, stamp)
         return Value(raw.state, state in TRUE_STATES, source, stamp)
     if kind is Kind.TEXT:
         return Value(raw.state, raw.state, source, stamp)

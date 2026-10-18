@@ -263,3 +263,45 @@ def test_trip_keeps_a_drive_curve_every_15_seconds():
     assert trace[0][1:] == [60.0, -21000, 76.0]
     assert len(trace) == 17  # 0 … 240 s, survives the restart
     assert Trip.from_dict(trips[0].as_dict()).trace == trace
+
+
+def lock_state(tracker, now, km, locked):
+    return tracker.update(
+        now, vehicle_on=v(False, now), odometer=v(km, now), energy_used=v(2.0, now),
+        energy_recd=v(0.3, now), aux=v(0.1, now), soc=v(75, now), outside_temp=v(5, now),
+        locked=v(locked, now))
+
+
+def test_locking_after_switching_off_ends_the_trip_at_once():
+    """Field 18.10.2026: off 19:32:23, unlocked, locked again 19:32:29."""
+    tracker = TripTracker(10, TZ)
+    start = local(2026, 10, 18, 19, 14, 45)
+    drive(tracker, start, 17, 9118.4, 9132.8)  # the smart locks itself while driving
+    off = start + timedelta(minutes=17, seconds=5)
+    assert lock_state(tracker, off, 9132.8, True) == []  # still the driving lock
+    assert lock_state(tracker, off + timedelta(seconds=2), 9132.8, False) == []  # door open
+    trips = lock_state(tracker, off + timedelta(seconds=6), 9132.8, True)
+    assert len(trips) == 1
+    assert trips[0].ended_at == off
+    assert trips[0].distance_km == pytest.approx(14.4)
+
+
+def test_without_unlocking_the_merge_gap_still_applies():
+    tracker = TripTracker(10, TZ)
+    start = local(2026, 10, 18, 19, 0)
+    drive(tracker, start, 10, 100, 105)
+    off = start + timedelta(minutes=10, seconds=5)
+    assert lock_state(tracker, off, 105, True) == []
+    assert lock_state(tracker, off + timedelta(minutes=5), 105, True) == []
+    assert len(lock_state(tracker, off + timedelta(minutes=10), 105, True)) == 1
+
+
+def test_lock_binary_sensor_on_means_unlocked():
+    from custom_components.ev_charging_pilot.core.inputs import Inp, RawState, to_value
+
+    at = local(2026, 10, 18, 19, 32)
+    sensor = {"device_class": "lock"}
+    assert to_value(Inp.OVMS_LOCKED, RawState("on", at, at, sensor)).normalized is False
+    assert to_value(Inp.OVMS_LOCKED, RawState("off", at, at, sensor)).normalized is True
+    assert to_value(Inp.OVMS_LOCKED, RawState("locked", at, at, {})).normalized is True
+    assert to_value(Inp.OVMS_LOCKED, RawState("unlocked", at, at, {})).normalized is False

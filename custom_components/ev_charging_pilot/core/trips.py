@@ -2,6 +2,7 @@
 
 A trip starts when OVMS reports "ready to drive" and ends once the car has
 been off for longer than ``trip_merge_gap_min``; shorter stops are merged.
+Locking the car after switching it off ends the trip at once – the driver left.
 When OVMS data does not reach HA on the road, a trip is reconstructed from
 the odometer difference at home and marked PARTIAL.
 """
@@ -125,6 +126,7 @@ class TripTracker:
         outside_temp: Value,
         speed: Value | None = None,
         battery_power: Value | None = None,
+        locked: Value | None = None,
     ) -> list[Trip]:
         closed: list[Trip] = []
         known = vehicle_on.quality is Quality.GOOD
@@ -136,6 +138,7 @@ class TripTracker:
                 self._start(now, km, energy_used, energy_recd, aux, soc)
             else:
                 self.open["off_since"] = None
+                self.open["unlocked_after_off"] = False
             self._sample(now, km, energy_used, energy_recd, aux, soc, outside_temp)
             self._trace(now, speed, battery_power, soc)
         elif self.open is not None:
@@ -148,7 +151,14 @@ class TripTracker:
                 self.open["odometer_end"] = km
                 if self.open["odometer_start"] is None:
                     self.open["odometer_start"] = km
-            if now - self.open["off_since"] >= self.merge_gap:
+            lock = None if locked is None or not locked.available \
+                or locked.normalized is None else bool(locked.normalized)
+            # The smart locks itself while driving: only a lock that follows an
+            # unlock after switching off means "parked and left".
+            if lock is False:
+                self.open["unlocked_after_off"] = True
+            left = lock is True and self.open.get("unlocked_after_off")
+            if left or now - self.open["off_since"] >= self.merge_gap:
                 closed.append(self._close(partial=not known))
         elif km is not None and self.last_odometer is not None \
                 and km - self.last_odometer >= MIN_RECONSTRUCT_KM:

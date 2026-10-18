@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.1 – 2026-10-18
+
+- **Fahrt sofort abgeschlossen, sobald du das Auto abschließt:** Wird das Auto nach
+  dem Abstellen entriegelt und wieder verriegelt (Tür auf, aussteigen, abschließen), ist
+  die Fahrt gleich fertig und steht im Panel – statt erst nach 10 Minuten. Am 18.10.
+  wäre die Rückfahrt so 6 s statt 10 min nach dem Abstellen erschienen.
+- Ein Stopp mit Abschließen ergibt damit zwei Fahrten. Ohne Abschließen (z. B. im Auto
+  warten) und ohne Verriegelungsmeldung gilt weiter die Pause von 10 Minuten.
+- Die Selbstverriegelung des smart während der Fahrt zählt nicht.
+- **Neuer OVMS-Eingang „verriegelt“** (`lock.…_vehicle_lock`), wird bei bestehenden
+  Installationen automatisch übernommen.
+
 ## 0.22.0 – 2026-10-18
 
 Fahrt-Details mit Fahrtkurve (Reiter „Drive & Energy“):

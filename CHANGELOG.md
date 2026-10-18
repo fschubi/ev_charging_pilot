@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.2 – 2026-10-18
+
+Cockpit-Beschriftungen ohne Überlappung:
+- **Akku:** Liegen Mindest- und Ziel-SOC dicht beieinander (z. B. 85 und 100 %), steht
+  „Ziel“ über dem Akku statt auf „min“; keine Beschriftung ragt mehr aus dem Bild.
+- **Zeitleiste:** Klima, fertig, Abfahrt und jetzt weichen einander aus (andere Seite der
+  Linie oder eine Zeile tiefer). Die Klima-Marke zeigt jetzt auch die Dauer.
+
 ## 0.22.1 – 2026-10-18
 
 - **Fahrt sofort abgeschlossen, sobald du das Auto abschließt:** Wird das Auto nach

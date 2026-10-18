@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.20.2 Statussensor.** `sensor.ev_pilot_status` = `summary()`-Headline
-  (Attribute detail/tone/climate_*); `summary._with_climate`/`_climate_note`/
-  `_climate_running`; „Kein Laden mehr geplant“ nach letztem Block; `sensor._next_start`.
 - **2026-10-18 – v0.21.0 Klima-Energie.** `Inp.OVMS_BATTERY_POWER`; `SessionTracker._climate`
   (Halo − Akku/η je 15-min-Slot, nur bei `Engine._climate_heating`), `ChargeSession.
   climate_energy_kwh/climate_cost_eur`; Statistik, Panel-Spalte „Klima“, PDF-Zeile.
@@ -160,3 +157,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-18 – v0.22.1 Fahrtende per Verriegelung.** `Inp.OVMS_LOCKED` (lock bevorzugt;
   binary_sensor mit device_class lock: on = entriegelt); `TripTracker`: aus + entriegelt
   (`unlocked_after_off`) + verriegelt → sofort schließen, sonst `trip_merge_gap_min`.
+- **2026-10-18 – v0.22.2 Cockpit-Beschriftungen.** `batterySvg`: Textbreite geschätzt,
+  bei Kollision Ziel über dem Akku (viewBox oben erweitert); `timelineSvg.marker` mit
+  Belegungsliste (Seite wechseln, sonst Zeile tiefer), Reihenfolge jetzt/Abfahrt/fertig/Klima.
+  Live-Check v0.22.1: Log sauber, alle Eingänge GOOD, Details live ok.

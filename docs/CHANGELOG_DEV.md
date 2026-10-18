@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.20.2 Statussensor.** `sensor.ev_pilot_status` = `summary()`-Headline
+  (Attribute detail/tone/climate_*); `summary._with_climate`/`_climate_note`/
+  `_climate_running`; „Kein Laden mehr geplant“ nach letztem Block; `sensor._next_start`.
 - **2026-10-18 – v0.20.1 Klima nach Feldtest.** Executor wartet mit `CLIMATE_START` auf
   Halo „an“ (`CLIMATE_CONFIRM_TIMEOUT` 60 s, sonst `CLIMATE_SKIPPED` + Push); Engine
   `_climate_lock`/`climate_phase` (due→sent→running→done|skipped, im Store), Ende bei

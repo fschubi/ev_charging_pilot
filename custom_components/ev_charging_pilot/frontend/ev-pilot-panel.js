@@ -127,20 +127,30 @@ function batterySvg({ charging, error, soc, min = null, pref = null }) {
   const [c1, c2] = socGradient(soc);
   const xAt = (p) => X0 + W * p / 100;
   const cells = Array.from({ length: 9 }, (_, i) => `<line x1="${xAt((i + 1) * 10)}" y1="${Y0}" x2="${xAt((i + 1) * 10)}" y2="${Y0 + H}" stroke="rgba(0,0,0,.16)" stroke-width="1.5"/>`).join("");
+  // Labels are centred under their marker and kept inside the picture. If min and
+  // target would touch (e.g. 85 and 100 %), the target label moves above the battery.
+  const VIEW_W = 352;
+  const textW = (text) => text.length * 6.8 + 4;
+  const centre = (x, text) => Math.min(VIEW_W - textW(text) / 2, Math.max(textW(text) / 2, x));
+  const minText = min !== null ? `min ${min} %` : "", prefText = pref !== null ? `Ziel ${pref} %` : "";
+  const clash = min !== null && pref !== null && Math.abs(centre(xAt(pref), prefText) - centre(xAt(min), minText))
+    < (textW(minText) + textW(prefText)) / 2 + 4;
   const markers = [];
-  const close = min !== null && pref !== null && Math.abs(pref - min) < 14;
-  if (min !== null) markers.push([min, `min ${min}`, "var(--warning-color, #ffa600)", close ? "end" : "middle"]);
-  if (pref !== null) markers.push([pref, `Ziel ${pref}`, "var(--primary-color, #03a9f4)", close ? "start" : "middle"]);
-  const marks = markers.map(([p, label, color, anchor]) => {
+  if (min !== null) markers.push([min, minText, "var(--warning-color, #ffa600)", false]);
+  if (pref !== null) markers.push([pref, prefText, "var(--primary-color, #03a9f4)", clash]);
+  const marks = markers.map(([p, label, color, above]) => {
     const x = xAt(p);
-    const tx = anchor === "end" ? x - 4 : anchor === "start" ? x + 4 : x;
+    const tip = above
+      ? `<path d="M${x - 5} ${Y0 - 13} L${x + 5} ${Y0 - 13} L${x} ${Y0 - 6} Z" fill="${color}"/>
+      <text x="${centre(x, label).toFixed(1)}" y="${Y0 - 16}" text-anchor="middle" class="bmark" style="fill:${color}">${label}</text>`
+      : `<path d="M${x - 5} ${Y0 + H + 13} L${x + 5} ${Y0 + H + 13} L${x} ${Y0 + H + 6} Z" fill="${color}"/>
+      <text x="${centre(x, label).toFixed(1)}" y="${Y0 + H + 27}" text-anchor="middle" class="bmark" style="fill:${color}">${label}</text>`;
     return `<line x1="${x}" y1="${Y0 - 4}" x2="${x}" y2="${Y0 + H + 4}" stroke="${color}" stroke-width="2.5" stroke-linecap="round" opacity=".95"/>
-      <path d="M${x - 5} ${Y0 + H + 13} L${x + 5} ${Y0 + H + 13} L${x} ${Y0 + H + 6} Z" fill="${color}"/>
-      <text x="${tx}" y="${Y0 + H + 27}" text-anchor="${anchor}" class="bmark" style="fill:${color}">${label} %</text>`;
+      ${tip}`;
   }).join("");
   const frame = error ? "var(--error-color, #db4437)" : "rgba(255,255,255,.22)";
   return `
-  <svg class="battery" viewBox="0 0 352 118" role="img" aria-label="Akku ${soc === null ? "unbekannt" : Math.round(soc) + " Prozent"}">
+  <svg class="battery" viewBox="${clash ? "0 -12 352 130" : "0 0 352 118"}" role="img" aria-label="Akku ${soc === null ? "unbekannt" : Math.round(soc) + " Prozent"}">
     <defs>
       <linearGradient id="evp-fill" x1="0" x2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
       <linearGradient id="evp-gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
@@ -213,25 +223,40 @@ function timelineSvg(s) {
       <text x="${X(t).toFixed(1)}" y="${bottom + 16}" text-anchor="middle" class="tl">${new Date(t).getHours()}</text>`);
   }
   // Labels sit beside their line: "fertig" to the left, everything else to the right.
+  // Lines close together (climate 05:23, departure 05:30) must not print their labels
+  // on top of each other: a label switches sides or drops a row when its place is taken.
+  const placed = [];
   const marker = (t, label, color, dash, side = "start") => {
     const x = X(t);
-    const anchor = side === "end" || x > right - 60 ? "end" : "start";
+    const width = label.length * 6.2 + 4;
+    const span = (a) => (a === "end" ? [x - 4 - width, x - 4] : [x + 4, x + 4 + width]);
+    const fits = (a) => { const [a0, a1] = span(a); return a0 >= left && a1 <= right; };
+    const free = (a, row) => { const [a0, a1] = span(a); return !placed.some(([p0, p1, r]) => r === row && a0 < p1 && p0 < a1); };
+    let anchor = side === "end" || !fits("start") ? "end" : "start";
+    const other = anchor === "end" ? "start" : "end";
+    let row = 0;
+    while (!free(anchor, row)) {
+      if (fits(other) && free(other, row)) { anchor = other; break; }
+      row += 1;
+    }
+    placed.push([...span(anchor), row]);
     const tx = anchor === "end" ? x - 4 : x + 4;
     return `<line x1="${x.toFixed(1)}" y1="${top}" x2="${x.toFixed(1)}" y2="${bottom}" stroke="${color}" stroke-width="2" ${dash ? 'stroke-dasharray="4 3"' : ""}/>
-    <text x="${tx.toFixed(1)}" y="${top + 10}" text-anchor="${anchor}" class="tl" style="fill:${color}">${label}</text>`;
+    <text x="${tx.toFixed(1)}" y="${top + 10 + row * 12}" text-anchor="${anchor}" class="tl" style="fill:${color}">${label}</text>`;
   };
   const blockText = blocks.map(([a, b]) => {
     const x = (X(new Date(a).getTime()) + X(new Date(b).getTime())) / 2;
     return `<text x="${x.toFixed(1)}" y="${bottom - 18}" text-anchor="middle" class="tl" style="fill:var(--primary-color)">${time(a)}–${time(b)}</text>`;
   }).join("");
+  // Placement order = priority: the most important label keeps its place.
+  const nowMark = now >= startT && now <= endT ? marker(now, "jetzt", "var(--error-color, #db4437)", false) : "";
+  const departure = w ? marker(new Date(w.departure).getTime(), "Abfahrt", "var(--primary-text-color)", false) : "";
+  const ready = w ? marker(new Date(w.ready_at).getTime(), "fertig", "var(--success-color, #43a047)", true, "end") : "";
   const climate = s.climate && !s.climate.blocked && w
-    ? marker(new Date(s.climate.start_at).getTime(), "Klima", "var(--info-color, #039be5)", true) : "";
+    ? marker(new Date(s.climate.start_at).getTime(), `Klima ${s.climate.duration_min} min`, "var(--info-color, #039be5)", true) : "";
   return `<svg viewBox="0 0 ${W} 112" class="timeline" role="img" aria-label="Ladeplan der Nacht">
     <line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" stroke="var(--divider-color)"/>
-    ${priceArea}${charge}${blockText}${ticks.join("")}${climate}
-    ${w ? marker(new Date(w.ready_at).getTime(), "fertig", "var(--success-color, #43a047)", true, "end") : ""}
-    ${w ? marker(new Date(w.departure).getTime(), "Abfahrt", "var(--primary-text-color)", false) : ""}
-    ${now >= startT && now <= endT ? marker(now, "jetzt", "var(--error-color, #db4437)", false) : ""}
+    ${priceArea}${charge}${blockText}${ticks.join("")}${climate}${ready}${departure}${nowMark}
   </svg>`;
 }
 

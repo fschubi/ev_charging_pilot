@@ -224,3 +224,29 @@ async def test_mail_addresses_are_hidden_from_non_admins(hass, entry, halo, hass
     values = (await client.receive_json())["result"]["values"]
     assert values["mail_to_1"] == "•••"
     assert values["mail_password"] == ""
+
+
+async def test_session_list_and_detail(hass, entry, halo, hass_ws_client):
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    start = dt_util.utcnow() - timedelta(hours=1)
+    center.monitor.add_session(ChargeSession(
+        session_id="s1", started_at=start, ended_at=start + timedelta(minutes=3),
+        reason="schedule", grid_energy_kwh=0.4,
+        trace=[[0, 9000, 8500, 80.0], [60, 9100, 8600, 80.5], [120, 9050, None, 81.0]]))
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/get_sessions"})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    assert "trace" not in msg["result"]["items"][0]  # the curve only comes with the detail
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/get_session_detail", "session_id": "s1"})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    assert msg["result"]["trace_source"] == "session"
+    assert len(msg["result"]["trace"]) == 3
+    assert isinstance(msg["result"]["events"], list)
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/get_session_detail", "session_id": "nope"})
+    msg = await client.receive_json()
+    assert not msg["success"] and msg["error"]["code"] == "not_found"

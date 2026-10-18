@@ -103,7 +103,7 @@ Wichtige Details:
 
 ```bash
 uv venv -p 3.13 .venv && uv pip install -p .venv/bin/python -r requirements-test.txt
-.venv/bin/python -m pytest                       # ~240 Tests, < 1 min
+.venv/bin/python -m pytest                       # ~250 Tests, < 1 min
 uvx ruff check custom_components tests tools
 node --check custom_components/ev_charging_pilot/frontend/ev-pilot-panel.js
 python3 tools/gen_translations.py custom_components/ev_charging_pilot
@@ -136,13 +136,13 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.
 - Preisoptimierung lädt standardmäßig in einem Block (Wakeup-Schonung); 2 Blöcke optional.
 - Noch nicht gebaut: OCPP (Prüfauftrag §16 #9).
+- **Geplant (Frank, 18.10.):** v0.20.1 Vorklimatisierung erst nach bestätigter Halo-Freigabe
+  (Halo-Schalter „an“, Wartezeit ~60 s aus dem Klimatest 18.10. 15:53); ohne Bestätigung
+  Klima ausfallen lassen + Push. Danach v0.21.0 Spalte „Klima“ (kWh/€) in der Session-Tabelle
+  – Aufteilung Netz − Akku (OVMS), Klima-Signal von OVMS erst nach dem Test bekannt.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.5 Prüfbericht Stufe 2 Statistik/HA.** Externe Ladung lokales Datum;
-  Fahrten mit `*_acc` bei Zählerreset und Odometer beim Schließen; `_report_due`/Catch-up/
-  `_monthly_report_safe`; `_odometer_at` interpoliert; PDF-Monatsanteil; SOC-Sprung nur ohne
-  Kabel; €/100 km SOC-korrigiert; `_unrecorded_attributes`; `_closed`; Admin-Dienste.
 - **2026-10-18 – v0.19.6 Prüfbericht Panel.** Render in `#app`, Toasts in `#toasts`;
   Signatur erst nach echtem Render; Select-Blur; Settings ohne Render bei offener Leiste;
   Berichte per `auth/sign_path`; `FAILURE_LABELS`/`failure_hint`; `dateOnly` lokal; Zeitleiste.
@@ -156,3 +156,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Aus bei 90 %). Fixes: `HvCycleMonitor` zählt Betrag (Restzähler fällt); `summary._upcoming`
   „Ziel erreicht“ bei `needed_kwh ≤ 0`, nur künftige Blöcke; `SessionTracker` Basis bei
   `CHARGER_ENABLE`, Nachlauf `TAIL_S` = 65 s (`closing`, im Store); Panel per `module_url`.
+- **2026-10-18 – v0.20.0 Ladekurve + Session-Details.** `ChargeSession.trace`
+  ([s ab Start, Halo W, OVMS W, SOC], 1/min, max. 1440); `get_sessions` ohne `trace`,
+  `get_session_detail` mit Ereignissen und Recorder-Fallback (`async_recorder_minutes`,
+  auch fürs Cockpit); Panel: Zeile klickbar (`sess-*`-Klassen, `srow` ist Einstellungen).

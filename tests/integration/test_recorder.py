@@ -66,3 +66,32 @@ async def test_cockpit_chart_is_filled_from_the_recorder(hass, entry, halo, free
     history = list(center.history)
     assert len(history) >= 1000  # a full day of minutes
     assert any(power == 2300 for _, power, _ in history)
+
+
+async def test_session_detail_takes_the_curve_from_the_recorder(hass, entry, halo, freezer,
+                                                               hass_ws_client):
+    from homeassistant.components.recorder import get_instance
+
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+
+    from .conftest import POWER
+
+    start = dt_util.utcnow()
+    hass.states.async_set(POWER, "9.2", {"unit_of_measurement": "kW"})
+    await hass.async_block_till_done()
+    await get_instance(hass).async_block_till_done()
+    freezer.tick(timedelta(minutes=20))
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    # A session from before v0.20.0: no curve of its own.
+    center.monitor.add_session(ChargeSession(
+        session_id="old", started_at=start, ended_at=start + timedelta(minutes=10),
+        reason="one_shot", grid_energy_kwh=1.5))
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/get_session_detail", "session_id": "old"})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    assert msg["result"]["trace_source"] == "recorder"
+    assert len(msg["result"]["trace"]) >= 10
+    assert msg["result"]["trace"][0][0] == 0
+    assert any(p[1] == 9200 for p in msg["result"]["trace"])

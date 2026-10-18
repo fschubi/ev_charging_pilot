@@ -235,6 +235,73 @@ function timelineSvg(s) {
   </svg>`;
 }
 
+/** One charge session: Halo power (area), vehicle charge power (dashed) and SOC (line). */
+function sessionSvg(d) {
+  const trace = (d.trace || []).filter((p) => p[1] !== null || p[2] !== null || p[3] !== null);
+  if (trace.length < 2) return "";
+  const t0 = new Date(d.started_at).getTime();
+  const at = (p) => t0 + p[0] * 1000;
+  const W = 800, top = 12, bottom = 150, left = 40, right = 760;
+  const first = at(trace[0]), last = at(trace[trace.length - 1]);
+  const span = Math.max(60e3, last - first);
+  const X = (t) => left + ((t - first) / span) * (right - left);
+  const maxW = Math.max(1000, ...trace.map((p) => Math.max(p[1] || 0, p[2] || 0)));
+  const maxKw = Math.ceil(maxW / 1000 / 2) * 2;
+  const YP = (w) => bottom - (w / 1000 / maxKw) * (bottom - top);
+  const socs = trace.filter((p) => p[3] !== null).map((p) => p[3]);
+  const socLo = socs.length ? Math.max(0, Math.floor((Math.min(...socs) - 2) / 5) * 5) : 0;
+  const socHi = socs.length ? Math.min(100, Math.ceil((Math.max(...socs) + 2) / 5) * 5) : 100;
+  const YS = (soc) => bottom - ((soc - socLo) / ((socHi - socLo) || 1)) * (bottom - top);
+  // Halo power is a cloud reading that holds until the next poll: draw it as steps.
+  const halo = trace.filter((p) => p[1] !== null);
+  let area = "";
+  if (halo.length) {
+    const pts = halo.flatMap((p, i) => {
+      const x = X(at(p)).toFixed(1), y = YP(p[1]).toFixed(1);
+      return i ? [`L${x} ${YP(halo[i - 1][1]).toFixed(1)}`, `L${x} ${y}`] : [`M${x} ${bottom}`, `L${x} ${y}`];
+    });
+    const lastX = X(at(halo[halo.length - 1])).toFixed(1);
+    area = `<path d="${pts.join(" ")} L${lastX} ${bottom} Z" fill="var(--primary-color, #03a9f4)" opacity=".35"/>
+      <path d="${pts.slice(1).join(" ").replace(/^L/, "M")}" fill="none" stroke="var(--primary-color, #03a9f4)" stroke-width="1.5"/>`;
+  }
+  const lineOf = (items, Y, idx, color, dash) => items.length > 1
+    ? `<path d="${items.map((p, i) => `${i ? "L" : "M"}${X(at(p)).toFixed(1)} ${Y(p[idx]).toFixed(1)}`).join(" ")}"
+      fill="none" stroke="${color}" stroke-width="2" ${dash ? 'stroke-dasharray="5 4"' : ""}/>` : "";
+  const vehicle = lineOf(trace.filter((p) => p[2] !== null), YP, 2, "var(--warning-color, #ffa600)", true);
+  const soc = lineOf(trace.filter((p) => p[3] !== null), YS, 3, "var(--success-color, #43a047)", false);
+  const grid = [];
+  for (let k = 0; k <= maxKw; k += maxKw > 8 ? 2 : 1) {
+    grid.push(`<line x1="${left}" y1="${YP(k * 1000).toFixed(1)}" x2="${right}" y2="${YP(k * 1000).toFixed(1)}" stroke="var(--divider-color)" ${k ? 'stroke-dasharray="2 4"' : ""}/>
+      <text x="${left - 6}" y="${(YP(k * 1000) + 3).toFixed(1)}" text-anchor="end">${k} kW</text>`);
+  }
+  if (socs.length) {
+    grid.push(`<text x="${right + 6}" y="${(YS(socHi) + 3).toFixed(1)}" style="fill:var(--success-color, #43a047)">${socHi} %</text>
+      <text x="${right + 6}" y="${(YS(socLo) + 3).toFixed(1)}" style="fill:var(--success-color, #43a047)">${socLo} %</text>`);
+  }
+  const step = [5, 10, 15, 30, 60, 120, 240].map((m) => m * 60e3).find((m) => span / m <= 8) || 480 * 60e3;
+  for (let t = Math.ceil(first / step) * step; t <= last; t += step) {
+    grid.push(`<line x1="${X(t).toFixed(1)}" y1="${bottom}" x2="${X(t).toFixed(1)}" y2="${bottom + 4}" stroke="var(--secondary-text-color)"/>
+      <text x="${X(t).toFixed(1)}" y="${bottom + 16}" text-anchor="middle">${time(new Date(t).toISOString())}</text>`);
+  }
+  // Invisible columns give every sample a tooltip.
+  const colW = Math.max(2, (right - left) / trace.length);
+  const tips = trace.map((p) => `<rect x="${(X(at(p)) - colW / 2).toFixed(1)}" y="${top}" width="${colW.toFixed(1)}" height="${bottom - top}" fill="transparent">
+    <title>${time(new Date(at(p)).toISOString())} · Wallbox ${num(p[1] === null ? null : p[1] / 1000, 2, "kW")}${p[2] !== null ? ` · Auto ${num(p[2] / 1000, 2, "kW")}` : ""}${p[3] !== null ? ` · ${num(p[3], 1, "%")}` : ""}</title></rect>`).join("");
+  return `<svg viewBox="0 0 ${W} 172" class="timeline" role="img" aria-label="Ladekurve">
+    ${grid.join("")}${area}${vehicle}${soc}${tips}
+  </svg>
+  <div class="legend"><span class="dot" style="background:var(--primary-color)"></span>Wallbox (Netz)
+    ${vehicle ? `<span class="dot" style="background:var(--warning-color)"></span>Auto (OVMS)` : ""}
+    ${soc ? `<span class="dot" style="background:var(--success-color)"></span>SOC` : ""}</div>`;
+}
+
+/** Duration as "1 h 23 min". */
+const duration = (from, to) => {
+  if (!from || !to) return "–";
+  const min = Math.round((new Date(to) - new Date(from)) / 60000);
+  return min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`;
+};
+
 /** Last 24 h: charging power (area) and SOC (line). */
 function historySvg(history, maxKw) {
   const W = 800, top = 10, bottom = 100, left = 6, right = 794;
@@ -463,6 +530,12 @@ const STYLE = `
   @keyframes pulse { 50% { opacity: .35; } }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; }
   .legend { font-size: 12px; color: var(--secondary-text-color); display: flex; gap: 14px; align-items: center; margin-top: 4px; }
+  tr.sess-row { cursor: pointer; }
+  tr.sess-row:hover td, tr.sess-row.open td { background: rgba(127,127,127,.08); }
+  tr.sess-open > td { padding: 4px 8px 16px; }
+  .sess-detail h3 { font-size: 14px; font-weight: 500; margin: 16px 0 6px; }
+  .sess-detail td.t { width: 1%; white-space: nowrap; }
+  .sess-grid { display: grid; gap: 4px 24px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
   .reason { font-size: 13px; margin: 6px 0 0; }
   @media (prefers-reduced-motion: reduce) { .flow, .pulse { animation: none; } }
@@ -758,6 +831,8 @@ class EvPilotPanel extends HTMLElement {
         // A focused select would block the re-render that shows the change.
         if (el.tagName === "SELECT") el.blur();
       }));
+    root.querySelectorAll("tr[data-session]").forEach((el) =>
+      el.addEventListener("click", () => this._toggleSession(el.dataset.session)));
     root.querySelectorAll("details[data-details]").forEach((el) =>
       el.addEventListener("toggle", () => {
         this._openDetails = this._openDetails || new Set();
@@ -1476,12 +1551,63 @@ class EvPilotPanel extends HTMLElement {
         <svg viewBox="0 0 366 130" width="100%" height="160" role="img" aria-label="Heim-kWh pro Monat">${bars}</svg></div>
       <div class="card wide"><h2>Lade-Sessions</h2><div class="scroll"><table>
         <tr><th>Start</th><th>Ende</th><th class="n">kWh</th><th class="n">€</th><th class="n">max kW</th><th>Grund</th><th>Wakeup</th><th>Ergebnis</th></tr>
-        ${sessions.map((x) => `<tr><td>${dateTime(x.started_at)}</td><td>${time(x.ended_at)}</td><td class="n">${num(x.grid_energy_kwh, 2)}</td>
+        ${sessions.map((x) => `<tr class="sess-row${this._sessionOpen === x.session_id ? " open" : ""}" data-session="${esc(x.session_id)}" title="Details anzeigen"><td>${dateTime(x.started_at)}</td><td>${time(x.ended_at)}</td><td class="n">${num(x.grid_energy_kwh, 2)}</td>
           <td class="n">${num(x.cost_eur, 2)}</td><td class="n">${num(x.max_power_w / 1000, 1)}</td><td>${esc(REASON_LABELS[x.reason] || x.reason)}</td>
           <td>${x.ovms_wakeup_used ? "OVMS " : ""}${x.cp_wakeup_used ? "CP" : ""}</td>
-          <td>${x.success ? `<span class="pill ok">ok</span>` : `<span class="pill bad">${esc(FAILURE_LABELS[x.failure_code] || x.failure_code || "Fehler")}</span>`}</td></tr>`).join("") || `<tr><td colspan="8" class="sub">Keine Sessions in diesem Monat.</td></tr>`}
+          <td>${x.success ? `<span class="pill ok">ok</span>` : `<span class="pill bad">${esc(FAILURE_LABELS[x.failure_code] || x.failure_code || "Fehler")}</span>`}</td></tr>
+          ${this._sessionOpen === x.session_id ? `<tr class="sess-open"><td colspan="8">${this._sessionDetailHtml(x)}</td></tr>` : ""}`).join("") || `<tr><td colspan="8" class="sub">Keine Sessions in diesem Monat.</td></tr>`}
       </table></div></div>
     </div>`;
+  }
+
+  _sessionDetailHtml(x) {
+    const d = (this._cache.sessionDetail || {})[x.session_id];
+    if (!d) return `<p class="sub">Lade Details …</p>`;
+    if (d.error) return `<p class="sub">Details nicht ladbar: ${esc(d.error)}</p>`;
+    const vehicle = d.vehicle_charge_energy_kwh;
+    // Same plausibility bound as the statistics: sparse OVMS samples can over- or undershoot.
+    const rawLoss = vehicle && d.grid_energy_kwh ? (1 - vehicle / d.grid_energy_kwh) * 100 : null;
+    const loss = rawLoss !== null && rawLoss >= 0 && rawLoss <= 40 ? rawLoss : null;
+    const avgPrice = d.grid_energy_kwh ? d.cost_eur / d.grid_energy_kwh : null;
+    const row = (label, value) => `<div class="row"><span>${label}</span><b>${value}</b></div>`;
+    const chart = sessionSvg(d);
+    const source = d.trace_source === "recorder"
+      ? `<p class="hint">Verlauf aus der HA-Historie (Session vor v0.20.0), minütlich.</p>` : "";
+    const intervals = d.energy_intervals || [];
+    const events = d.events || [];
+    return `<div class="sess-detail">
+      <div class="sess-grid">
+        <div>${row("Zeitraum", `${dateTime(d.started_at)} – ${time(d.ended_at)}`)}${row("Dauer", duration(d.started_at, d.ended_at))}
+          ${row("Grund", esc(REASON_LABELS[d.reason] || d.reason || "–"))}
+          ${row("Wecken", d.ovms_wakeup_used || d.cp_wakeup_used ? `${d.ovms_wakeup_used ? "OVMS " : ""}${d.cp_wakeup_used ? "CP-Puls" : ""}` : "nicht nötig")}</div>
+        <div>${row("Netz (Wallbox-Zähler)", num(d.grid_energy_kwh, 2, "kWh"))}${row("Im Akku (OVMS)", num(vehicle, 2, "kWh"))}
+          ${row("Ladeverlust", num(loss, 0, "%"))}${row("Zähler", `${num(d.start_total_energy_kwh, 2)} → ${num(d.end_total_energy_kwh, 2, "kWh")}`)}</div>
+        <div>${row("SOC", `${num(d.start_soc_pct, 0, "%")} → ${num(d.end_soc_pct, 0, "%")}`)}${row("Leistung Ø / max", `${num(d.average_power_w / 1000, 1)} / ${num(d.max_power_w / 1000, 1, "kW")}`)}
+          ${row("Kosten", num(d.cost_eur, 2, "€"))}${row("Ø Preis", num(avgPrice, 3, "€/kWh"))}</div>
+      </div>
+      ${chart ? `<h3>Ladekurve</h3>${chart}${source}` : `<p class="sub">Kein Verlauf vorhanden – weder in der Session gespeichert noch in der HA-Historie.</p>`}
+      ${intervals.length ? `<h3>Kosten je Viertelstunde</h3><table>
+        <tr><th>Zeit</th><th class="n">kWh</th><th class="n">€/kWh</th><th class="n">€</th></tr>
+        ${intervals.map((i) => `<tr><td>${time(i.start)}–${time(i.end)}</td><td class="n">${num(i.kwh, 3)}</td>
+          <td class="n">${num(i.eur_per_kwh, 3)}</td><td class="n">${num(i.kwh * (i.eur_per_kwh || 0), 3)}</td></tr>`).join("")}
+      </table>` : ""}
+      ${events.length ? `<h3>Ereignisse</h3><table>
+        ${events.map((e) => `<tr><td class="t">${time(e.timestamp)}</td><td>${esc(e.message || e.code)}</td></tr>`).join("")}
+      </table>` : ""}
+    </div>`;
+  }
+
+  async _toggleSession(id) {
+    this._sessionOpen = this._sessionOpen === id ? null : id;
+    const cache = this._cache.sessionDetail = this._cache.sessionDetail || {};
+    this._render(true);
+    if (!this._sessionOpen || (cache[id] && !cache[id].error)) return;
+    try {
+      cache[id] = await this._ws("get_session_detail", { session_id: id });
+    } catch (err) {
+      cache[id] = { error: err.message || String(err) };
+    }
+    this._render(true);
   }
 
   _drive() {

@@ -25,6 +25,9 @@ FAILURE_CODES = ("CHARGE_START_FAILED", "CHARGER_NOT_CONFIRMED", "CHARGE_INTERRU
 # Two Halo poll intervals: the field showed late counter readings 1 s and 31 s
 # after the wallbox was switched off.
 TAIL_S = 65
+# Power curve for the session detail view: one sample per minute, at most a day.
+TRACE_STEP_S = 60
+TRACE_MAX = 1440
 
 
 @dataclass(slots=True)
@@ -48,6 +51,8 @@ class ChargeSession:
     success: bool = True
     failure_code: str | None = None
     energy_intervals: list[dict[str, Any]] = field(default_factory=list)
+    # [seconds since start, Halo W, vehicle W, SOC %] – None where unknown.
+    trace: list[list[float | None]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -88,6 +93,7 @@ class SessionTracker:
         self._pending_ovms = False
         self._pending_cp = False
         self._vehicle_last: tuple[datetime, float] | None = None
+        self._trace_at: datetime | None = None
         self._dynamic: Callable[[datetime], float | None] | None = None
         # Counter reading when the wallbox was enabled (session baseline).
         self._enable_kwh: tuple[datetime, float] | None = None
@@ -228,6 +234,7 @@ class SessionTracker:
         if baseline is not None:
             self._acc.add(now, float(total_energy.normalized))
         self._vehicle_last = None
+        self._trace_at = None
 
     def _acc_energy(self, now, total_energy) -> None:
         session = self.open
@@ -256,6 +263,24 @@ class SessionTracker:
             session.end_soc_pct = current
             if session.start_soc_pct is None:
                 session.start_soc_pct = current
+        self._sample(now, power, vehicle_power, current)
+
+    def _sample(self, now, power, vehicle_power, soc_pct) -> None:
+        """Append one point of the power curve per ``TRACE_STEP_S``."""
+        session = self.open
+        if len(session.trace) >= TRACE_MAX or (
+                self._trace_at is not None
+                and (now - self._trace_at).total_seconds() < TRACE_STEP_S):
+            return
+        self._trace_at = now
+        halo = round(float(power.normalized)) \
+            if power.available and power.normalized is not None else None
+        vehicle = round(float(vehicle_power.normalized)) \
+            if vehicle_power.quality is Quality.GOOD and vehicle_power.normalized is not None \
+            else None
+        offset = max(0, round((now - session.started_at).total_seconds()))
+        session.trace.append([offset, halo, vehicle,
+                              round(soc_pct, 1) if soc_pct is not None else None])
 
     def _begin_close(self, now, total_energy, soc, success, failure) -> None:
         self._accumulate(now, total_energy, Value.unavailable("halo"), Value.unavailable("ovms"),

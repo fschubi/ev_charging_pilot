@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -249,7 +249,55 @@ PAGING = {vol.Optional("limit", default=100): vol.All(int, vol.Range(1, 2000)),
 @callback
 def ws_sessions(hass, connection, msg) -> None:
     if center := _require(connection, msg, hass):
-        _send(connection, msg, _paged([s.as_dict() for s in center.monitor.data.sessions], msg))
+        # The power curve only travels with the detail view.
+        items = [{k: v for k, v in s.as_dict().items() if k != "trace"}
+                 for s in center.monitor.data.sessions]
+        _send(connection, msg, _paged(items, msg))
+
+
+# Events shown with a session: wakeups and the switch-on happen before the stable start.
+DETAIL_EVENTS_BEFORE = timedelta(minutes=15)
+DETAIL_EVENTS_AFTER = timedelta(minutes=2)
+DETAIL_TRACE_INPUTS = (Inp.CHARGE_POWER, Inp.OVMS_CHARGE_POWER, Inp.OVMS_SOC)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/get_session_detail", vol.Required("session_id"): str})
+@websocket_api.async_response
+async def ws_session_detail(hass, connection, msg) -> None:
+    if not (center := _require(connection, msg, hass)):
+        return
+    session = next((s for s in center.monitor.data.sessions
+                    if s.session_id == msg["session_id"]), None)
+    if session is None:
+        connection.send_error(msg["id"], "not_found", "Session nicht gefunden")
+        return
+    data = session.as_dict()
+    end = session.ended_at or session.started_at
+    data["trace_source"] = "session" if len(session.trace) >= 2 else None
+    if data["trace_source"] is None and session.ended_at is not None:
+        # Sessions from before v0.20.0 have no curve of their own: take it from
+        # the recorder while it still holds those days.
+        minutes = await center.async_recorder_minutes(
+            DETAIL_TRACE_INPUTS, session.started_at, end + timedelta(minutes=1))
+        if minutes:
+            data["trace"] = [
+                [round((minute - session.started_at).total_seconds()),
+                 _rounded(values.get(Inp.CHARGE_POWER), 0),
+                 _rounded(values.get(Inp.OVMS_CHARGE_POWER), 0),
+                 _rounded(values.get(Inp.OVMS_SOC), 1)]
+                for minute, values in minutes]
+            data["trace_source"] = "recorder"
+    since, until = session.started_at - DETAIL_EVENTS_BEFORE, end + DETAIL_EVENTS_AFTER
+    data["events"] = [e for e in center.events if e["severity"] != "debug"
+                      and since <= datetime.fromisoformat(e["timestamp"]) <= until][-100:]
+    _send(connection, msg, data)
+
+
+def _rounded(value: float | None, digits: int) -> float | None:
+    if value is None:
+        return None
+    return round(value) if digits == 0 else round(value, digits)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{PREFIX}/get_trips", **PAGING})
@@ -478,7 +526,8 @@ COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_set_manual_current, ws
             ws_get_settings,
             ws_set_settings,
             ws_create_report, ws_list_reports, ws_state,
-            ws_health, ws_plan_preview, ws_sessions, ws_trips, ws_external, ws_month, ws_year,
+            ws_health, ws_plan_preview, ws_sessions, ws_session_detail,
+            ws_trips, ws_external, ws_month, ws_year,
             ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)
 
 

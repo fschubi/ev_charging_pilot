@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.19.5 Prüfbericht Stufe 2 Statistik/HA.** Externe Ladung lokales Datum;
+  Fahrten mit `*_acc` bei Zählerreset und Odometer beim Schließen; `_report_due`/Catch-up/
+  `_monthly_report_safe`; `_odometer_at` interpoliert; PDF-Monatsanteil; SOC-Sprung nur ohne
+  Kabel; €/100 km SOC-korrigiert; `_unrecorded_attributes`; `_closed`; Admin-Dienste.
 - **2026-10-18 – v0.19.4 Prüfbericht Stufe 2 Kern/Preise.** `_vehicle_finished` nur ≥ 95 %
   oder Ziel − 3; CHARGE_ENDED bedient neuen Wunsch; `_off_after_override`; Lernen mit
   Intervalllänge; Fahrzeugtemperatur LKV als Rückfall; Zwei-Block-Suche auf 5-min-Raster mit

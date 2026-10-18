@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.0 – 2026-10-18
+
+Ladekurve und Details je Ladung (Reiter „Hausstrom“):
+- **Zeile anklicken → Details:** Zeitraum, Dauer, Grund, Wecken, Netz-kWh laut
+  Wallbox-Zähler, kWh im Akku laut OVMS, Ladeverlust, Zählerstände, SOC vorher/nachher,
+  Ø/max. Leistung, Kosten und Ø-Preis.
+- **Ladekurve:** Wallbox-Leistung (Netz), Ladeleistung laut OVMS und SOC über die Zeit,
+  mit Werten beim Überfahren jedes Messpunkts.
+- **Kosten je Viertelstunde** mit dem jeweils gültigen Preis und die **Ereignisse** rund um
+  die Ladung (Freigabe, Wecken, Start, Ende).
+- Jede Ladung speichert ihren Verlauf jetzt selbst (ein Punkt pro Minute). Für ältere
+  Ladungen kommt die Kurve aus der HA-Historie, solange der Recorder die Tage noch hat.
+
 ## 0.19.9 – 2026-10-18
 
 Korrekturen nach der ersten echten Ladung (Nacht zum 18.10., 71 → 90 %, sauber bei 90 %

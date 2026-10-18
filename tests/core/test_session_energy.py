@@ -89,3 +89,16 @@ def test_baseline_is_dropped_when_the_wallbox_is_switched_off_again():
     step(tracker, 600, 1.50)  # someone else used the Halo meanwhile
     step(tracker, 640, 1.60, [ev("CHARGE_RESUMED")])
     assert tracker.open.start_total_energy_kwh == 1.60
+
+
+def test_session_keeps_a_power_curve_once_per_minute():
+    tracker = SessionTracker()
+    night(tracker)
+    session = step(tracker, 1416 + TAIL_S, 4.55)[0]
+    # Stable at 40 s, samples at 40 s and 1000 s (others < 60 s apart), plus the close.
+    offsets = [p[0] for p in session.trace]
+    assert offsets[:2] == [0, 960]
+    assert session.trace[0][1:] == [9000, None, 80.0]
+    assert all(b - a >= 60 for a, b in zip(offsets, offsets[1:], strict=False))
+    restored = type(session).from_dict(session.as_dict())
+    assert restored.trace == session.trace

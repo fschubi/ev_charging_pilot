@@ -452,27 +452,52 @@ class ChargingCenter:
 
     async def _async_backfill_history(self) -> None:
         """Cockpit chart after a restart: the last 24 h come from the recorder."""
-        if "recorder" not in self.hass.config.components:
-            return
-        from homeassistant.components.recorder import get_instance, history
-
-        ids = {inp: self.entity_ids[inp] for inp in (Inp.CHARGE_POWER, Inp.OVMS_SOC)
-               if inp in self.entity_ids}
-        if not ids:
-            return
         end = dt_util.utcnow().replace(second=0, microsecond=0)
         start = end - timedelta(hours=24)
+        minutes = await self.async_recorder_minutes((Inp.CHARGE_POWER, Inp.OVMS_SOC), start, end)
+        if not minutes:
+            return
+        samples = []
+        for minute, values in minutes:
+            power, soc = values.get(Inp.CHARGE_POWER), values.get(Inp.OVMS_SOC)
+            samples.append((minute.isoformat(), round(power) if power is not None else None,
+                            round(soc, 1) if soc is not None else None))
+        live = list(self.history)
+        first_live = live[0][0] if live else None
+        self.history.clear()
+        self.history.extend(s for s in samples if first_live is None or s[0] < first_live)
+        self.history.extend(live)
+        self._notify_listeners()
+
+    async def async_recorder_minutes(
+        self, inputs: tuple[Inp, ...], start: datetime, end: datetime
+    ) -> list[tuple[datetime, dict[Inp, float | None]]] | None:
+        """Recorder values of the mapped inputs, resampled to one value per minute.
+
+        The recorder only stores changes, so each minute carries the last value
+        known up to its end. None if nothing is mapped or the recorder fails.
+        """
+        if "recorder" not in self.hass.config.components:
+            return None
+        from homeassistant.components.recorder import get_instance, history
+
+        ids = {inp: self.entity_ids[inp] for inp in inputs if inp in self.entity_ids}
+        if not ids:
+            return None
+        start = start.replace(second=0, microsecond=0)
 
         def load() -> dict[str, list]:
+            # A state stamped exactly at the start is neither "before" nor "after" it
+            # for the recorder – one second earlier catches it.
             return history.get_significant_states(
-                self.hass, start, end, list(ids.values()), include_start_time_state=True,
-                significant_changes_only=False)
+                self.hass, start - timedelta(seconds=1), end, list(ids.values()),
+                include_start_time_state=True, significant_changes_only=False)
 
         try:
             states = await get_instance(self.hass).async_add_executor_job(load)
-        except Exception:  # noqa: BLE001 – the chart is a nicety, never a reason to fail
-            _LOGGER.debug("Verlauf für das Cockpit nicht ladbar", exc_info=True)
-            return
+        except Exception:  # noqa: BLE001 – charts are a nicety, never a reason to fail
+            _LOGGER.debug("Verlauf aus dem Recorder nicht ladbar", exc_info=True)
+            return None
         series: dict[Inp, list[tuple[datetime, float | None]]] = {}
         for inp, entity_id in ids.items():
             points = []
@@ -484,7 +509,7 @@ class ChargingCenter:
             series[inp] = points
         current: dict[Inp, float | None] = dict.fromkeys(series)
         position = dict.fromkeys(series, 0)
-        samples = []
+        minutes = []
         minute = start
         while minute < end:
             for inp, points in series.items():
@@ -492,16 +517,9 @@ class ChargingCenter:
                         points[position[inp]][0] < minute + timedelta(minutes=1):
                     current[inp] = points[position[inp]][1]
                     position[inp] += 1
-            power, soc = current.get(Inp.CHARGE_POWER), current.get(Inp.OVMS_SOC)
-            samples.append((minute.isoformat(), round(power) if power is not None else None,
-                            round(soc, 1) if soc is not None else None))
+            minutes.append((minute, dict(current)))
             minute += timedelta(minutes=1)
-        live = list(self.history)
-        first_live = live[0][0] if live else None
-        self.history.clear()
-        self.history.extend(s for s in samples if first_live is None or s[0] < first_live)
-        self.history.extend(live)
-        self._notify_listeners()
+        return minutes
 
     def _sample_history(self, now: datetime) -> None:
         minute = now.replace(second=0, microsecond=0).isoformat()

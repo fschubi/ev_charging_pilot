@@ -377,6 +377,7 @@ class Engine:
             (Inp.OVMS_12V, rule(ages.temperature_s)),
             (Inp.OVMS_HVAC, rule(ages.vehicle_charging_s)),
             (Inp.OVMS_BATTERY_POWER, rule(ages.vehicle_charging_s)),
+            (Inp.OVMS_SPEED, rule(ages.vehicle_charging_s)),
         ):
             values[key] = classify(values[key], now, r, self._activity_for_quality())
         for key, r in (
@@ -853,6 +854,8 @@ class Engine:
             aux=v[Inp.OVMS_AUX_CONSUMPTION],
             soc=self.soc,
             outside_temp=self.outside,
+            speed=v.get(Inp.OVMS_SPEED),
+            battery_power=v.get(Inp.OVMS_BATTERY_POWER),
         )
         for trip in trips:
             self.monitor.add_trip(trip)

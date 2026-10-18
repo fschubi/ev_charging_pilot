@@ -131,12 +131,15 @@ class Monitor:
             if grid else None
         if loss_pct is not None and not 0 <= loss_pct <= 40:
             loss_pct = None  # measuring artefact (see statistics.MAX_PLAUSIBLE_LOSS_PCT)
-        # What home charging really cost (dynamic tariff included); fixed price otherwise.
+        return temperature_statistics(trips, loss_pct=loss_pct,
+                                      price_eur_kwh=self.home_price(settings))
+
+    def home_price(self, settings: Settings) -> float:
+        """What home charging really cost (dynamic tariff included); fixed price otherwise."""
         home = [s for s in self.data.sessions if s.success and s.grid_energy_kwh]
         home_kwh = sum(s.grid_energy_kwh for s in home)
-        price = sum(s.cost_eur for s in home) / home_kwh if home_kwh >= 1 \
+        return sum(s.cost_eur for s in home) / home_kwh if home_kwh >= 1 \
             else settings.price_history[-1].eur_per_kwh
-        return temperature_statistics(trips, loss_pct=loss_pct, price_eur_kwh=price)
 
     # -------------------------------------------------------------- storage
 

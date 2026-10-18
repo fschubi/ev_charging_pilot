@@ -241,3 +241,25 @@ def test_settings_defaults_follow_masterplan():
     assert s.mode == "dry_run"
     assert s.grid_limit_kw is None
     assert Settings.from_options({"grid_limit_kw": 4.2}).grid_limit_kw == 4.2
+
+
+def test_trip_keeps_a_drive_curve_every_15_seconds():
+    tracker = TripTracker(10, TZ)
+    start = local(2026, 10, 18, 19, 14, 45)
+    for i in range(0, 241, 5):  # four minutes, ticks every 5 s
+        now = start + timedelta(seconds=i)
+        tracker.update(
+            now, vehicle_on=v(True, now), odometer=v(9118.4 + i / 240, now),
+            energy_used=v(i / 400, now), energy_recd=v(0, now), aux=v(0, now),
+            soc=v(76 - i / 120, now), outside_temp=v(12, now),
+            speed=v(60.0, now), battery_power=v(-21000.0, now))
+    stored = tracker.as_dict()
+    restored = TripTracker(10, TZ)
+    restored.restore(stored)
+    trips = park(restored, start + timedelta(seconds=240), 11, 9119.4)
+    assert len(trips) == 1
+    trace = trips[0].trace
+    assert [p[0] for p in trace[:3]] == [0, 15, 30]
+    assert trace[0][1:] == [60.0, -21000, 76.0]
+    assert len(trace) == 17  # 0 … 240 s, survives the restart
+    assert Trip.from_dict(trips[0].as_dict()).trace == trace

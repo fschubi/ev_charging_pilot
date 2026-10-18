@@ -141,10 +141,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.20.0 Ladekurve + Session-Details.** `ChargeSession.trace`
-  ([s ab Start, Halo W, OVMS W, SOC], 1/min, max. 1440); `get_sessions` ohne `trace`,
-  `get_session_detail` mit Ereignissen und Recorder-Fallback (`async_recorder_minutes`,
-  auch fürs Cockpit); Panel: Zeile klickbar (`sess-*`-Klassen, `srow` ist Einstellungen).
 - **2026-10-18 – v0.20.1 Klima nach Feldtest.** Executor wartet mit `CLIMATE_START` auf
   Halo „an“ (`CLIMATE_CONFIRM_TIMEOUT` 60 s, sonst `CLIMATE_SKIPPED` + Push); Engine
   `_climate_lock`/`climate_phase` (due→sent→running→done|skipped, im Store), Ende bei
@@ -160,3 +156,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `_shelly_dropout_tolerated`: unerreichbarer Shelly gilt `SHELLY_DROPOUT_GRACE` (3 min) als
   „CP zu“, nicht nach CP-Puls (`executor.last_pulse_at`, 10 min) oder offener CP. Rückfahrt
   18.10. sauber erfasst (Fahrt schließt erst nach `trip_merge_gap_min` = 10 min).
+- **2026-10-18 – v0.22.0 Fahrt-Details.** `Trip.trace` ([s, km/h, Akku-W wie OVMS: + in den
+  Akku/Rekup, − Antrieb, SOC], 15 s, im offenen Trip-Store); `Inp.OVMS_SPEED`;
+  `get_trip_detail` (Recorder-Fallback 15 s via `async_recorder_minutes(step_s)`, Kosten
+  über `monitor.home_price`); Panel `tripSvg`, Zeile `data-trip`. Mushroom-Karte umgestellt
+  (Backup der alten Dashboard-Config im Browser-localStorage `ev_pilot_smarthome_backup_20261018`).

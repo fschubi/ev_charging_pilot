@@ -304,7 +304,52 @@ def _rounded(value: float | None, digits: int) -> float | None:
 @callback
 def ws_trips(hass, connection, msg) -> None:
     if center := _require(connection, msg, hass):
-        _send(connection, msg, _paged([t.as_dict() for t in center.monitor.data.trips], msg))
+        items = [{k: v for k, v in t.as_dict().items() if k != "trace"}
+                 for t in center.monitor.data.trips]
+        _send(connection, msg, _paged(items, msg))
+
+
+TRIP_TRACE_INPUTS = (Inp.OVMS_SPEED, Inp.OVMS_BATTERY_POWER, Inp.OVMS_SOC)
+TRIP_RECORDER_STEP_S = 15
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/get_trip_detail", vol.Required("trip_id"): str})
+@websocket_api.async_response
+async def ws_trip_detail(hass, connection, msg) -> None:
+    if not (center := _require(connection, msg, hass)):
+        return
+    trip = next((t for t in center.monitor.data.trips if t.trip_id == msg["trip_id"]), None)
+    if trip is None:
+        connection.send_error(msg["id"], "not_found", "Fahrt nicht gefunden")
+        return
+    data = trip.as_dict()
+    data["trace_source"] = "trip" if len(trip.trace) >= 2 else None
+    if data["trace_source"] is None:
+        # Trips from before v0.22.0: the curve comes from the recorder.
+        steps = await center.async_recorder_minutes(
+            TRIP_TRACE_INPUTS, trip.started_at, trip.ended_at + timedelta(seconds=15),
+            step_s=TRIP_RECORDER_STEP_S)
+        if steps:
+            data["trace"] = [
+                [round((moment - trip.started_at).total_seconds()),
+                 _rounded1(values.get(Inp.OVMS_SPEED)), _rounded(values.get(
+                     Inp.OVMS_BATTERY_POWER), 0), _rounded(values.get(Inp.OVMS_SOC), 1)]
+                for moment, values in steps]
+            data["trace_source"] = "recorder"
+    # What the trip cost at home: net battery energy, charging loss, home price.
+    s = center.engine.settings
+    net = (trip.vehicle_energy_used_kwh or 0) - (trip.recovered_energy_kwh or 0) \
+        if trip.vehicle_energy_used_kwh is not None else None
+    price = center.monitor.home_price(s)
+    data["home_price_eur_kwh"] = round(price, 4)
+    data["grid_energy_kwh"] = round(net / s.charge_efficiency, 3) if net else None
+    data["cost_eur"] = round(net / s.charge_efficiency * price, 2) if net else None
+    _send(connection, msg, data)
+
+
+def _rounded1(value: float | None) -> float | None:
+    return round(value, 1) if value is not None else None
 
 
 @websocket_api.websocket_command(
@@ -526,7 +571,7 @@ COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_set_manual_current, ws
             ws_get_settings,
             ws_set_settings,
             ws_create_report, ws_list_reports, ws_state,
-            ws_health, ws_plan_preview, ws_sessions, ws_session_detail,
+            ws_health, ws_plan_preview, ws_sessions, ws_session_detail, ws_trip_detail,
             ws_trips, ws_external, ws_month, ws_year,
             ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)
 

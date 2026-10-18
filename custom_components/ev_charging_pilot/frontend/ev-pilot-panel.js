@@ -302,6 +302,74 @@ const duration = (from, to) => {
   return min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`;
 };
 
+/** One trip: speed on top, battery power (drive / recuperation) and SOC below. */
+function tripSvg(d) {
+  const trace = (d.trace || []).filter((p) => p[1] !== null || p[2] !== null || p[3] !== null);
+  if (trace.length < 2) return "";
+  const t0 = new Date(d.started_at).getTime();
+  const at = (p) => t0 + p[0] * 1000;
+  const W = 800, left = 44, right = 756;
+  const first = at(trace[0]), last = at(trace[trace.length - 1]);
+  const span = Math.max(60e3, last - first);
+  const X = (t) => left + ((t - first) / span) * (right - left);
+  const path = (items, Y, idx) => items.map((p, i) => `${i ? "L" : "M"}${X(at(p)).toFixed(1)} ${Y(p[idx]).toFixed(1)}`).join(" ");
+  const parts = [];
+  // Top band: speed.
+  const sTop = 10, sBottom = 100;
+  const speeds = trace.filter((p) => p[1] !== null);
+  const maxKmh = Math.max(30, Math.ceil(Math.max(0, ...speeds.map((p) => p[1])) / 20) * 20);
+  const YV = (v) => sBottom - (Math.max(0, v) / maxKmh) * (sBottom - sTop);
+  for (let k = 0; k <= maxKmh; k += maxKmh > 80 ? 40 : 20) {
+    parts.push(`<line x1="${left}" y1="${YV(k).toFixed(1)}" x2="${right}" y2="${YV(k).toFixed(1)}" stroke="var(--divider-color)" ${k ? 'stroke-dasharray="2 4"' : ""}/>
+      <text x="${left - 6}" y="${(YV(k) + 3).toFixed(1)}" text-anchor="end">${k} km/h</text>`);
+  }
+  if (speeds.length > 1) {
+    const line = path(speeds, YV, 1);
+    parts.push(`<path d="${line} L${X(at(speeds[speeds.length - 1])).toFixed(1)} ${sBottom} L${X(at(speeds[0])).toFixed(1)} ${sBottom} Z" fill="var(--primary-color, #03a9f4)" opacity=".3"/>
+      <path d="${line}" fill="none" stroke="var(--primary-color, #03a9f4)" stroke-width="1.5"/>`);
+  }
+  // Bottom band: drive power up, recuperation down (OVMS: + into the battery), SOC.
+  const pTop = 122, pBottom = 222;
+  const powers = trace.filter((p) => p[2] !== null).map((p) => [p[0], p[1], -p[2], p[3]]);
+  const maxKw = Math.max(5, Math.ceil(Math.max(0, ...powers.map((p) => Math.abs(p[2]) / 1000)) / 5) * 5);
+  const YP = (w) => (pTop + pBottom) / 2 - (w / 1000 / maxKw) * ((pBottom - pTop) / 2);
+  for (const k of [maxKw, 0, -maxKw]) {
+    parts.push(`<line x1="${left}" y1="${YP(k * 1000).toFixed(1)}" x2="${right}" y2="${YP(k * 1000).toFixed(1)}" stroke="var(--divider-color)" ${k ? 'stroke-dasharray="2 4"' : ""}/>
+      <text x="${left - 6}" y="${(YP(k * 1000) + 3).toFixed(1)}" text-anchor="end">${k} kW</text>`);
+  }
+  if (powers.length > 1) {
+    const zero = YP(0).toFixed(1);
+    const line = path(powers, YP, 2);
+    const area = `${line} L${X(at(powers[powers.length - 1])).toFixed(1)} ${zero} L${X(at(powers[0])).toFixed(1)} ${zero} Z`;
+    parts.push(`<clipPath id="tp-up"><rect x="${left}" y="${pTop}" width="${right - left}" height="${(pBottom - pTop) / 2}"/></clipPath>
+      <clipPath id="tp-down"><rect x="${left}" y="${zero}" width="${right - left}" height="${(pBottom - pTop) / 2}"/></clipPath>
+      <path d="${area}" fill="var(--warning-color, #ffa600)" opacity=".45" clip-path="url(#tp-up)"/>
+      <path d="${area}" fill="var(--success-color, #43a047)" opacity=".55" clip-path="url(#tp-down)"/>`);
+  }
+  const socs = trace.filter((p) => p[3] !== null);
+  if (socs.length > 1) {
+    const vals = socs.map((p) => p[3]);
+    const lo = Math.max(0, Math.floor((Math.min(...vals) - 2) / 5) * 5);
+    const hi = Math.min(100, Math.ceil((Math.max(...vals) + 2) / 5) * 5);
+    const YS = (v) => pBottom - ((v - lo) / ((hi - lo) || 1)) * (pBottom - pTop);
+    parts.push(`<path d="${path(socs, YS, 3)}" fill="none" stroke="var(--primary-text-color)" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <text x="${right + 6}" y="${(YS(hi) + 3).toFixed(1)}">${hi} %</text><text x="${right + 6}" y="${(YS(lo) + 3).toFixed(1)}">${lo} %</text>`);
+  }
+  const step = [2, 5, 10, 15, 30, 60, 120].map((m) => m * 60e3).find((m) => span / m <= 8) || 240 * 60e3;
+  for (let t = Math.ceil(first / step) * step; t <= last; t += step) {
+    parts.push(`<line x1="${X(t).toFixed(1)}" y1="${pBottom}" x2="${X(t).toFixed(1)}" y2="${pBottom + 4}" stroke="var(--secondary-text-color)"/>
+      <text x="${X(t).toFixed(1)}" y="${pBottom + 16}" text-anchor="middle">${time(new Date(t).toISOString())}</text>`);
+  }
+  const colW = Math.max(2, (right - left) / trace.length);
+  const tips = trace.map((p) => `<rect x="${(X(at(p)) - colW / 2).toFixed(1)}" y="${sTop}" width="${colW.toFixed(1)}" height="${pBottom - sTop}" fill="transparent">
+    <title>${time(new Date(at(p)).toISOString())}${p[1] !== null ? ` · ${num(p[1], 0, "km/h")}` : ""}${p[2] !== null ? ` · ${p[2] > 0 ? "Rekuperation" : "Antrieb"} ${num(Math.abs(p[2]) / 1000, 1, "kW")}` : ""}${p[3] !== null ? ` · ${num(p[3], 0, "%")}` : ""}</title></rect>`).join("");
+  return `<svg viewBox="0 0 ${W} 244" class="timeline" role="img" aria-label="Fahrtkurve">${parts.join("")}${tips}</svg>
+  <div class="legend"><span class="dot" style="background:var(--primary-color)"></span>Geschwindigkeit
+    <span class="dot" style="background:var(--warning-color)"></span>Akku: Antrieb
+    <span class="dot" style="background:var(--success-color)"></span>Rekuperation
+    <span class="dot" style="background:var(--primary-text-color)"></span>SOC</div>`;
+}
+
 /** Last 24 h: charging power (area) and SOC (line). */
 function historySvg(history, maxKw) {
   const W = 800, top = 10, bottom = 100, left = 6, right = 794;
@@ -833,6 +901,8 @@ class EvPilotPanel extends HTMLElement {
       }));
     root.querySelectorAll("tr[data-session]").forEach((el) =>
       el.addEventListener("click", () => this._toggleSession(el.dataset.session)));
+    root.querySelectorAll("tr[data-trip]").forEach((el) =>
+      el.addEventListener("click", () => this._toggleTrip(el.dataset.trip)));
     root.querySelectorAll("details[data-details]").forEach((el) =>
       el.addEventListener("toggle", () => {
         this._openDetails = this._openDetails || new Set();
@@ -1599,6 +1669,44 @@ class EvPilotPanel extends HTMLElement {
     </div>`;
   }
 
+  _tripDetailHtml(t) {
+    const d = (this._cache.tripDetail || {})[t.trip_id];
+    if (!d) return `<p class="sub">Lade Details …</p>`;
+    if (d.error) return `<p class="sub">Details nicht ladbar: ${esc(d.error)}</p>`;
+    const row = (label, value) => `<div class="row"><span>${label}</span><b>${value}</b></div>`;
+    const net = d.vehicle_energy_used_kwh !== null && d.vehicle_energy_used_kwh !== undefined
+      ? d.vehicle_energy_used_kwh - (d.recovered_energy_kwh || 0) : null;
+    const share = d.vehicle_energy_used_kwh ? (d.recovered_energy_kwh || 0) / d.vehicle_energy_used_kwh * 100 : null;
+    const chart = tripSvg(d);
+    const source = d.trace_source === "recorder"
+      ? `<p class="hint">Verlauf aus der HA-Historie (Fahrt vor v0.22.0), alle 15 s.</p>` : "";
+    return `<div class="sess-detail">
+      <div class="sess-grid">
+        <div>${row("Zeitraum", `${dateTime(d.started_at)} – ${time(d.ended_at)}`)}${row("Dauer", duration(d.started_at, d.ended_at))}
+          ${row("Strecke", num(d.distance_km, 1, "km"))}${row("Ø Geschwindigkeit", num(d.average_speed_kmh, 0, "km/h"))}</div>
+        <div>${row("Verbraucht", num(d.vehicle_energy_used_kwh, 2, "kWh"))}${row("Rekuperiert", `${num(d.recovered_energy_kwh, 2, "kWh")}${share !== null ? ` (${num(share, 0, "%")})` : ""}`)}
+          ${row("Netto", num(net, 2, "kWh"))}${row("davon Nebenverbraucher", num(d.auxiliary_energy_kwh, 2, "kWh"))}</div>
+        <div>${row("Verbrauch", num(d.consumption_kwh_100km, 1, "kWh/100 km"))}${row("SOC", `${num(d.soc_start_pct, 0, "%")} → ${num(d.soc_end_pct, 0, "%")}`)}
+          ${row("Außentemperatur", num(d.outside_temp_avg_c, 1, "°C"))}${row("Kosten zu Hause*", d.cost_eur !== null && d.cost_eur !== undefined ? `${num(d.cost_eur, 2, "€")} (${num(d.grid_energy_kwh, 2, "kWh")} Netz)` : "–")}</div>
+      </div>
+      ${chart ? `<h3>Fahrtkurve</h3>${chart}${source}` : `<p class="sub">Kein Verlauf vorhanden – weder in der Fahrt gespeichert noch in der HA-Historie.</p>`}
+      <p class="hint">* Netto-Energie inklusive Ladeverlust zum durchschnittlichen Heimstrompreis (${num(d.home_price_eur_kwh, 3, "€/kWh")}).</p>
+    </div>`;
+  }
+
+  async _toggleTrip(id) {
+    this._tripOpen = this._tripOpen === id ? null : id;
+    const cache = this._cache.tripDetail = this._cache.tripDetail || {};
+    this._render(true);
+    if (!this._tripOpen || (cache[id] && !cache[id].error)) return;
+    try {
+      cache[id] = await this._ws("get_trip_detail", { trip_id: id });
+    } catch (err) {
+      cache[id] = { error: err.message || String(err) };
+    }
+    this._render(true);
+  }
+
   async _toggleSession(id) {
     this._sessionOpen = this._sessionOpen === id ? null : id;
     const cache = this._cache.sessionDetail = this._cache.sessionDetail || {};
@@ -1636,9 +1744,10 @@ class EvPilotPanel extends HTMLElement {
       ${group("Jahreszeiten", temps.seasons)}
       <div class="card wide"><h2>Fahrten</h2><div class="scroll"><table>
         <tr><th>Start</th><th class="n">km</th><th class="n">min</th><th class="n">kWh/100</th><th class="n">°C</th><th class="n">SOC</th><th>Qualität</th></tr>
-        ${trips.slice(0, 50).map((t) => `<tr><td>${dateTime(t.started_at)}</td><td class="n">${num(t.distance_km, 1)}</td><td class="n">${num(t.duration_min, 0)}</td>
+        ${trips.slice(0, 50).map((t) => `<tr class="sess-row${this._tripOpen === t.trip_id ? " open" : ""}" data-trip="${esc(t.trip_id)}" title="Details anzeigen"><td>${dateTime(t.started_at)}</td><td class="n">${num(t.distance_km, 1)}</td><td class="n">${num(t.duration_min, 0)}</td>
           <td class="n">${num(t.consumption_kwh_100km, 1)}</td><td class="n">${num(t.outside_temp_avg_c, 0)}</td>
-          <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(QUALITY_TEXT[t.quality] || t.quality)}</span></td></tr>`).join("") || `<tr><td colspan="7" class="sub">Noch keine Fahrten.</td></tr>`}
+          <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(QUALITY_TEXT[t.quality] || t.quality)}</span></td></tr>
+          ${this._tripOpen === t.trip_id ? `<tr class="sess-open"><td colspan="7">${this._tripDetailHtml(t)}</td></tr>` : ""}`).join("") || `<tr><td colspan="7" class="sub">Noch keine Fahrten.</td></tr>`}
       </table></div></div>
       <div class="card wide"><h2>Fremdladungen</h2>
         <p class="sub">Ladungen außer Haus erkennt der Pilot automatisch über OVMS (Auto lädt, ist aber nicht an der eigenen Wallbox). Den bezahlten Preis fragt er per Push ab, oder du ergänzt ihn hier.</p>

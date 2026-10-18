@@ -470,11 +470,11 @@ class ChargingCenter:
         self._notify_listeners()
 
     async def async_recorder_minutes(
-        self, inputs: tuple[Inp, ...], start: datetime, end: datetime
+        self, inputs: tuple[Inp, ...], start: datetime, end: datetime, step_s: int = 60
     ) -> list[tuple[datetime, dict[Inp, float | None]]] | None:
-        """Recorder values of the mapped inputs, resampled to one value per minute.
+        """Recorder values of the mapped inputs, resampled to one value per ``step_s``.
 
-        The recorder only stores changes, so each minute carries the last value
+        The recorder only stores changes, so each step carries the last value
         known up to its end. None if nothing is mapped or the recorder fails.
         """
         if "recorder" not in self.hass.config.components:
@@ -484,7 +484,9 @@ class ChargingCenter:
         ids = {inp: self.entity_ids[inp] for inp in inputs if inp in self.entity_ids}
         if not ids:
             return None
-        start = start.replace(second=0, microsecond=0)
+        start = start.replace(second=0, microsecond=0) if step_s >= 60 \
+            else start.replace(microsecond=0)
+        step = timedelta(seconds=step_s)
 
         def load() -> dict[str, list]:
             # A state stamped exactly at the start is neither "before" nor "after" it
@@ -514,11 +516,11 @@ class ChargingCenter:
         while minute < end:
             for inp, points in series.items():
                 while position[inp] < len(points) and \
-                        points[position[inp]][0] < minute + timedelta(minutes=1):
+                        points[position[inp]][0] < minute + step:
                     current[inp] = points[position[inp]][1]
                     position[inp] += 1
             minutes.append((minute, dict(current)))
-            minute += timedelta(minutes=1)
+            minute += step
         return minutes
 
     def _sample_history(self, now: datetime) -> None:

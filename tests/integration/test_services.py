@@ -250,3 +250,33 @@ async def test_session_list_and_detail(hass, entry, halo, hass_ws_client):
     await client.send_json({"id": 3, "type": f"{DOMAIN}/get_session_detail", "session_id": "nope"})
     msg = await client.receive_json()
     assert not msg["success"] and msg["error"]["code"] == "not_found"
+
+
+async def test_trip_list_and_detail(hass, entry, halo, hass_ws_client):
+    from custom_components.ev_charging_pilot.core.trips import Trip
+
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    start = dt_util.utcnow() - timedelta(hours=1)
+    center.monitor.add_trip(Trip(
+        trip_id="t1", started_at=start, ended_at=start + timedelta(minutes=18),
+        odometer_start_km=9118.43, odometer_end_km=9132.83, distance_km=14.4,
+        duration_min=17.6, average_speed_kmh=49.1, vehicle_energy_used_kwh=3.03,
+        recovered_energy_kwh=0.11, auxiliary_energy_kwh=0.2, consumption_kwh_100km=20.24,
+        outside_temp_avg_c=12.5, season="autumn", soc_start_pct=76, soc_end_pct=60,
+        trace=[[0, 0.0, 0, 76.0], [15, 60.0, -21000, 75.5]]))
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/get_trips"})
+    msg = await client.receive_json()
+    assert msg["success"] and "trace" not in msg["result"]["items"][0]
+    await client.send_json({"id": 2, "type": f"{DOMAIN}/get_trip_detail", "trip_id": "t1"})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    detail = msg["result"]
+    assert detail["trace_source"] == "trip" and len(detail["trace"]) == 2
+    # 2.92 kWh net / 0.88 charge efficiency at the configured home price.
+    assert detail["grid_energy_kwh"] == round(2.92 / 0.88, 3)
+    assert detail["cost_eur"] == round(2.92 / 0.88 * detail["home_price_eur_kwh"], 2)
+    await client.send_json({"id": 3, "type": f"{DOMAIN}/get_trip_detail", "trip_id": "x"})
+    msg = await client.receive_json()
+    assert not msg["success"] and msg["error"]["code"] == "not_found"

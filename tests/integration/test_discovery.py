@@ -94,6 +94,7 @@ async def test_existing_installation_gets_the_new_ovms_inputs_once(hass):
         BATTERY_POWER_DISCOVERY_DONE,
         HVAC_DISCOVERY_DONE,
         PLUG_DISCOVERY_DONE,
+        SPEED_DISCOVERY_DONE,
         async_discover_late,
     )
 
@@ -102,11 +103,14 @@ async def test_existing_installation_gets_the_new_ovms_inputs_once(hass):
                                  suggested_object_id="car_hvac_active")
     registry.async_get_or_create("sensor", "ovms", "bpower",
                                  suggested_object_id="car_battery_power")
+    registry.async_get_or_create("sensor", "ovms", "speed", suggested_object_id="car_vehicle_speed")
+    registry.async_get_or_create("sensor", "ovms", "gps", suggested_object_id="car_gps_speed")
     data = {"ovms_soc": "sensor.car_battery_level", PLUG_DISCOVERY_DONE: True}
     late = async_discover_late(hass, data)
     assert late == {"ovms_hvac": "binary_sensor.car_hvac_active", HVAC_DISCOVERY_DONE: True,
                     "ovms_battery_power": "sensor.car_battery_power",
-                    BATTERY_POWER_DISCOVERY_DONE: True}
+                    BATTERY_POWER_DISCOVERY_DONE: True,
+                    "ovms_speed": "sensor.car_vehicle_speed", SPEED_DISCOVERY_DONE: True}
     assert async_discover_late(hass, {**data, **late}) == {}
 
 

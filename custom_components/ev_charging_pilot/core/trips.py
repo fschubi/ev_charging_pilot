@@ -8,7 +8,7 @@ the odometer difference at home and marked PARTIAL.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -16,6 +16,10 @@ from zoneinfo import ZoneInfo
 from .model import Quality, Value
 
 MIN_RECONSTRUCT_KM = 0.5
+# Drive curve for the trip detail view: speed changes fast, so one point per 15 s,
+# at most six hours.
+TRACE_STEP_S = 15
+TRACE_MAX = 1440
 # Below this distance (manoeuvring, moving the car) kWh/100 km means nothing.
 MIN_CONSUMPTION_KM = 1.0
 
@@ -59,6 +63,9 @@ class Trip:
     soc_start_pct: float | None
     soc_end_pct: float | None
     quality: str = "GOOD"
+    # [seconds since start, km/h, battery W as OVMS reports it (+ into the battery,
+    # i.e. recuperation; − drive), SOC %].
+    trace: list[list[float | None]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -116,6 +123,8 @@ class TripTracker:
         aux: Value,
         soc: Value | None,
         outside_temp: Value,
+        speed: Value | None = None,
+        battery_power: Value | None = None,
     ) -> list[Trip]:
         closed: list[Trip] = []
         known = vehicle_on.quality is Quality.GOOD
@@ -128,6 +137,7 @@ class TripTracker:
             else:
                 self.open["off_since"] = None
             self._sample(now, km, energy_used, energy_recd, aux, soc, outside_temp)
+            self._trace(now, speed, battery_power, soc)
         elif self.open is not None:
             if self.open["off_since"] is None:
                 self.open["off_since"] = now
@@ -173,6 +183,18 @@ class TripTracker:
             "temp_sum": 0.0,
             "temp_n": 0,
         }
+
+    def _trace(self, now, speed, battery_power, soc) -> None:
+        trace = self.open.setdefault("trace", [])
+        offset = round((now - self.open["started_at"]).total_seconds())
+        if len(trace) >= TRACE_MAX or (trace and offset - trace[-1][0] < TRACE_STEP_S):
+            return
+        kmh, watts, pct = _num(speed), _num(battery_power), _num(soc)
+        if kmh is None and watts is None and pct is None:
+            return
+        trace.append([offset, round(kmh, 1) if kmh is not None else None,
+                      round(watts) if watts is not None else None,
+                      round(pct, 1) if pct is not None else None])
 
     def _sample(self, now, km, used, recd, aux, soc, temp) -> None:
         trip = self.open
@@ -242,6 +264,7 @@ class TripTracker:
             soc_start_pct=t["soc_start"],
             soc_end_pct=t["soc_end"],
             quality=quality,
+            trace=t.get("trace") or [],
         )
 
     def _reconstruct(self, now: datetime, km: float, soc: Value | None) -> Trip:

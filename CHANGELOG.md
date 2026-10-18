@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.22.0 – 2026-10-18
+
+Fahrt-Details mit Fahrtkurve (Reiter „Drive & Energy“):
+- **Fahrt anklicken → Details:** Zeitraum, Dauer, Strecke, Ø-Geschwindigkeit, verbraucht,
+  rekuperiert (mit Anteil), netto, Nebenverbraucher, kWh/100 km, SOC vorher/nachher,
+  Außentemperatur und was die Fahrt zu Hause gekostet hat (Netto-Energie mit Ladeverlust
+  zum durchschnittlichen Heimstrompreis).
+- **Fahrtkurve:** oben die Geschwindigkeit, unten Antrieb (orange) und Rekuperation (grün)
+  aus der Akkuleistung, dazu der SOC; beim Überfahren die Werte jedes Messpunkts.
+- Jede Fahrt speichert ihren Verlauf jetzt selbst (alle 15 s, auch über einen Neustart).
+  Für ältere Fahrten kommt die Kurve aus der HA-Historie.
+- **Neuer OVMS-Eingang „Geschwindigkeit“** (`…_vehicle_speed`), wird bei bestehenden
+  Installationen automatisch übernommen.
+
 ## 0.21.1 – 2026-10-18
 
 - **Kurze WLAN-Aussetzer des Shelly sperren die Automatik nicht mehr:** War der Shelly

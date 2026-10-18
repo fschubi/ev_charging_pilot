@@ -144,4 +144,6 @@ Auto eingesteckt, 90 %, Wallbox aus. Ausgewertet um 08:50.
 - [x] „HV-Zyklen heute“ = 1 (vorher −1), Tageswert über den Neustart erhalten (Fehler 1).
 - [x] Panel als Modul geladen (`ev_charging_pilot_panel?v=0.19.9`), keine Skriptfehler im
       HA-Log (Fehler 4). Ein älterer, noch offener Tab braucht einmal Neuladen.
-- [ ] Erstes Speichern der Einstellungen nach dem Boot ohne ERROR (Fix H5) – noch offen.
+- [x] Erstes Speichern der Einstellungen nach dem Boot (08:53): Integration neu geladen
+      (`EXECUTOR_STARTED`), **kein** ERROR von `ev_charging_pilot` im HA-Log (Fix H5),
+      danach wieder kein Wecken, Zustand bereit, Cockpit „Ziel 90 % erreicht“.

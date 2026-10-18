@@ -141,10 +141,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.9 Erste echte Ladung.** Nacht sauber (Freigabe 10 s, kein Wecken,
-  Aus bei 90 %). Fixes: `HvCycleMonitor` zählt Betrag (Restzähler fällt); `summary._upcoming`
-  „Ziel erreicht“ bei `needed_kwh ≤ 0`, nur künftige Blöcke; `SessionTracker` Basis bei
-  `CHARGER_ENABLE`, Nachlauf `TAIL_S` = 65 s (`closing`, im Store); Panel per `module_url`.
 - **2026-10-18 – v0.20.0 Ladekurve + Session-Details.** `ChargeSession.trace`
   ([s ab Start, Halo W, OVMS W, SOC], 1/min, max. 1440); `get_sessions` ohne `trace`,
   `get_session_detail` mit Ereignissen und Recorder-Fallback (`async_recorder_minutes`,
@@ -160,3 +156,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-18 – v0.21.0 Klima-Energie.** `Inp.OVMS_BATTERY_POWER`; `SessionTracker._climate`
   (Halo − Akku/η je 15-min-Slot, nur bei `Engine._climate_heating`), `ChargeSession.
   climate_energy_kwh/climate_cost_eur`; Statistik, Panel-Spalte „Klima“, PDF-Zeile.
+- **2026-10-18 – v0.21.1 Shelly-Aussetzer.** `Engine._relay_closed_at` +
+  `_shelly_dropout_tolerated`: unerreichbarer Shelly gilt `SHELLY_DROPOUT_GRACE` (3 min) als
+  „CP zu“, nicht nach CP-Puls (`executor.last_pulse_at`, 10 min) oder offener CP. Rückfahrt
+  18.10. sauber erfasst (Fahrt schließt erst nach `trip_merge_gap_min` = 10 min).

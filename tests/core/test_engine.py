@@ -394,3 +394,41 @@ def test_climate_is_not_sent_twice_after_a_restart():
     fresh.run(30)
     assert CommandKind.CLIMATE_START not in fresh.commands
     assert fresh.engine.climate_phase == "sent"
+
+
+def test_short_shelly_dropout_is_tolerated_for_three_minutes():
+    """Field 18.10.2026: the Shelly dropped off the WLAN for a minute, 30 times."""
+    from custom_components.ev_charging_pilot.core.health import HealthStatus
+
+    world = World(local(2026, 10, 13, 12, 0), configured=WITH_CP)
+    world.run(30)
+    assert world.engine.health.status is HealthStatus.HEALTHY
+    world.set(Inp.CP_RELAY, "unavailable")
+    world.run(170)
+    assert world.engine.health.status is HealthStatus.HEALTHY
+    world.run(20)
+    assert world.engine.health.status is HealthStatus.ERROR
+    assert "CP_STATE_UNKNOWN" in world.engine.health.reasons
+    world.set(Inp.CP_RELAY, "on")
+    world.run(10)
+    assert world.engine.health.status is HealthStatus.HEALTHY
+
+
+def test_no_dropout_grace_right_after_a_cp_pulse_or_an_open_cp():
+    from datetime import timedelta
+
+    from custom_components.ev_charging_pilot.core.health import HealthStatus
+
+    world = World(local(2026, 10, 13, 12, 0), configured=WITH_CP)
+    world.run(30)
+    world.engine.executor.last_pulse_at = world.now - timedelta(minutes=2)
+    world.set(Inp.CP_RELAY, "unavailable")
+    world.tick()
+    assert world.engine.health.status is HealthStatus.ERROR
+
+    world = World(local(2026, 10, 13, 12, 0), configured=WITH_CP)
+    world.set(Inp.CP_RELAY, "off")
+    world.run(30)
+    world.set(Inp.CP_RELAY, "unavailable")
+    world.tick()
+    assert "CP_STATE_UNKNOWN" in world.engine.health.reasons

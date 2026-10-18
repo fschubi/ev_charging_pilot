@@ -100,6 +100,11 @@ REMINDER_HORIZON = timedelta(hours=12)
 # The buttons of the plug-in push only apply to that plug-in, and not forever.
 PLUG_OFFER_VALID = timedelta(hours=12)
 CP_REASONS = ("CP_NOT_RESTORED", "CP_STATE_UNKNOWN", "CP_OPEN")
+# A Shelly that drops off the WLAN for a moment keeps its last confirmed "CP closed"
+# for this long (field 18.10.2026: 30 short dropouts at −80 dBm in three hours).
+# Never right after a CP pulse: then only a fresh reading proves the CP is closed.
+SHELLY_DROPOUT_GRACE = timedelta(minutes=3)
+NO_GRACE_AFTER_PULSE = timedelta(minutes=10)
 # What the user can check – shown in pushes and in the panel.
 FAILURE_HINTS = {
     "CHARGE_START_FAILED": "Bitte prüfen: Stecker am Auto ganz eingerastet, Auto entriegelt, "
@@ -203,6 +208,8 @@ class Engine:
         # must not move it and send a second command) with its progress:
         # due → sent → running (car reports HVAC on) → done; or skipped.
         self._climate_lock: ClimateRequest | None = None
+        # Last moment the Shelly confirmed "CP closed" (for SHELLY_DROPOUT_GRACE).
+        self._relay_closed_at: datetime | None = None
         self.climate_phase: str | None = None
         self.data_conflict = False
         self.last_activity_at: datetime | None = None
@@ -752,10 +759,23 @@ class Engine:
 
     # -------------------------------------------------------------- health
 
+    def _shelly_dropout_tolerated(self, now: datetime) -> bool:
+        """Unreachable Shelly, but it confirmed "CP closed" moments ago (no pulse since)."""
+        closed_at, pulse_at = self._relay_closed_at, self.executor.last_pulse_at
+        return closed_at is not None and now - closed_at < SHELLY_DROPOUT_GRACE \
+            and not (pulse_at is not None and now - pulse_at < NO_GRACE_AFTER_PULSE)
+
     def _health_inputs(self, now: datetime) -> HealthInputs:
         v = self.values
         cfg = self.config
         relay = v[Inp.CP_RELAY]
+        relay_on = bool(relay.normalized) if relay.available else None
+        if relay_on is True:
+            self._relay_closed_at = now
+        elif relay_on is False:
+            self._relay_closed_at = None
+        elif self._shelly_dropout_tolerated(now):
+            relay_on = True
         schedule = v[Inp.INTERNAL_SCHEDULE]
         needs_temperature = self.settings.climate_enabled and any(
             w.climate == "auto" for w in self.windows)
@@ -763,8 +783,8 @@ class Engine:
             halo_available=v[Inp.CHARGER_ENABLE].available,
             in_charge_window=self.active_window is not None,
             cp_configured=cfg.cp_configured,
-            shelly_available=relay.available if cfg.cp_configured else None,
-            cp_relay_on=bool(relay.normalized) if relay.available else None,
+            shelly_available=(relay_on is not None) if cfg.cp_configured else None,
+            cp_relay_on=relay_on,
             cp_pulse_running=self.executor.cp_masked(now),
             cp_not_restored=self.executor.cp_not_restored,
             ovms_configured=cfg.ovms_configured,

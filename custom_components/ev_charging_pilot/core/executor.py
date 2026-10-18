@@ -165,6 +165,7 @@ class Executor:
         self._last_wakeup_at: datetime | None = None
         self._mask_until: datetime | None = None
         self._pulse_check_at: datetime | None = None
+        self.last_pulse_at: datetime | None = None
         self._confirm_attempts = 0
         self._resume: tuple[ExecState, datetime] | None = None
         self._below_since: datetime | None = None
@@ -575,6 +576,7 @@ class Executor:
     def _start_pulse(self, now: datetime) -> None:
         cfg = self.config
         self._last_wakeup_at = now
+        self.last_pulse_at = now
         self._mask_until = now + timedelta(seconds=cfg.cp_pulse_s + cfg.cp_mask_grace_s)
         self._pulse_check_at = now + timedelta(
             seconds=cfg.cp_pulse_s + cfg.cp_restore_check_extra_s)

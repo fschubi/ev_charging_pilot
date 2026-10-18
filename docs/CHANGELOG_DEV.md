@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.19.9 Erste echte Ladung.** Nacht sauber (Freigabe 10 s, kein Wecken,
+  Aus bei 90 %). Fixes: `HvCycleMonitor` zählt Betrag (Restzähler fällt); `summary._upcoming`
+  „Ziel erreicht“ bei `needed_kwh ≤ 0`, nur künftige Blöcke; `SessionTracker` Basis bei
+  `CHARGER_ENABLE`, Nachlauf `TAIL_S` = 65 s (`closing`, im Store); Panel per `module_url`.
 - **2026-10-18 – v0.19.8 Prüfbericht Texte/Doku.** `health.REASON_TEXT/STATUS_TEXT`,
   `OVERRIDE_TEXT`, `STATE_TEXT`, PDF-Labels, Panel-Labels, einheitliche Begriffe, README/ROADMAP.
   Prüfbericht vollständig abgearbeitet (Status oben im Bericht).

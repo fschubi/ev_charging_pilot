@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.21.1 – 2026-10-18
+
+- **Kurze WLAN-Aussetzer des Shelly sperren die Automatik nicht mehr:** War der Shelly
+  eben noch erreichbar und die CP-Leitung geschlossen, gilt das bei einem Aussetzer noch
+  3 Minuten weiter. Erst danach heißt es „Shelly (CP-Relais) nicht erreichbar“ mit Sperre
+  und Push. Am 18.10. fiel der Shelly bei −80 dBm 30-mal für etwa eine Minute aus und
+  löste zweimal „Systemzustand: Fehler“ aus.
+- Keine Toleranz in den 10 Minuten nach einem CP-Puls und nicht bei offener CP-Leitung:
+  Dann zählt nur ein frischer Wert. Ein CP-Puls wird während eines Aussetzers nie
+  ausgelöst.
+
 ## 0.21.0 – 2026-10-18
 
 Strom der Vorklimatisierung wird getrennt ausgewiesen:

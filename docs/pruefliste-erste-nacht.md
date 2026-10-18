@@ -93,8 +93,30 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
 - [x] Genau eine Sitzung `s-20261018-040043`, sauber geschlossen, `success`, 71 → 90 %,
       3,31 kWh, 1,27 € (0,384 €/kWh Tibber), max. 9,17 kW, Ø 8,66 kW.
 - [x] Systemzustand HEALTHY, SOC-Qualität GOOD, keine Fehler von `ev_charging_pilot` im HA-Log.
-- [ ] Vorklimatisierung: geplant 15:53–16:00 (auto, 8,7 °C außen) – **noch offen**, nach 16:00 prüfen.
-- [ ] Wochenplan ab Montag, Monatsbericht – noch offen.
+- [x] Vorklimatisierung 15:53–16:00 (auto, 8,7 °C → 5 min) – Ergebnisse unten.
+- [ ] Wochenplan ab Montag (Büro Mo–Mi, 100 %), Monatsbericht – noch offen.
+
+**Vorklimatisierung 18.10. (v0.19.9):**
+- `CLIMATE_START` und `CHARGER_ENABLE` gleichzeitig 15:53:04, Halo bestätigt nach 7 s, Auto
+  wach 15:53:09 durch den OVMS-Befehl – kein `OVMS_WAKEUP`/CP-Puls.
+- Klima (`hvac_active`) 15:53:20–15:58:06, Innenraum 17 → 26 °C, Lüfter konstant 96;
+  Heizleistung taktet (Halo 7–8,8 kW, Akku 3,2–6,5 kW).
+- Wallbox blieb bis 16:00:04 an (`allow_topup`), lud nach Klima-Ende auf 92 %.
+- Sitzung `s-20261018-135409` Grund `climate`: 0,80 kWh, 0,34 €.
+- Falsche Warnung `HV_CYCLE_WITHOUT_ACTIVITY` 15:53:53 (Executor noch WAITING_FOR_CHARGE).
+- → behoben in **v0.20.1** (Halo-Bestätigung vor Klimabefehl, Ende mit `hvac_active`,
+  HV-Wächter), Klima-Anteil getrennt ab **v0.21.0**.
+
+**Weitere Befunde 18.10.:**
+- SOC-Anzeige 90 → 88 % um 14:30 ohne Wecken: Korrektur nach Entspannung (389,5 → 383,5 V),
+  `real_soc` lag bei 85,6 %. Beobachten, ob das Ladeziel dadurch regelmäßig 1–2 % zu tief
+  landet.
+- Cockpit/Statuszeile nannte „Lädt 06:00–15:54“ nach dem Block → **v0.20.2**.
+- Fahrten 16:13–16:32 (15,3 km, 19,4 kWh/100 km) und 19:14–19:32 (14,4 km, 20,2 kWh/100 km)
+  korrekt; eine Fahrt erscheint erst 10 min nach „Fahrzeug aus“ (`trip_merge_gap_min`).
+- Shelly-WLAN −79 … −87 dBm (Vortag −69), 30 Aussetzer 16–19 Uhr, zweimal
+  `HEALTH_ERROR` → Toleranz 3 min in **v0.21.1**; WLAN selbst bleibt zu verbessern.
+- OVMS `battery_power`: + in den Akku (Laden/Rekuperation), − beim Fahren.
 
 **Gefundene Fehler** (alle vier behoben in **v0.19.9**, mit Tests):
 

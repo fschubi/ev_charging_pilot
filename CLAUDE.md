@@ -124,7 +124,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 ## Offene Punkte / Entscheidungen
 
 - **Als Nächstes: [`docs/pruefliste-erste-nacht.md`](docs/pruefliste-erste-nacht.md)** – erste
-  Nacht ausgewertet (Ergebnisse dort); offen: Vorklimatisierung, Neustart, Wochenplan ab Mo.
+  Nacht und Vorklimatisierung ausgewertet (Ergebnisse dort); offen: Wochenplan ab Mo mit
+  Klima nach v0.20.1, SOC-Korrektur nach Ladeende beobachten, Shelly-WLAN.
 - Gates §15 sind real zu erfüllen (Messungen, Dry-Run-Nächte, Feldtests) – Code ist fertig.
 - `docs/messungen.md` ausfüllen → Defaults in `core/settings.py` anpassen.
 - OVMS ist bei Frank eingebunden (HACS „OVMS“, Domain `ovms`). Befehlsweg wird automatisch

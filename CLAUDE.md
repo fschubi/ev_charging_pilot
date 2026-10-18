@@ -136,16 +136,12 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.
 - Preisoptimierung lädt standardmäßig in einem Block (Wakeup-Schonung); 2 Blöcke optional.
 - Noch nicht gebaut: OCPP (Prüfauftrag §16 #9).
-- **Geplant (Frank, 18.10.):** v0.20.2 `sensor.ev_pilot_status` (Text aus `summary`, inkl.
-  Vorklimatisierung), Zusammenfassung/`next_charge_start` ohne vergangene Blöcke; danach
-  Mushroom-Karte (Dashboard „Smarthome“, Home) darauf umstellen. v0.21.0 Spalte „Klima“
+- **Geplant (Frank, 18.10.):** Mushroom-Karte (Dashboard „Smarthome“, Home) auf
+  `sensor.ev_pilot_status` umstellen. v0.21.0 Spalte „Klima“
   (kWh/€) – Netz minus `battery_power` (OVMS) solange `hvac_active`.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.19.7 Prüfbericht Stufe 3.** `MISSING_STATES` case-sensitiv (Halo
-  „Unavailable“), `BLIND_WHEN_LOCKED`, kein Wecken bei unbekanntem Kabel, alte Leistung ≠ fließt,
-  `OFF_RETRY_AFTER`, MWh-Schwelle 70, Gleichstand → spät, Verlust ≤ 40 %, Privatsphäre, `plug_discovery_done`.
 - **2026-10-18 – v0.19.8 Prüfbericht Texte/Doku.** `health.REASON_TEXT/STATUS_TEXT`,
   `OVERRIDE_TEXT`, `STATE_TEXT`, PDF-Labels, Panel-Labels, einheitliche Begriffe, README/ROADMAP.
   Prüfbericht vollständig abgearbeitet (Status oben im Bericht).
@@ -162,3 +158,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `_climate_lock`/`climate_phase` (due→sent→running→done|skipped, im Store), Ende bei
   `Inp.OVMS_HVAC` aus; `climate_sent` im Executor-Store; HV-Aktivität inkl. Start/Klima;
   `discovery.async_discover_late` (`LATE_DISCOVERY`) statt Steckererkennung allein.
+- **2026-10-18 – v0.20.2 Statussensor.** `sensor.ev_pilot_status` = `summary()`-Headline
+  (Attribute detail/tone/climate_*); `summary._with_climate`/`_climate_note`/
+  `_climate_running`; „Kein Laden mehr geplant“ nach letztem Block; `sensor._next_start`.

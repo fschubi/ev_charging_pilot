@@ -40,6 +40,9 @@ async def test_entities_follow_masterplan_ids(hass, entry, halo):
     assert hass.states.get("switch.ev_pilot_dry_run").state == "on"
     assert hass.states.get("sensor.ev_pilot_executor_state").state == "idle"
     assert hass.states.get("sensor.ev_pilot_system_health").state == "healthy"
+    status = hass.states.get("sensor.ev_pilot_status")
+    assert status.state and status.attributes["tone"] in ("ok", "info", "warn", "bad")
+    assert "Probebetrieb" in status.attributes["detail"]
     # Without OVMS and Shelly no vehicle sensors and no CP button.
     assert hass.states.get("sensor.ev_pilot_soc") is None
     assert hass.states.get("button.ev_pilot_cp_wakeup") is None

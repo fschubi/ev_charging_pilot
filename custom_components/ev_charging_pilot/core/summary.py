@@ -15,6 +15,7 @@ from .health import HealthStatus
 from .inputs import Inp
 from .model import Value
 from .planner import OverrideMode
+from .settings import ClimateAfterTarget
 
 WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 
@@ -49,6 +50,48 @@ def summary(engine: Engine, now: datetime, live: bool) -> dict[str, Any]:
     return {"headline": headline, "detail": detail, "tone": tone}
 
 
+def _climate_source(engine: Engine) -> str:
+    plugged = engine.executor.state is not ExecState.DISCONNECTED
+    if plugged and engine.settings.climate_after_target is not ClimateAfterTarget.BATTERY_ONLY:
+        return "Strom aus der Wallbox"
+    return "Strom aus dem Akku"
+
+
+def _climate_running(engine: Engine, now: datetime) -> bool:
+    plan = engine.climate_plan
+    if plan is None or engine.climate_blocked or engine.climate_phase in ("done", "skipped"):
+        return False
+    return engine.climate_active or plan.start_at <= now < plan.until
+
+
+def _climate_ahead(engine: Engine, now: datetime):
+    """The planned climate if it still lies ahead (and may run), else None."""
+    plan = engine.climate_plan
+    if plan is None or engine.climate_blocked or engine.climate_phase is not None \
+            or plan.start_at <= now:
+        return None
+    return plan
+
+
+def _with_climate(engine: Engine, now: datetime, at, rest: tuple[str, str, str]
+                  ) -> tuple[str, str, str]:
+    """Nothing (more) to charge: an upcoming climate is the next thing that happens."""
+    plan = _climate_ahead(engine, now)
+    if plan is None:
+        return rest
+    outside = engine.outside
+    temp = f" · {_de(float(outside.normalized), 1)} °C außen" \
+        if outside.available and outside.normalized is not None else ""
+    return (f"Vorklimatisierung um {at(plan.start_at)} für {plan.duration_min} min",
+            f"Abfahrt {at(plan.until)}{temp} · {_climate_source(engine)}. {rest[0]}.",
+            rest[2])
+
+
+def _climate_note(engine: Engine, now: datetime, at) -> str:
+    plan = _climate_ahead(engine, now)
+    return f" Vorklimatisierung {at(plan.start_at)} ({plan.duration_min} min)." if plan else ""
+
+
 def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
     ex = engine.executor
     state = ex.state
@@ -71,10 +114,17 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
         return ("Nicht eingesteckt",
                 f"Nächste Abfahrt {at(window.departure)} („{window.name}“) – bitte {when} "
                 "einstecken.", "info")
+    override = engine.override
+    if _climate_running(engine, now) and not (override is not None and override.charger_enabled):
+        kw = _kw(engine.values.get(Inp.CHARGE_POWER)) \
+            if state in (ExecState.CHARGING, ExecState.CHARGE_STABILIZING) else None
+        charging = f", lädt dabei mit {_de(kw, 1)} kW" if kw else ""
+        return ("Vorklimatisierung läuft",
+                f"Bis spätestens {at(engine.climate_plan.until)} · "
+                f"{_climate_source(engine)}{charging}.", "ok")
     if state in (ExecState.CHARGING, ExecState.CHARGE_STABILIZING):
         kw = _kw(engine.values.get(Inp.CHARGE_POWER))
         headline = f"Lädt mit {kw:.1f} kW".replace(".", ",") if kw else "Lädt"
-        override = engine.override
         if override is not None and override.charger_enabled:
             target = f"bis {override.target_soc} %" if override.mode is OverrideMode.UNTIL_SOC \
                 else "bis das Kabel gezogen wird"
@@ -83,7 +133,8 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
             finish = window.estimate.finish_at
             return (headline, f"Ziel {window.preferred_soc_pct} %"
                     + (f", fertig ca. {at(finish)}" if finish else "")
-                    + f" – Abfahrt {at(window.departure)}.", "ok")
+                    + f" – Abfahrt {at(window.departure)}."
+                    + _climate_note(engine, now, at), "ok")
         return headline, "", "ok"
     if state is ExecState.WAKEUP_OVMS:
         return "Weckt das Auto", "Software-Wakeup über das Fahrzeugmodul läuft.", "info"
@@ -94,11 +145,16 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
     if state is ExecState.CHARGE_ENDED:
         return "Ladung beendet", "Das Auto hat selbst aufgehört – der Akku ist voll.", "ok"
     if engine.target_held and window is not None:
-        return (f"Ziel {window.preferred_soc_pct} % erreicht",
-                f"Das Auto ruht bis zur Abfahrt {at(window.departure)}.", "ok")
+        return _with_climate(engine, now, at, (
+            f"Ziel {window.preferred_soc_pct} % erreicht",
+            f"Das Auto ruht bis zur Abfahrt {at(window.departure)}.", "ok"))
     if window is None:
         return "Bereit", "Kein Ladeplan aktiv – „Jetzt laden“ startet sofort.", "info"
-    return _upcoming(engine, window, now, at, lambda a, b: _span(a, b, engine, now))
+    headline, detail, tone = _upcoming(engine, window, now, at,
+                                       lambda a, b: _span(a, b, engine, now))
+    if headline.startswith(("Ziel ", "Kein Laden")):
+        return _with_climate(engine, now, at, (headline, detail, tone))
+    return headline, detail + _climate_note(engine, now, at), tone
 
 
 def _upcoming(engine: Engine, window, now: datetime, at, span) -> tuple[str, str, str]:
@@ -115,6 +171,14 @@ def _upcoming(engine: Engine, window, now: datetime, at, span) -> tuple[str, str
                    f"erreicht (erwartet {e.expected_soc_at_departure:.0f} %).")
         tone = "warn"
     blocks = [(a, b) for a, b in window.blocks if b > now]
+    desired = engine.desired
+    if window.start <= now and not blocks and window.blocks \
+            and not (desired is not None and desired.charger_enabled):
+        # The (locked) price block is over and nothing switches on any more – its
+        # estimate would read "charges 06:00–15:54" (field 18.10.2026).
+        soc = f" – {e.soc_pct:.0f} %" if e.soc_pct is not None else ""
+        return (f"Kein Laden mehr geplant{soc}",
+                f"Ladeblock vorbei, Abfahrt {at(window.departure)}.", "info")
     if blocks:
         times = ", ".join(span(a, b) for a, b in blocks)
         return f"Lädt in der günstigsten Zeit {times}", detail, tone

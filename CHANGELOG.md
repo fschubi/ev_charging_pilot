@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.20.2 – 2026-10-18
+
+Klare Statuszeile – im Cockpit und als Sensor fürs eigene Dashboard:
+- **Neuer Sensor `sensor.ev_pilot_status`:** derselbe Satz wie oben im Cockpit, mit
+  `detail` und `tone` (ok/info/warn/bad) sowie `climate_start`, `climate_minutes`,
+  `climate_phase` als Attribute. Damit braucht eine Dashboard-Karte keine eigene Logik.
+- **Vorklimatisierung wird genannt:** „Vorklimatisierung um 15:53 für 5 min“ (mit
+  Abfahrt, Außentemperatur und ob der Strom aus der Wallbox oder dem Akku kommt) und
+  während sie läuft „Vorklimatisierung läuft“.
+- **Kein „Lädt 06:00–15:54“ mehr nach dem Ladeblock:** Ist der Preisblock vorbei und
+  schaltet nichts mehr ein, heißt es „Kein Laden mehr geplant – 88 %“.
+- **`sensor.ev_pilot_next_charge_start`** zeigt keinen vergangenen Start mehr: nach dem
+  letzten Ladeblock ist er leer, sonst der nächste Block bzw. Fensterstart.
+
 ## 0.20.1 – 2026-10-18
 
 Vorklimatisierung nach dem ersten echten Test (18.10., 15:53, 5 min bei 8,7 °C):

@@ -340,6 +340,9 @@
   },
   "entity": {
     "sensor": {
+      "status": {
+        "name": "Status"
+      },
       "executor_state": {
         "name": "Ladeablauf",
         "state": {

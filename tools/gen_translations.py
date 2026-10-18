@@ -279,6 +279,7 @@ STATES = {
 }
 
 SENSORS = {
+    "status": T("Status", "Status"),
     "executor_state": T("Ladeablauf", "Charging sequence"),
     "desired_reason": T("Soll-Grund", "Desired reason"),
     "system_health": T("System-Health", "System health"),

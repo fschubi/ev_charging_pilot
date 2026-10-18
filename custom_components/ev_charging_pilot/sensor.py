@@ -31,6 +31,8 @@ from .core.executor import ExecState
 from .core.health import HealthStatus
 from .core.inputs import Inp
 from .core.model import Quality, Reason
+from .core.settings import RunMode
+from .core.summary import summary
 from .entity import ChargingEntity
 
 EUR = "EUR"
@@ -60,6 +62,34 @@ def _quality(c: ChargingCenter, inp: Inp) -> dict[str, Any]:
 
 def _window(c: ChargingCenter):
     return c.engine.next_window
+
+
+def _next_start(c: ChargingCenter) -> datetime | None:
+    """The next moment charging begins – never one that already passed.
+
+    A started window keeps its (locked) start; once its last price block is over
+    nothing more is planned for it (field 18.10.2026: "charges from 06:00" at 15:50).
+    """
+    window, now = _window(c), dt_util.utcnow()
+    if window is None:
+        return None
+    if window.start > now:
+        return window.start
+    return next((a if a > now else now for a, b in window.blocks if b > now), None)
+
+
+def _status(c: ChargingCenter) -> dict[str, Any]:
+    return summary(c.engine, dt_util.utcnow(), c.mode is RunMode.LIVE)
+
+
+def _climate_attributes(c: ChargingCenter) -> dict[str, Any]:
+    plan = c.engine.climate_plan
+    return {
+        "climate_start": _iso(plan.start_at) if plan else None,
+        "climate_minutes": plan.duration_min if plan else None,
+        "climate_phase": c.engine.climate_phase,
+        "climate_blocked": c.engine.climate_blocked,
+    }
 
 
 def _stat(period: str, key: str) -> Callable[[ChargingCenter], Any]:
@@ -92,6 +122,13 @@ def _period(period: str, key: str, stat: str, **kwargs: Any) -> ChargingSensorDe
 
 SENSORS: tuple[ChargingSensorDescription, ...] = (
     # --- Status
+    ChargingSensorDescription(
+        key="status",
+        value=lambda c: _status(c)["headline"][:255],
+        attributes=lambda c: {
+            "detail": (status := _status(c))["detail"], "tone": status["tone"],
+            **_climate_attributes(c)},
+    ),
     ChargingSensorDescription(
         key="executor_state",
         device_class=SensorDeviceClass.ENUM,
@@ -163,7 +200,7 @@ SENSORS: tuple[ChargingSensorDescription, ...] = (
     ChargingSensorDescription(
         key="next_charge_start",
         device_class=SensorDeviceClass.TIMESTAMP,
-        value=lambda c: _window(c).start if _window(c) else None,
+        value=_next_start,
         attributes=lambda c: {
             "plan": _window(c).name if _window(c) else None,
             "fallback_without_soc": _window(c).fallback_without_soc if _window(c) else None,

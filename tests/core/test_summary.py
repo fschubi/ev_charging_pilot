@@ -92,3 +92,40 @@ def test_target_reached_in_price_block_stays_reached_after_the_block():
     world.run(60)
     assert world.engine.desired.charger_enabled is False
     assert text(world) == "Ziel 90 % erreicht | Das Auto ruht bis zur Abfahrt 05:30."
+
+
+def test_soc_correction_after_the_block_plans_nothing_more():
+    """Field 18.10.2026: the display SOC fell from 90 to 88 % at rest – the cockpit
+    then claimed "Lädt 06:00–15:54" although nothing would switch on any more."""
+    from datetime import timedelta
+
+    from .test_prices_external_report import local, night_prices
+
+    world = World(local(2026, 10, 13, 22, 0), configured=WITH_OVMS, price_source="tibber")
+    world.engine.set_prices(night_prices().slots)
+    world.set(Inp.OVMS_SOC, "70")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.tick()
+    start, end = world.engine.next_window.blocks[-1]
+    world.now = start
+    world.run(60)
+    world.set(Inp.OVMS_SOC, "90")
+    world.run(60)
+    world.now = end + timedelta(minutes=30)
+    world.set(Inp.OVMS_SOC, "88")
+    world.run(60)
+    assert world.engine.desired.charger_enabled is False
+    line = text(world)
+    assert line == "Kein Laden mehr geplant – 88 % | Ladeblock vorbei, Abfahrt 05:30."
+
+
+def test_climate_ahead_and_running_are_named():
+    from .test_engine import CLIMATE_START_AT, climate_world, local
+
+    world = climate_world("allow_topup")
+    world.run(60)
+    assert text(world).startswith("Vorklimatisierung um 05:18 für 10 min | Abfahrt 05:30 · ")
+    assert "Strom aus der Wallbox. Ziel 90 % erreicht." in text(world)
+    world.now = local(*CLIMATE_START_AT)
+    world.run(30)
+    assert text(world).startswith("Vorklimatisierung läuft | Bis spätestens 05:30")

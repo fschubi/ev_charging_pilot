@@ -94,7 +94,7 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
       3,31 kWh, 1,27 € (0,384 €/kWh Tibber), max. 9,17 kW, Ø 8,66 kW.
 - [x] Systemzustand HEALTHY, SOC-Qualität GOOD, keine Fehler von `ev_charging_pilot` im HA-Log.
 - [ ] Vorklimatisierung: geplant 15:53–16:00 (auto, 8,7 °C außen) – **noch offen**, nach 16:00 prüfen.
-- [ ] Neustart nach fertiger Ladung, Wochenplan ab Montag, Monatsbericht – noch offen.
+- [ ] Wochenplan ab Montag, Monatsbericht – noch offen.
 
 **Gefundene Fehler** (alle vier behoben in **v0.19.9**, mit Tests):
 
@@ -133,3 +133,15 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
 - Ausgangslage oben: Halo steht auf 14 A (≈ 9,2 kW), nicht 12 A; gelernte Leistung braucht
   noch zwei Ladungen (`learned.sessions` = 1).
 
+### Neustart mit Update auf v0.19.9 – So 18.10.2026, 08:48
+
+Auto eingesteckt, 90 %, Wallbox aus. Ausgewertet um 08:50.
+
+- [x] Nach dem Neustart nur `EXECUTOR_STARTED` (bereit), **kein** `OVMS_WAKEUP` /
+      `CP_PULSE_START`, kein Schaltbefehl (Fix K2 bestätigt).
+- [x] Systemzustand HEALTHY, SOC 90 % mit Qualität GOOD.
+- [x] Cockpit: „Ziel 90 % erreicht – Das Auto ruht bis zur Abfahrt 16:00“ (v0.19.9, Fehler 2).
+- [x] „HV-Zyklen heute“ = 1 (vorher −1), Tageswert über den Neustart erhalten (Fehler 1).
+- [x] Panel als Modul geladen (`ev_charging_pilot_panel?v=0.19.9`), keine Skriptfehler im
+      HA-Log (Fehler 4). Ein älterer, noch offener Tab braucht einmal Neuladen.
+- [ ] Erstes Speichern der Einstellungen nach dem Boot ohne ERROR (Fix H5) – noch offen.

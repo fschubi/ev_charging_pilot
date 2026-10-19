@@ -94,7 +94,18 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
       3,31 kWh, 1,27 € (0,384 €/kWh Tibber), max. 9,17 kW, Ø 8,66 kW.
 - [x] Systemzustand HEALTHY, SOC-Qualität GOOD, keine Fehler von `ev_charging_pilot` im HA-Log.
 - [x] Vorklimatisierung 15:53–16:00 (auto, 8,7 °C → 5 min) – Ergebnisse unten.
-- [ ] Wochenplan ab Montag (Büro Mo–Mi, 100 %), Monatsbericht – noch offen.
+- [x] Wochenplan Montag 19.10. (Büro Mo–Mi, 100 %) – Ergebnisse unten.
+- [ ] Monatsbericht 01.11. – noch offen.
+
+**Nacht zum Montag 19.10. (v0.22.2):**
+- Block 02:30–03:52 geplant; Freigabe 02:30:04, bestätigt 02:30:15, Auto wach 02:30:21
+  (17 s, **kein Wecken**), stabil 02:30:45, Abschaltung bei 100 % um 03:34:57, Sitzung
+  `s-20261019-003045`: 7,92 kWh, 3,42 € (0,43 €/kWh), 58 → 100 %, Ladekurve gespeichert.
+- Ladestrom 12 A griff erst nach dem zweiten `CURRENT_SET` (02:33:05), vorher 14 A.
+- Anzeige 100 % bei `real_soc` ≈ 93 %: Pilot schaltet ab, bevor das Auto selbst aufhört.
+- OVMS `charger_power` misst die Netzseite – „im Akku“/Ladeverlust in der Sitzung damit
+  nicht aussagekräftig (Ladeverlust ≈ 0 %).
+- Vorklimatisierung 05:23 (5 min, 8,2 °C) – Auswertung folgt.
 
 **Vorklimatisierung 18.10. (v0.19.9):**
 - `CLIMATE_START` und `CHARGER_ENABLE` gleichzeitig 15:53:04, Halo bestätigt nach 7 s, Auto

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.2 – 2026-10-19
+
+- **Fahrten löschen:** In der aufgeklappten Fahrt (Reiter „Drive & Energy“) gibt es den
+  Knopf „Fahrt löschen“ mit Rückfrage; auch als Dienst `ev_charging_pilot.delete_trip`.
+- **Kein Unsinns-Verbrauch bei Rangierfahrten:** Fahrten unter 1 km zeigen keinen
+  Verbrauch pro 100 km mehr – auch nicht die älteren vom 17.10. (0,06 km mit
+  138 kWh/100 km, 0,14 km mit 86 kWh/100 km); sie werden beim Start korrigiert. Sie
+  zählen außerdem nicht mehr in den Temperatur- und Jahreszeitengruppen.
+
 ## 0.23.1 – 2026-10-19
 
 Temperaturen ehrlich – nach dem Vergleich mit der Wetterstation am 19.10.:

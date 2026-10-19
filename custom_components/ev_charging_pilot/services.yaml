@@ -143,6 +143,12 @@ delete_external_charge:
       required: true
       selector:
         text:
+delete_trip:
+  fields:
+    id:
+      required: true
+      selector:
+        text:
 add_manual_odometer:
   fields:
     odometer_km:

@@ -789,6 +789,16 @@
         }
       }
     },
+    "delete_trip": {
+      "name": "Fahrt löschen",
+      "description": "Entfernt eine Fahrt aus Liste und Statistik.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "ID"
+        }
+      }
+    },
     "add_manual_odometer": {
       "name": "Kilometerstand erfassen",
       "description": "Kilometerstand erfassen",

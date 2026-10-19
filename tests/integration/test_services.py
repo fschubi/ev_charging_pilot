@@ -290,3 +290,21 @@ async def test_temperature_history(hass, entry, halo, hass_ws_client):
     assert msg["success"], msg
     # No recorder and no OVMS mapped in this test: an empty curve, never an error.
     assert msg["result"]["step_s"] == 60 and msg["result"]["points"] == []
+
+
+async def test_delete_trip_service(hass, entry, halo):
+    from custom_components.ev_charging_pilot.core.trips import Trip
+
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    start = dt_util.utcnow() - timedelta(days=2)
+    center.monitor.add_trip(Trip(
+        trip_id="t-short", started_at=start, ended_at=start + timedelta(minutes=3),
+        odometer_start_km=9103.07, odometer_end_km=9103.13, distance_km=0.06, duration_min=3.4,
+        average_speed_kmh=None, vehicle_energy_used_kwh=0.083, recovered_energy_kwh=0.0,
+        auxiliary_energy_kwh=0.0, consumption_kwh_100km=None, outside_temp_avg_c=13.0,
+        season="autumn", soc_start_pct=69, soc_end_pct=69))
+    await hass.services.async_call(DOMAIN, "delete_trip", {"id": "t-short"}, blocking=True)
+    assert center.monitor.data.trips == []
+    with pytest.raises(ServiceValidationError, match="nicht gefunden"):
+        await hass.services.async_call(DOMAIN, "delete_trip", {"id": "t-short"}, blocking=True)

@@ -74,7 +74,7 @@ custom_components/ev_charging_pilot/
   notifications.py     Push + Actionable Notification (mobile_app_notification_action)
   price_source.py      PriceFetcher: Tibber-Service alle 30 min oder Preis-Entität
   reports.py           PDF erzeugen/listen, ReportView (/api/ev_charging_pilot/report, Login nötig)
-  services.py (26), websocket_api.py, export.py, diagnostics.py, config_flow.py,
+  services.py (27), websocket_api.py, export.py, diagnostics.py, config_flow.py,
   system_check.py (Systemtest ohne Schalten)
   sensor/binary_sensor/switch/select/number/time/button.py   Entity-IDs ev_pilot_* (§12)
   frontend/ev-pilot-panel.js   Panel, Vanilla-JS, keine Steuerlogik (6 Reiter inkl. Einstellungen)
@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-19 – v0.22.3 Ziel 100 %.** `Engine._full_charge_ended`: bei Ziel ≥ 100
-  (`FULL_TARGET_PCT`) kein `target_soc_wish`, sondern Aus nach `FULL_END_WAIT` (3 min) in
-  `CHARGE_ENDED`. Nacht 19.10.: 58 → 100 % ohne Wecken (M8 17 s), Anzeige 100 % ≈ real 93 %,
-  `CURRENT_SET` griff erst beim 2. Mal, OVMS `charger_power` = Netzseite (Messprotokoll).
 - **2026-10-19 – v0.22.4 Klima-Feldtest 2.** Klima-Energie aus Zählerdelta − Akku/η je Slot
   (`SessionTracker._climate`, Nachlauf `CLIMATE_TAIL`), Halo-Leistung ×3 bei einphasiger Last;
   `executor.session_id = None` bei `SESSION_END`; kein `DATA_CONFLICT` bei `_climate_heating`;
@@ -162,3 +158,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   → Wetter; `Engine._changed` (Store `changed`) merkt echte Wertänderungen für
   `CHANGE_TRACKED`, unverändert > `UNCHANGED_STALE` (30 min) → LAST_KNOWN_VALID;
   `cabin_changed_at` daraus. OVMS-Außensensor 3–4 °C zu hoch (Feld 19.10.).
+- **2026-10-19 – v0.23.2 Fahrten löschen.** Dienst `delete_trip` (`monitor.delete_trip`),
+  Panel-Knopf in der Fahrt-Detailzeile; `monitor._repair_trips` (Verbrauch None < 1 km);
+  `temperature_statistics` ohne Fahrten < `MIN_CONSUMPTION_KM`. Außentemperatur seit
+  19.10. von der Gartenstation `sensor.hmip_swo_b_…_actual_temperature` (Reconfigure).

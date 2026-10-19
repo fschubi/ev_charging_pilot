@@ -789,6 +789,16 @@
         }
       }
     },
+    "delete_trip": {
+      "name": "Delete trip",
+      "description": "Removes a trip from the list and the statistics.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "ID"
+        }
+      }
+    },
     "add_manual_odometer": {
       "name": "Add odometer reading",
       "description": "Add odometer reading",

@@ -89,6 +89,7 @@ SCHEMAS: dict[str, vol.Schema] = {
         vol.Optional("id"): cv.string,
     }),
     "delete_external_charge": vol.Schema({vol.Required("id"): cv.string}),
+    "delete_trip": vol.Schema({vol.Required("id"): cv.string}),
     "add_manual_odometer": vol.Schema({
         vol.Required("odometer_km"): vol.All(vol.Coerce(float), vol.Range(min=0)),
         vol.Optional("at"): cv.datetime,
@@ -211,6 +212,10 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
             case "delete_external_charge":
                 if not center.monitor.delete_external(data["id"]):
                     raise ServiceValidationError(f"Fremdladung {data['id']} nicht gefunden")
+                center.monitor_changed()
+            case "delete_trip":
+                if not center.monitor.delete_trip(data["id"]):
+                    raise ServiceValidationError(f"Fahrt {data['id']} nicht gefunden")
                 center.monitor_changed()
             case "add_manual_odometer":
                 at = _aware(data["at"]) if data.get("at") else dt_util.utcnow()

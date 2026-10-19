@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-19 – v0.22.3 Ziel 100 %.** `Engine._full_charge_ended`: bei Ziel ≥ 100
+  (`FULL_TARGET_PCT`) kein `target_soc_wish`, sondern Aus nach `FULL_END_WAIT` (3 min) in
+  `CHARGE_ENDED`. Nacht 19.10.: 58 → 100 % ohne Wecken (M8 17 s), Anzeige 100 % ≈ real 93 %,
+  `CURRENT_SET` griff erst beim 2. Mal, OVMS `charger_power` = Netzseite (Messprotokoll).
 - **2026-10-18 – v0.22.2 Cockpit-Beschriftungen.** `batterySvg`: Textbreite geschätzt,
   bei Kollision Ziel über dem Akku (viewBox oben erweitert); `timelineSvg.marker` mit
   Belegungsliste (Seite wechseln, sonst Zeile tiefer), Reihenfolge jetzt/Abfahrt/fertig/Klima.

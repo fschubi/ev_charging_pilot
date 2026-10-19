@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from .costs import FixedPriceHistory
 from .prices import parse_price_input  # noqa: F401 – part of the statistics API
 from .sessions import ChargeSession
-from .trips import Trip, net_energy
+from .trips import MIN_CONSUMPTION_KM, Trip, net_energy
 
 TEMPERATURE_BANDS: tuple[tuple[str, float | None, float | None], ...] = (
     ("<0", None, 0.0),
@@ -303,8 +303,9 @@ def temperature_statistics(
     seasons = {name: empty() for name in SEASONS}
     for trip in trips:
         net = net_energy(trip.vehicle_energy_used_kwh, trip.recovered_energy_kwh)
-        if net is None or not trip.distance_km:
-            # Without energy or distance a trip only distorts kWh/100 km.
+        if net is None or not trip.distance_km or trip.distance_km < MIN_CONSUMPTION_KM:
+            # Without energy or distance – or just moving the car – a trip only
+            # distorts kWh/100 km (field 17.10.2026: 0.14 km → 86 kWh/100 km).
             continue
         groups = [seasons[trip.season]]
         if trip.outside_temp_avg_c is not None:

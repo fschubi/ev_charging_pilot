@@ -326,3 +326,37 @@ def test_restore_repairs_duplicate_ids_and_overstated_climate():
     assert second.session_id == "s-20261019-003045-052431"
     assert second.climate_energy_kwh == 0.10
     assert second.climate_cost_eur == round(0.1512 * 0.10 / 0.3448, 4)
+
+
+def _short_trip(trip_id, km, kwh100, temp=16.0):
+    return Trip(trip_id=trip_id, started_at=local(2026, 10, 17, 9, 5),
+                ended_at=local(2026, 10, 17, 9, 6), odometer_start_km=9103.0,
+                odometer_end_km=9103.0 + km, distance_km=km, duration_min=1.1,
+                average_speed_kmh=None, vehicle_energy_used_kwh=0.121,
+                recovered_energy_kwh=0.0, auxiliary_energy_kwh=0.0,
+                consumption_kwh_100km=kwh100, outside_temp_avg_c=temp, season="autumn",
+                soc_start_pct=70, soc_end_pct=70)
+
+
+def test_moving_the_car_shows_no_consumption_and_stays_out_of_the_groups():
+    """Field 17.10.2026: 0.14 km showed 86.4 kWh/100 km, also in the 15–20 °C band."""
+    from custom_components.ev_charging_pilot.core.monitor import Monitor
+    from custom_components.ev_charging_pilot.core.statistics import temperature_statistics
+
+    monitor = Monitor(TZ)
+    monitor.restore({"trips": [_short_trip("t1", 0.14, 86.43).as_dict(),
+                               _short_trip("t2", 0.06, 138.33).as_dict()]})
+    assert [t.consumption_kwh_100km for t in monitor.data.trips] == [None, None]
+    stats = temperature_statistics(monitor.data.trips, loss_pct=None, price_eur_kwh=0.4)
+    assert stats["bands"]["15-20"]["trips"] == 0
+
+
+def test_a_trip_can_be_deleted():
+    from custom_components.ev_charging_pilot.core.monitor import Monitor
+
+    monitor = Monitor(TZ)
+    monitor.add_trip(_short_trip("t1", 0.14, None))
+    monitor.add_trip(_short_trip("t2", 15.3, 19.4))
+    assert monitor.delete_trip("t1") is True
+    assert monitor.delete_trip("t1") is False
+    assert [t.trip_id for t in monitor.data.trips] == ["t2"]

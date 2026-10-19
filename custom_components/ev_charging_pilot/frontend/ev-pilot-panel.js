@@ -1808,6 +1808,8 @@ class EvPilotPanel extends HTMLElement {
       </div>
       ${chart ? `<h3>Fahrtkurve</h3>${chart}${source}` : `<p class="sub">Kein Verlauf vorhanden – weder in der Fahrt gespeichert noch in der HA-Historie.</p>`}
       <p class="hint">* Netto-Energie inklusive Ladeverlust zum durchschnittlichen Heimstrompreis (${num(d.home_price_eur_kwh, 3, "€/kWh")}).</p>
+      <div class="actions"><button class="act danger" data-service="delete_trip" data-payload='${esc(JSON.stringify({ id: d.trip_id }))}'
+        data-confirm="Diese Fahrt (${esc(dateTime(d.started_at))}, ${esc(num(d.distance_km, 1, "km"))}) endgültig löschen?" data-label="Fahrt gelöscht">Fahrt löschen</button></div>
     </div>`;
   }
 

@@ -21,7 +21,7 @@ from .statistics import (
     temperature_statistics,
     year_summary,
 )
-from .trips import Trip
+from .trips import MIN_CONSUMPTION_KM, Trip
 
 SOC_LOG_MIN_GAP = timedelta(hours=1)
 KEEP_DAYS = 800
@@ -41,6 +41,11 @@ class Monitor:
 
     def add_trip(self, trip: Trip) -> None:
         self.data.trips.append(trip)
+
+    def delete_trip(self, trip_id: str) -> bool:
+        before = len(self.data.trips)
+        self.data.trips = [t for t in self.data.trips if t.trip_id != trip_id]
+        return len(self.data.trips) != before
 
     def add_external(self, charge: ExternalCharge) -> None:
         self.data.external = [e for e in self.data.external if e.id != charge.id]
@@ -167,6 +172,7 @@ class Monitor:
             days_seen={date.fromisoformat(d) for d in raw.get("days_seen") or []},
         )
         _repair_sessions(self.data.sessions)
+        _repair_trips(self.data.trips)
 
 
 def _repair_sessions(sessions: list[ChargeSession]) -> None:
@@ -188,3 +194,11 @@ def _repair_sessions(sessions: list[ChargeSession]) -> None:
             session.climate_energy_kwh = round(session.grid_energy_kwh, 4)
             if session.climate_cost_eur is not None:
                 session.climate_cost_eur = round(session.climate_cost_eur * ratio, 4)
+
+
+def _repair_trips(trips: list[Trip]) -> None:
+    """Trips stored before the 1-km rule kept absurd kWh/100 km (138 for 60 m)."""
+    for trip in trips:
+        if trip.consumption_kwh_100km is not None and trip.distance_km is not None \
+                and trip.distance_km < MIN_CONSUMPTION_KM:
+            trip.consumption_kwh_100km = None

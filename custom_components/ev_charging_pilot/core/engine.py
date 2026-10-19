@@ -92,6 +92,10 @@ CONFLICT_GRACE_S = 180
 # An OVMS "not charging" is only an end-of-charge signal while it is this recent.
 FINISHED_SIGNAL_MAX_AGE = timedelta(minutes=15)
 FULL_SOC_PCT = 99
+# OVMS repeats the last values of a sleeping car, so a value that has not changed for
+# this long is no current measurement any more (temperatures only).
+UNCHANGED_STALE = timedelta(minutes=30)
+CHANGE_TRACKED = (Inp.OVMS_CABIN_TEMP, Inp.OVMS_OUTSIDE_TEMP)
 # A 100 % target is never ended by the SOC: the smart shows 100 % at a real ~93 %
 # (field 19.10.2026) and still balances. The car ends the charge itself; once it
 # has drawn no power for this long, the wallbox goes off.
@@ -214,6 +218,9 @@ class Engine:
         # due → sent → running (car reports HVAC on) → done; or skipped.
         self._climate_lock: ClimateRequest | None = None
         self.cabin_changed_at: datetime | None = None
+        # Last real change per tracked input: (state, when). HA resets last_updated
+        # on every restart, so this is kept in the store.
+        self._changed: dict[Inp, tuple[str, datetime]] = {}
         # Last moment the Shelly confirmed "CP closed" (for SHELLY_DROPOUT_GRACE).
         self._relay_closed_at: datetime | None = None
         self.climate_phase: str | None = None
@@ -353,10 +360,17 @@ class Engine:
         ages = s.max_ages
         values = {key: to_value(key, raw.get(key)) if key in self.config.configured
                   else Value.unavailable("none") for key in Inp}
-        cabin = raw.get(Inp.OVMS_CABIN_TEMP)
-        # A sleeping car repeats its last cabin temperature (23 °C all night at a real
+        # A sleeping car repeats its last temperatures (cabin 23 °C all night at a real
         # 11 °C, field 19.10.2026): only a change proves the value is current.
-        self.cabin_changed_at = cabin.last_updated if cabin is not None else None
+        for key in CHANGE_TRACKED:
+            item = raw.get(key)
+            if item is None or key not in self.config.configured:
+                continue
+            seen = self._changed.get(key)
+            if seen is None or seen[0] != str(item.state):
+                self._changed[key] = (str(item.state), item.last_updated or now)
+        cabin_seen = self._changed.get(Inp.OVMS_CABIN_TEMP)
+        self.cabin_changed_at = cabin_seen[1] if cabin_seen else None
 
         power = values[Inp.CHARGE_POWER]
         if power.available and power.normalized is not None \
@@ -421,6 +435,9 @@ class Engine:
         values[Inp.CABLE_CONNECTED] = plugged_in(
             values[Inp.CABLE_CONNECTED], values[Inp.OVMS_PLUG], values[Inp.OVMS_LOCATION])
 
+        for key, (_, changed_at) in self._changed.items():
+            if now - changed_at > UNCHANGED_STALE and values[key].quality is Quality.GOOD:
+                values[key] = replace(values[key], quality=Quality.LAST_KNOWN_VALID)
         self.values = values
         self.soc = values[Inp.OVMS_SOC]
         self.outside = outside_temperature(
@@ -1207,6 +1224,8 @@ class Engine:
             "target_hold": self._target_hold,
             "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
             "last_unplug_at": self.last_unplug_at.isoformat() if self.last_unplug_at else None,
+            "changed": {k.value: [state, at.isoformat()]
+                        for k, (state, at) in self._changed.items()},
             "climate_lock": {"duration_min": self._climate_lock.duration_min,
                              "start_at": self._climate_lock.start_at.isoformat(),
                              "until": self._climate_lock.until.isoformat(),
@@ -1239,6 +1258,9 @@ class Engine:
         offer, unplug = data.get("plug_offer_at"), data.get("last_unplug_at")
         self.plug_offer_at = datetime.fromisoformat(offer) if offer else None
         self.last_unplug_at = datetime.fromisoformat(unplug) if unplug else None
+        known = {i.value for i in Inp}
+        self._changed = {Inp(k): (v[0], datetime.fromisoformat(v[1]))
+                         for k, v in (data.get("changed") or {}).items() if k in known}
         lock = data.get("climate_lock")
         if lock:
             self._climate_lock = ClimateRequest(

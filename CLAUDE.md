@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.22.2 Cockpit-Beschriftungen.** `batterySvg`: Textbreite geschätzt,
-  bei Kollision Ziel über dem Akku (viewBox oben erweitert); `timelineSvg.marker` mit
-  Belegungsliste (Seite wechseln, sonst Zeile tiefer), Reihenfolge jetzt/Abfahrt/fertig/Klima.
-  Live-Check v0.22.1: Log sauber, alle Eingänge GOOD, Details live ok.
 - **2026-10-19 – v0.22.3 Ziel 100 %.** `Engine._full_charge_ended`: bei Ziel ≥ 100
   (`FULL_TARGET_PCT`) kein `target_soc_wish`, sondern Aus nach `FULL_END_WAIT` (3 min) in
   `CHARGE_ENDED`. Nacht 19.10.: 58 → 100 % ohne Wecken (M8 17 s), Anzeige 100 % ≈ real 93 %,
@@ -162,3 +158,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `engine.cabin_changed_at` (RawState.last_updated, weil OVMS schlafend wiederholt) →
   Snapshot; WS `get_temperature_history` (Recorder, 60/120/300 s); Panel `_sohChip`-Plakette
   `temp-toggle` + `tempSvg` (unveränderte Strecken > 30 min gestrichelt).
+- **2026-10-19 – v0.23.1 Temperaturquellen.** `outside_temperature`: HA-Sensor → Auto (GOOD)
+  → Wetter; `Engine._changed` (Store `changed`) merkt echte Wertänderungen für
+  `CHANGE_TRACKED`, unverändert > `UNCHANGED_STALE` (30 min) → LAST_KNOWN_VALID;
+  `cabin_changed_at` daraus. OVMS-Außensensor 3–4 °C zu hoch (Feld 19.10.).

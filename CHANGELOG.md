@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.23.1 – 2026-10-19
+
+Temperaturen ehrlich – nach dem Vergleich mit der Wetterstation am 19.10.:
+- **Eine Außentemperatur aus HA (Wetterstation) hat Vorrang vor dem Autosensor.** Das
+  Auto zeigte 13,1 °C, die Station 7,4 °C: Der Autosensor lag schon während der Fahrt
+  3–4 °C zu hoch, und das schlafende Auto wiederholte den Wert von 16:08 bis in die Nacht.
+  Die Außentemperatur bestimmt die Dauer der Vorklimatisierung – mit 13,1 °C wären es
+  10 statt 15 Minuten gewesen.
+- **Ein Autowert, der sich 30 Minuten nicht ändert, gilt nicht mehr als aktuell**
+  (Außen- und Innenraumtemperatur); dann wird z. B. die Wetter-Entität genommen.
+- **„Stand …“ an der Innenraumtemperatur übersteht einen HA-Neustart:** HA setzt beim
+  Neustart die Änderungszeit aller Werte neu; der Pilot merkt sich die echte selbst.
+
 ## 0.23.0 – 2026-10-19
 
 Temperaturen im Cockpit:

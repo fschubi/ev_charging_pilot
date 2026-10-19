@@ -28,3 +28,4 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | 2026-10-19 | OVMS `charger_power` ≈ Halo-Leistung (7,91 vs. 7,92 kWh): misst die Netzseite, nicht den Akku – Ladeverlust daraus nicht bestimmbar | Eingang `ovms_charge_power` |
 | 2026-10-19 | Vorklimatisierung bei vollem Akku: Halo-Leistung 5,0–5,3 kW, Zähler +0,10 kWh in 5 min (≈ 1,6 kW), Akku ≈ 0 kW – Halo-Leistung bei einphasiger Last ×3 überhöht | Klima-Energie aus dem Zähler |
 | 2026-10-19 | Halo bestätigt Freigabe für Klima nach 5 s (Vortag 7 s) | `CLIMATE_CONFIRM_TIMEOUT` 60 s reicht |
+| 2026-10-19 | OVMS-Außentemperatur 13,2–13,8 °C während der Fahrt, Wetterstation zur selben Zeit 9,5–10,1 °C (+3–4 °C); schlafend eingefroren (13,1 °C ab 16:08) | Quelle Außentemperatur |

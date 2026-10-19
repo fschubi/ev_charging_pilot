@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.22.2 Cockpit-Beschriftungen.** `batterySvg`: Textbreite geschätzt,
+  bei Kollision Ziel über dem Akku (viewBox oben erweitert); `timelineSvg.marker` mit
+  Belegungsliste (Seite wechseln, sonst Zeile tiefer), Reihenfolge jetzt/Abfahrt/fertig/Klima.
+  Live-Check v0.22.1: Log sauber, alle Eingänge GOOD, Details live ok.
 - **2026-10-18 – v0.22.1 Fahrtende per Verriegelung.** `Inp.OVMS_LOCKED` (lock bevorzugt;
   binary_sensor mit device_class lock: on = entriegelt); `TripTracker`: aus + entriegelt
   (`unlocked_after_off`) + verriegelt → sofort schließen, sonst `trip_merge_gap_min`.

@@ -530,3 +530,43 @@ def test_heating_from_the_grid_is_no_data_conflict():
     assert world.engine.desired.reason is Reason.CLIMATE
     assert "DATA_CONFLICT" not in world.events
     assert not world.engine.data_conflict
+
+
+TEMPS = WITH_OVMS | {Inp.OUTSIDE_TEMP, Inp.OVMS_CABIN_TEMP}
+
+
+def test_outdoor_station_wins_over_the_car_sensor():
+    """Field 19.10.2026: the car said 13.1 °C, the weather station 7.4 °C."""
+    world = World(local(2026, 10, 19, 20, 0), configured=TEMPS)
+    world.set(Inp.OVMS_OUTSIDE_TEMP, "13.1")
+    world.set(Inp.OUTSIDE_TEMP, "7.4")
+    world.run(10)
+    assert world.engine.outside.normalized == 7.4
+
+
+def test_a_frozen_car_temperature_is_not_current():
+    world = World(local(2026, 10, 19, 16, 8), configured=WITH_OVMS | {Inp.WEATHER})
+    world.set(Inp.OVMS_OUTSIDE_TEMP, "13.1")
+    world.set(Inp.WEATHER, "cloudy", temperature=8.5)
+    world.run(10)
+    assert world.engine.outside.normalized == 13.1  # just measured: the car counts
+    for _ in range(40):  # the sleeping car repeats 13.1 for 40 minutes
+        world.set(Inp.OVMS_OUTSIDE_TEMP, "13.1")
+        world.set(Inp.WEATHER, "cloudy", temperature=8.5)
+        world.run(60)
+    assert world.engine.outside.normalized == 8.5
+
+
+def test_last_change_survives_a_restart():
+    """HA resets last_updated on restart – the cabin value must keep its real age."""
+    start = local(2026, 10, 19, 15, 36)
+    world = World(start, configured=TEMPS)
+    world.set(Inp.OVMS_CABIN_TEMP, "21")
+    world.run(10)
+    assert world.engine.cabin_changed_at == start
+    stored = world.engine.as_dict()
+    later = World(local(2026, 10, 19, 20, 39, 40), configured=TEMPS)
+    later.set(Inp.OVMS_CABIN_TEMP, "21")  # restart: "changed" now, same value
+    later.engine.restore(stored)
+    later.run(10)
+    assert later.engine.cabin_changed_at == start

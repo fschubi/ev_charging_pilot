@@ -41,13 +41,15 @@ def vehicle_charging(ovms: Value, halo_power: Value, threshold_w: float) -> Valu
 
 
 def outside_temperature(vehicle: Value, ha_sensor: Value, weather: Value) -> Value:
-    """Vehicle (only when GOOD) → HA sensor → weather entity (§7.4).
+    """HA sensor → vehicle (only when GOOD) → weather entity (§7.4).
 
+    A real outdoor sensor wins: the car's sensor read 3–4 °C high on the road and a
+    sleeping car repeats its last value (13.1 °C at a real 7.4 °C, field 19.10.2026).
     A sleeping car keeps its last outside temperature (LAST_KNOWN_VALID). It is the
     last resort – better than none, which would mark the system degraded every night
     when the car is the only temperature source.
     """
-    for candidate in (vehicle, ha_sensor, weather):
+    for candidate in (ha_sensor, vehicle, weather):
         if candidate.quality is Quality.GOOD:
             return candidate
     for candidate in (ha_sensor, weather, vehicle):

@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.21.0 Klima-Energie.** `Inp.OVMS_BATTERY_POWER`; `SessionTracker._climate`
+  (Halo − Akku/η je 15-min-Slot, nur bei `Engine._climate_heating`), `ChargeSession.
+  climate_energy_kwh/climate_cost_eur`; Statistik, Panel-Spalte „Klima“, PDF-Zeile.
 - **2026-10-18 – v0.20.2 Statussensor.** `sensor.ev_pilot_status` = `summary()`-Headline
   (Attribute detail/tone/climate_*); `summary._with_climate`/`_climate_note`/
   `_climate_running`; „Kein Laden mehr geplant“ nach letztem Block; `sensor._next_start`.

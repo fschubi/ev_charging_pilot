@@ -92,6 +92,11 @@ CONFLICT_GRACE_S = 180
 # An OVMS "not charging" is only an end-of-charge signal while it is this recent.
 FINISHED_SIGNAL_MAX_AGE = timedelta(minutes=15)
 FULL_SOC_PCT = 99
+# A 100 % target is never ended by the SOC: the smart shows 100 % at a real ~93 %
+# (field 19.10.2026) and still balances. The car ends the charge itself; once it
+# has drawn no power for this long, the wallbox goes off.
+FULL_TARGET_PCT = 100
+FULL_END_WAIT = timedelta(minutes=3)
 # The car reporting "not charging" counts as its own end of charge only from here …
 CAR_FULL_PCT = 95
 # … or this close to the window's target; below that it is an interruption.
@@ -693,6 +698,14 @@ class Engine:
             result.events.append(Event(now, Category.CLIMATE, Severity.INFO, "CLIMATE_ENDED",
                                        "Vorklimatisierung beendet – Auto meldet Klima aus"))
 
+    def _full_charge_ended(self, now: datetime, window) -> Desired | None:
+        """Target 100 %: off only after the car ended the charge itself (FULL_END_WAIT)."""
+        ex = self.executor
+        if window is None or ex.state is not ExecState.CHARGE_ENDED or ex.state_since is None \
+                or now - ex.state_since < FULL_END_WAIT:
+            return None
+        return Desired(False, Reason.TARGET_SOC_REACHED, source_id="vehicle_full")
+
     def _climate_heating(self, values: dict[Inp, Value]) -> bool:
         """Is the car's climate drawing power right now? The car's own report wins."""
         hvac = values.get(Inp.OVMS_HVAC)
@@ -723,7 +736,10 @@ class Engine:
             if climate_running and s.climate_after_target is ClimateAfterTarget.ENFORCE_TARGET \
                     and target is not None:
                 target += ENFORCE_TARGET_MARGIN_PCT
-            reached = target_soc_wish(soc, target, climate_topup_active=topup)
+            if target is not None and target >= FULL_TARGET_PCT:
+                reached = self._full_charge_ended(now, window)
+            else:
+                reached = target_soc_wish(soc, target, climate_topup_active=topup)
             if reached is not None and window is not None:
                 self._target_hold = window.key
             hold = window is not None and self._target_hold == window.key

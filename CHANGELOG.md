@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.3 – 2026-10-19
+
+- **Ladeziel 100 %: das Auto entscheidet, wann es voll ist.** Bei 100 % schaltet der Pilot
+  nicht mehr bei 100 % in der Anzeige ab. Am 19.10. zeigte der smart 100 %, während der
+  echte Ladestand erst bei etwa 93 % lag – das Ausgleichen der Zellen am Ende wurde
+  abgeschnitten. Jetzt bleibt die Wallbox frei, bis das Auto die Ladung selbst beendet, und
+  geht aus, sobald es **3 Minuten** keinen Strom mehr zieht. Zieht es zwischendurch wieder
+  Strom (Ausgleichen), beginnen die 3 Minuten neu. Spätestens zur Abfahrt ist wie bisher
+  Schluss.
+- Ladeziele unter 100 % schalten unverändert beim Ziel-SOC ab.
+
 ## 0.22.2 – 2026-10-18
 
 Cockpit-Beschriftungen ohne Überlappung:

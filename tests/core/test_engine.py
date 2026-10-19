@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, time, timedelta
 
 import pytest
@@ -432,3 +433,66 @@ def test_no_dropout_grace_right_after_a_cp_pulse_or_an_open_cp():
     world.set(Inp.CP_RELAY, "unavailable")
     world.tick()
     assert "CP_STATE_UNKNOWN" in world.engine.health.reasons
+
+
+def full_charge_world() -> World:
+    """One-off departure in 3 h with target 100 %, charging at 60 %."""
+    world = World(local(2026, 10, 20, 12, 0), configured=WITH_OVMS)
+    world.engine.plans = []
+    world.set(Inp.OVMS_SOC, "60")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.tick()
+    world.apply(world.engine.start_one_shot(world.now, departure_at=world.now + timedelta(hours=3),
+                                            target_soc=100))
+    world.tick()
+    world.now = world.engine.next_window.start
+    world.run(60)
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.run(60)
+    assert world.engine.executor.state is ExecState.CHARGING
+    return world
+
+
+def test_target_100_lets_the_car_finish_and_balance():
+    """Field 19.10.2026: the display read 100 % at a real ~93 % – the pilot cut too early."""
+    world = full_charge_world()
+    world.set(Inp.OVMS_SOC, "100")
+    world.run(600)  # the car keeps balancing at 100 %
+    assert world.engine.desired.charger_enabled is True
+    assert world.engine.executor.state is ExecState.CHARGING
+    # The car ends the charge itself.
+    world.car_charges_when_enabled = False
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.run(60)
+    assert world.engine.executor.state is ExecState.CHARGE_ENDED
+    assert world.engine.desired.charger_enabled is True  # not before three minutes
+    world.run(150)
+    assert world.engine.desired.charger_enabled is False
+    assert world.engine.desired.reason is Reason.TARGET_SOC_REACHED
+    world.run(30)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "off"
+    assert "CHARGE_INTERRUPTED" not in world.events
+
+
+def test_target_100_resumed_balancing_restarts_the_wait():
+    world = full_charge_world()
+    world.set(Inp.OVMS_SOC, "100")
+    world.car_charges_when_enabled = False
+    world.run(120)
+    assert world.engine.executor.state is ExecState.CHARGE_ENDED
+    world.car_charges_when_enabled = True  # balancing pulls power again
+    world.run(120)
+    assert world.engine.desired.charger_enabled is True
+    world.car_charges_when_enabled = False
+    world.run(150)
+    assert world.engine.desired.charger_enabled is True
+    world.run(60)
+    assert world.engine.desired.charger_enabled is False
+
+
+def test_target_below_100_still_stops_at_the_soc():
+    world = full_charge_world()
+    world.engine.one_shot = replace(world.engine.one_shot, preferred_departure_soc_pct=90)
+    world.set(Inp.OVMS_SOC, "90")
+    world.run(30)
+    assert world.engine.desired.charger_enabled is False

@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.22.1 Fahrtende per Verriegelung.** `Inp.OVMS_LOCKED` (lock bevorzugt;
+  binary_sensor mit device_class lock: on = entriegelt); `TripTracker`: aus + entriegelt
+  (`unlocked_after_off`) + verriegelt → sofort schließen, sonst `trip_merge_gap_min`.
 - **2026-10-18 – v0.22.0 Fahrt-Details.** `Trip.trace` ([s, km/h, Akku-W wie OVMS: + in den
   Akku/Rekup, − Antrieb, SOC], 15 s, im offenen Trip-Store); `Inp.OVMS_SPEED`;
   `get_trip_detail` (Recorder-Fallback 15 s via `async_recorder_minutes(step_s)`, Kosten

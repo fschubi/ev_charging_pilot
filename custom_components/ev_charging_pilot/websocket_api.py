@@ -136,6 +136,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
         "values": {k.value: _value(v, now) for k, v in engine.values.items()
                    if k in center.entity_ids},
         "soc": _value(engine.soc, now),
+        "cabin_changed_at": _iso(engine.cabin_changed_at),
         "outside_temperature": _value(engine.outside, now),
         "active_window": _window(engine.active_window),
         "next_window": _window(engine.next_window),
@@ -346,6 +347,31 @@ async def ws_trip_detail(hass, connection, msg) -> None:
     data["grid_energy_kwh"] = round(net / s.charge_efficiency, 3) if net else None
     data["cost_eur"] = round(net / s.charge_efficiency * price, 2) if net else None
     _send(connection, msg, data)
+
+
+TEMPERATURE_INPUTS = (Inp.OVMS_CABIN_TEMP, Inp.OVMS_OUTSIDE_TEMP, Inp.OVMS_HVAC)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{PREFIX}/get_temperature_history",
+    vol.Optional("hours", default=24): vol.All(int, vol.Range(1, 72))})
+@websocket_api.async_response
+async def ws_temperature_history(hass, connection, msg) -> None:
+    """Cabin and outside temperature with the climate runs, from the recorder."""
+    if not (center := _require(connection, msg, hass)):
+        return
+    end = dt_util.utcnow()
+    start = end - timedelta(hours=msg["hours"])
+    step_s = 60 if msg["hours"] <= 6 else 120 if msg["hours"] <= 24 else 300
+    steps = await center.async_recorder_minutes(TEMPERATURE_INPUTS, start, end, step_s=step_s)
+    _send(connection, msg, {
+        "step_s": step_s,
+        "points": [[_iso(moment), _rounded1(values.get(Inp.OVMS_CABIN_TEMP)),
+                    _rounded1(values.get(Inp.OVMS_OUTSIDE_TEMP)),
+                    bool(values.get(Inp.OVMS_HVAC)) if values.get(Inp.OVMS_HVAC) is not None
+                    else None]
+                   for moment, values in steps or []],
+    })
 
 
 def _rounded1(value: float | None) -> float | None:
@@ -572,6 +598,7 @@ COMMANDS = (ws_run_system_check, ws_set_manual_target, ws_set_manual_current, ws
             ws_set_settings,
             ws_create_report, ws_list_reports, ws_state,
             ws_health, ws_plan_preview, ws_sessions, ws_session_detail, ws_trip_detail,
+            ws_temperature_history,
             ws_trips, ws_external, ws_month, ws_year,
             ws_temperature, ws_events, ws_get_plans, ws_set_plans, ws_replay)
 

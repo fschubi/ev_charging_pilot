@@ -132,6 +132,7 @@ OVMS_RULES: dict[Inp, tuple[str, ...]] = {
     Inp.OVMS_BATTERY_POWER: ("v_b_power", "battery_power"),
     Inp.OVMS_SPEED: ("v_p_speed", "vehicle_speed"),
     Inp.OVMS_LOCKED: ("v_e_locked", "vehicle_lock", "locked"),
+    Inp.OVMS_CABIN_TEMP: ("v_e_cabintemp", "cabin_temperature", "cabin_temp"),
 }
 
 
@@ -184,6 +185,7 @@ HVAC_DISCOVERY_DONE = "hvac_discovery_done"
 BATTERY_POWER_DISCOVERY_DONE = "battery_power_discovery_done"
 SPEED_DISCOVERY_DONE = "speed_discovery_done"
 LOCKED_DISCOVERY_DONE = "locked_discovery_done"
+CABIN_DISCOVERY_DONE = "cabin_discovery_done"
 # OVMS inputs added after the first release: looked up once for existing installations.
 LATE_DISCOVERY: dict[str, tuple[str, ...]] = {
     PLUG_DISCOVERY_DONE: PLUG_KEYS,                  # 0.13.4
@@ -191,6 +193,7 @@ LATE_DISCOVERY: dict[str, tuple[str, ...]] = {
     BATTERY_POWER_DISCOVERY_DONE: (Inp.OVMS_BATTERY_POWER.value,),  # 0.21.0
     SPEED_DISCOVERY_DONE: (Inp.OVMS_SPEED.value,),   # 0.22.0
     LOCKED_DISCOVERY_DONE: (Inp.OVMS_LOCKED.value,),  # 0.22.1
+    CABIN_DISCOVERY_DONE: (Inp.OVMS_CABIN_TEMP.value,),  # 0.23.0
 }
 
 

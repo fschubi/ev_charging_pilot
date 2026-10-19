@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.22.1 Fahrtende per Verriegelung.** `Inp.OVMS_LOCKED` (lock bevorzugt;
-  binary_sensor mit device_class lock: on = entriegelt); `TripTracker`: aus + entriegelt
-  (`unlocked_after_off`) + verriegelt → sofort schließen, sonst `trip_merge_gap_min`.
 - **2026-10-18 – v0.22.2 Cockpit-Beschriftungen.** `batterySvg`: Textbreite geschätzt,
   bei Kollision Ziel über dem Akku (viewBox oben erweitert); `timelineSvg.marker` mit
   Belegungsliste (Seite wechseln, sonst Zeile tiefer), Reihenfolge jetzt/Abfahrt/fertig/Klima.
@@ -161,3 +158,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   2 min nach Abfahrt (`until` > Abfahrt, Lock hält es über das Fensterende); Summary nennt
   die Abfahrt aus `next_window`; `climate_blocked` entfällt, solange `climate_active`.
   Feld 19.10.: Klima 05:23–05:28, Einstieg 05:33, Innenraum 23 → 15 °C, nur ~1,3 kW.
+- **2026-10-19 – v0.23.0 Temperaturen im Cockpit.** `Inp.OVMS_CABIN_TEMP`;
+  `engine.cabin_changed_at` (RawState.last_updated, weil OVMS schlafend wiederholt) →
+  Snapshot; WS `get_temperature_history` (Recorder, 60/120/300 s); Panel `_sohChip`-Plakette
+  `temp-toggle` + `tempSvg` (unveränderte Strecken > 30 min gestrichelt).

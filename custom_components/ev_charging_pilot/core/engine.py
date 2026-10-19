@@ -213,6 +213,7 @@ class Engine:
         # must not move it and send a second command) with its progress:
         # due → sent → running (car reports HVAC on) → done; or skipped.
         self._climate_lock: ClimateRequest | None = None
+        self.cabin_changed_at: datetime | None = None
         # Last moment the Shelly confirmed "CP closed" (for SHELLY_DROPOUT_GRACE).
         self._relay_closed_at: datetime | None = None
         self.climate_phase: str | None = None
@@ -352,6 +353,10 @@ class Engine:
         ages = s.max_ages
         values = {key: to_value(key, raw.get(key)) if key in self.config.configured
                   else Value.unavailable("none") for key in Inp}
+        cabin = raw.get(Inp.OVMS_CABIN_TEMP)
+        # A sleeping car repeats its last cabin temperature (23 °C all night at a real
+        # 11 °C, field 19.10.2026): only a change proves the value is current.
+        self.cabin_changed_at = cabin.last_updated if cabin is not None else None
 
         power = values[Inp.CHARGE_POWER]
         if power.available and power.normalized is not None \
@@ -384,6 +389,7 @@ class Engine:
             (Inp.OVMS_BATTERY_POWER, rule(ages.vehicle_charging_s)),
             (Inp.OVMS_SPEED, rule(ages.vehicle_charging_s)),
             (Inp.OVMS_LOCKED, rule(ages.vehicle_charging_s)),
+            (Inp.OVMS_CABIN_TEMP, rule(ages.temperature_s)),
         ):
             values[key] = classify(values[key], now, r, self._activity_for_quality())
         for key, r in (

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.23.0 – 2026-10-19
+
+Temperaturen im Cockpit:
+- **Neue Plakette unter dem Akku:** „🌡 innen 21 °C · außen 8,3 °C“. Hat sich der
+  Innenraumwert länger als 30 Minuten nicht geändert, steht dabei, seit wann
+  („Stand 17:31“) – ein schlafendes Auto meldet seinen letzten Wert immer wieder
+  (am 19.10. die ganze Nacht 23 °C bei tatsächlich 11 °C).
+- **Ein Klick zeigt den Verlauf der letzten 24 Stunden:** Innenraum und außen, Zeiten mit
+  laufender Klimaanlage grün hinterlegt. Abschnitte, in denen sich ein Wert über 30
+  Minuten nicht ändert, sind gestrichelt – dort schläft das Auto und es gibt keine
+  echten Messwerte.
+- **Neuer OVMS-Eingang „Innenraumtemperatur“** (`…_cabin_temperature`), wird bei
+  bestehenden Installationen automatisch übernommen.
+
 ## 0.22.5 – 2026-10-19
 
 - **Vorklimatisierung endet nach der Abfahrt, nicht davor:** Sie endet jetzt 2 Minuten

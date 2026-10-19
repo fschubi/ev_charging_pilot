@@ -395,6 +395,71 @@ function tripSvg(d) {
     <span class="dot" style="background:var(--primary-text-color)"></span>SOC</div>`;
 }
 
+/** Cabin and outside temperature, climate runs shaded. points: [iso, cabin, outside, hvac]. */
+function tempSvg(points) {
+  const pts = (points || []).filter((p) => p[1] !== null || p[2] !== null);
+  if (pts.length < 2) return `<p class="sub">Noch kein Verlauf – OVMS meldet die Temperaturen nur, wenn das Auto wach ist.</p>`;
+  const W = 800, top = 10, bottom = 150, left = 40, right = 790;
+  const t0 = new Date(pts[0][0]).getTime(), t1 = new Date(pts[pts.length - 1][0]).getTime();
+  const X = (t) => left + ((t - t0) / ((t1 - t0) || 1)) * (right - left);
+  const vals = pts.flatMap((p) => [p[1], p[2]]).filter((v) => v !== null);
+  const lo = Math.floor((Math.min(...vals) - 1) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 1) / 5) * 5;
+  const Y = (v) => bottom - ((v - lo) / ((hi - lo) || 1)) * (bottom - top);
+  const parts = [];
+  for (let v = lo; v <= hi; v += (hi - lo) > 20 ? 10 : 5) {
+    parts.push(`<line x1="${left}" y1="${Y(v).toFixed(1)}" x2="${right}" y2="${Y(v).toFixed(1)}" stroke="var(--divider-color)" ${v !== lo ? 'stroke-dasharray="2 4"' : ""}/>
+      <text x="${left - 6}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end">${v} °C</text>`);
+  }
+  // Climate runs as shaded bands.
+  let runStart = null;
+  points.forEach((p, i) => {
+    const t = new Date(p[0]).getTime();
+    if (p[3] && runStart === null) runStart = t;
+    if ((!p[3] || i === points.length - 1) && runStart !== null) {
+      parts.push(`<rect x="${X(runStart).toFixed(1)}" y="${top}" width="${Math.max(2, X(t) - X(runStart)).toFixed(1)}" height="${bottom - top}" fill="var(--success-color, #43a047)" opacity=".18"><title>Klima ${time(new Date(runStart).toISOString())}–${time(p[0])}</title></rect>`);
+      runStart = null;
+    }
+  });
+  // A sleeping car repeats its last value: stretches without any change for 30 min
+  // are drawn faint and dashed – only the solid parts are real measurements.
+  const STALE = 30 * 60e3;
+  const line = (idx, color) => {
+    const items = pts.filter((p) => p[idx] !== null).map((p) => [new Date(p[0]).getTime(), p[idx]]);
+    if (items.length < 2) return "";
+    const fresh = [];
+    let changed = items[0][0];
+    items.forEach(([t, v], i) => { if (i && v !== items[i - 1][1]) changed = t; fresh.push(t - changed <= STALE); });
+    // Look ahead too: the stretch right before a change is still current.
+    let next = null;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (i < items.length - 1 && items[i][1] !== items[i + 1][1]) next = items[i + 1][0];
+      if (next !== null && next - items[i][0] <= STALE) fresh[i] = true;
+    }
+    const segs = [];
+    items.forEach(([t, v], i) => {
+      const key = fresh[i] && (i === 0 || fresh[i - 1]) ? "f" : "s";
+      const point = `${X(t).toFixed(1)} ${Y(v).toFixed(1)}`;
+      if (!segs.length || segs[segs.length - 1].key !== key) {
+        segs.push({ key, d: i ? `M${X(items[i - 1][0]).toFixed(1)} ${Y(items[i - 1][1]).toFixed(1)} L${point}` : `M${point}` });
+      } else segs[segs.length - 1].d += ` L${point}`;
+    });
+    return segs.map((s) => `<path d="${s.d}" fill="none" stroke="${color}" stroke-width="2" ${s.key === "s" ? 'stroke-dasharray="4 4" opacity=".35"' : ""}/>`).join("");
+  };
+  parts.push(line(2, "var(--info-color, #039be5)"), line(1, "var(--warning-color, #ffa600)"));
+  const hour = 3600e3, every = (t1 - t0) > 12 * hour ? 3 * hour : hour;
+  for (let t = Math.ceil(t0 / every) * every; t <= t1; t += every) {
+    parts.push(`<text x="${X(t).toFixed(1)}" y="${bottom + 16}" text-anchor="middle">${time(new Date(t).toISOString())}</text>`);
+  }
+  const colW = Math.max(2, (right - left) / pts.length);
+  const tips = pts.map((p) => `<rect x="${(X(new Date(p[0]).getTime()) - colW / 2).toFixed(1)}" y="${top}" width="${colW.toFixed(1)}" height="${bottom - top}" fill="transparent">
+    <title>${time(p[0])}${p[1] !== null ? ` · innen ${num(p[1], 0, "°C")}` : ""}${p[2] !== null ? ` · außen ${num(p[2], 1, "°C")}` : ""}${p[3] ? " · Klima an" : ""}</title></rect>`).join("");
+  return `<svg viewBox="0 0 ${W} 170" class="timeline" role="img" aria-label="Temperaturverlauf">${parts.join("")}${tips}</svg>
+  <div class="legend"><span class="dot" style="background:var(--warning-color, #ffa600)"></span>Innenraum
+    <span class="dot" style="background:var(--info-color, #039be5)"></span>außen
+    <span class="dot" style="background:var(--success-color, #43a047);opacity:.5"></span>Klima an
+    <span>gestrichelt: unverändert, Auto schläft</span></div>`;
+}
+
 /** Last 24 h: charging power (area) and SOC (line). */
 function historySvg(history, maxKw) {
   const W = 800, top = 10, bottom = 100, left = 6, right = 794;
@@ -623,6 +688,9 @@ const STYLE = `
   @keyframes pulse { 50% { opacity: .35; } }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; }
   .legend { font-size: 12px; color: var(--secondary-text-color); display: flex; gap: 14px; align-items: center; margin-top: 4px; }
+  .chipbtn { border: none; cursor: pointer; font: inherit; font-size: 12px; }
+  .chipbtn.on { outline: 1px solid var(--primary-color); }
+  .tempbox { margin: 8px 0 4px; text-align: left; }
   tr.sess-row { cursor: pointer; }
   tr.sess-row:hover td, tr.sess-row.open td { background: rgba(127,127,127,.08); }
   tr.sess-open > td { padding: 4px 8px 16px; }
@@ -1007,6 +1075,15 @@ class EvPilotPanel extends HTMLElement {
         this._addOdometer(); break;
       case "event-filter":
         this._eventFilter = el.value; this._cache.events = null; this._refresh(); break;
+      case "temp-toggle":
+        this._tempOpen = !this._tempOpen;
+        this._render(true);
+        if (this._tempOpen && (!this._cache.tempHistory || Date.now() - (this._cache.tempAt || 0) > 120000)) {
+          this._ws("get_temperature_history", { hours: 24 })
+            .then((r) => { this._cache.tempHistory = r; this._cache.tempAt = Date.now(); this._render(true); })
+            .catch((err) => { this._cache.tempHistory = { error: err.message || String(err) }; this._render(true); });
+        }
+        break;
       case "system-check":
         this._toast("Systemtest läuft …");
         this._ws("run_system_check", { send_test_push: el.dataset.push === "1" })
@@ -1493,7 +1570,22 @@ class EvPilotPanel extends HTMLElement {
       parts.push(`<span class="pill muted" title="Akkugesundheit">SOH –</span>`);
     }
     if (range && range.value !== null) parts.push(`<span class="pill muted">${num(range.value, 0, "km")} Reichweite</span>`);
-    return parts.length ? `<div class="chips">${parts.join("")}</div>` : "";
+    const cabin = s.values.ovms_cabin_temp;
+    const outside = s.outside_temperature;
+    if ((cabin && cabin.value !== null) || (outside && outside.value !== null)) {
+      // A sleeping car repeats its last value: show since when it has not changed.
+      const changed = s.cabin_changed_at ? new Date(s.cabin_changed_at).getTime() : null;
+      const age = changed !== null && Date.now() - changed > 1800e3
+        ? ` (Stand ${new Date(changed).toDateString() === new Date().toDateString() ? time(s.cabin_changed_at) : dateTime(s.cabin_changed_at)})` : "";
+      const text = [cabin && cabin.value !== null ? `innen ${num(cabin.value, 0, "°C")}${age}` : null,
+        outside && outside.value !== null ? `außen ${num(outside.value, 1, "°C")}` : null].filter(Boolean).join(" · ");
+      parts.push(`<button class="pill muted chipbtn${this._tempOpen ? " on" : ""}" data-action="temp-toggle" title="Temperaturverlauf der letzten 24 Stunden">🌡 ${text}</button>`);
+    }
+    const chips = parts.length ? `<div class="chips">${parts.join("")}</div>` : "";
+    if (!this._tempOpen) return chips;
+    const hist = this._cache.tempHistory;
+    return `${chips}<div class="tempbox"><div class="sub">Temperatur, letzte 24 Stunden${hist && hist.points && hist.points.length ? " · Werte nur, solange das Auto wach ist" : ""}</div>
+      ${hist ? (hist.error ? `<p class="sub">Verlauf nicht ladbar: ${esc(hist.error)}</p>` : tempSvg(hist.points)) : `<p class="sub">Lade Verlauf …</p>`}</div>`;
   }
 
   _vehicleLinkRows(s) {

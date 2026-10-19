@@ -280,3 +280,13 @@ async def test_trip_list_and_detail(hass, entry, halo, hass_ws_client):
     await client.send_json({"id": 3, "type": f"{DOMAIN}/get_trip_detail", "trip_id": "x"})
     msg = await client.receive_json()
     assert not msg["success"] and msg["error"]["code"] == "not_found"
+
+
+async def test_temperature_history(hass, entry, halo, hass_ws_client):
+    await _setup(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/get_temperature_history", "hours": 6})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    # No recorder and no OVMS mapped in this test: an empty curve, never an error.
+    assert msg["result"]["step_s"] == 60 and msg["result"]["points"] == []

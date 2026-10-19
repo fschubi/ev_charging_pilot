@@ -55,6 +55,7 @@ class Inp(StrEnum):
     OVMS_BATTERY_POWER = "ovms_battery_power"
     OVMS_SPEED = "ovms_speed"
     OVMS_LOCKED = "ovms_locked"
+    OVMS_CABIN_TEMP = "ovms_cabin_temp"
     OVMS_LOCATION = "ovms_location"
     OUTSIDE_TEMP = "outside_temp"
     WEATHER = "weather"
@@ -89,6 +90,7 @@ KINDS: dict[Inp, Kind] = {
     Inp.OVMS_BATTERY_POWER: Kind.POWER_W,
     Inp.OVMS_SPEED: Kind.NUMBER,
     Inp.OVMS_LOCKED: Kind.BOOL,
+    Inp.OVMS_CABIN_TEMP: Kind.NUMBER,
     Inp.OVMS_LOCATION: Kind.BOOL,
     Inp.OUTSIDE_TEMP: Kind.NUMBER,
     Inp.WEATHER: Kind.WEATHER_TEMP,

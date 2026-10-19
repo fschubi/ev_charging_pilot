@@ -142,11 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.22.0 Fahrt-Details.** `Trip.trace` ([s, km/h, Akku-W wie OVMS: + in den
-  Akku/Rekup, − Antrieb, SOC], 15 s, im offenen Trip-Store); `Inp.OVMS_SPEED`;
-  `get_trip_detail` (Recorder-Fallback 15 s via `async_recorder_minutes(step_s)`, Kosten
-  über `monitor.home_price`); Panel `tripSvg`, Zeile `data-trip`. Mushroom-Karte umgestellt
-  (Backup der alten Dashboard-Config im Browser-localStorage `ev_pilot_smarthome_backup_20261018`).
 - **2026-10-18 – v0.22.1 Fahrtende per Verriegelung.** `Inp.OVMS_LOCKED` (lock bevorzugt;
   binary_sensor mit device_class lock: on = entriegelt); `TripTracker`: aus + entriegelt
   (`unlocked_after_off`) + verriegelt → sofort schließen, sonst `trip_merge_gap_min`.
@@ -162,3 +157,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   (`SessionTracker._climate`, Nachlauf `CLIMATE_TAIL`), Halo-Leistung ×3 bei einphasiger Last;
   `executor.session_id = None` bei `SESSION_END`; kein `DATA_CONFLICT` bei `_climate_heating`;
   `monitor._repair_sessions` (doppelte IDs, Klima ≤ Netz).
+- **2026-10-19 – v0.22.5 Klima-Zeitfenster.** `climate.AFTER_DEPARTURE_MIN` = 2: Klima endet
+  2 min nach Abfahrt (`until` > Abfahrt, Lock hält es über das Fensterende); Summary nennt
+  die Abfahrt aus `next_window`; `climate_blocked` entfällt, solange `climate_active`.
+  Feld 19.10.: Klima 05:23–05:28, Einstieg 05:33, Innenraum 23 → 15 °C, nur ~1,3 kW.

@@ -113,6 +113,10 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
   `DATA_CONFLICT` während des Heizens (Auto voll, lädt nicht, Wallbox liefert);
   Klima-Energie 0,34 kWh aus der Halo-*Leistung* (zeigte 5 kW), der Halo-*Zähler* stieg
   nur 0,10 kWh (≈ 1,6 kW, einphasige Heizung, Halo rechnet ×3).
+- Keine spürbare Wärme beim Einsteigen: Klima endete 05:28:39, Einstieg 05:33:28,
+  Innenraum 23 → 15 °C; Heizung nach 2 min gedrosselt (Fühler 28 °C), Ø ≈ 1,3 kW.
+  → **v0.22.5** (Klima endet 2 min nach der Abfahrt) und Klima-Dauern verlängert
+  (8–15 °C: 10 min, 0–8 °C: 15 min).
 
 **Vorklimatisierung 18.10. (v0.19.9):**
 - `CLIMATE_START` und `CHARGER_ENABLE` gleichzeitig 15:53:04, Halo bestätigt nach 7 s, Auto

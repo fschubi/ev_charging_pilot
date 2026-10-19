@@ -220,7 +220,8 @@ def test_climate_allow_topup_enables_halo_and_starts_climate():
     world = climate_world("allow_topup")
     world.run(60)
     assert world.engine.desired.reason is Reason.TARGET_SOC_REACHED  # before the climate window
-    world.now = local(2026, 10, 13, 5, 18, 30)  # 05:30 − 10 min − 2 min
+    world.now = local(2026, 10, 13, 5, 22, 30)  # 05:30 + 2 min − 10 min
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(10)
     assert world.engine.desired.reason is Reason.CLIMATE
     assert world.engine.desired.charger_enabled is True
@@ -230,7 +231,8 @@ def test_climate_allow_topup_enables_halo_and_starts_climate():
 
 def test_climate_battery_only_keeps_halo_off():
     world = climate_world("battery_only")
-    world.now = local(2026, 10, 13, 5, 18, 30)
+    world.now = local(2026, 10, 13, 5, 22, 30)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(10)
     assert world.engine.desired.reason is Reason.TARGET_SOC_REACHED
     assert world.engine.desired.charger_enabled is False
@@ -241,7 +243,8 @@ def test_climate_battery_only_keeps_halo_off():
 def test_climate_blocked_without_soc():
     world = climate_world("allow_topup")
     world.set(Inp.OVMS_SOC, "20")
-    world.now = local(2026, 10, 13, 5, 18, 30)
+    world.now = local(2026, 10, 13, 5, 22, 30)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(10)
     assert world.engine.climate_blocked == "SOC_TOO_LOW"
     assert CommandKind.CLIMATE_START not in world.commands
@@ -315,7 +318,7 @@ def test_one_off_departure_stops_at_its_own_target():
     assert world.engine.desired.charger_enabled is False
 
 
-CLIMATE_START_AT = (2026, 10, 13, 5, 18, 30)  # 05:30 − 10 min − 2 min
+CLIMATE_START_AT = (2026, 10, 13, 5, 22, 30)  # 05:30 + 2 min − 10 min
 
 
 def hvac_world() -> World:
@@ -328,6 +331,7 @@ def hvac_world() -> World:
 def test_climate_command_waits_for_the_halo_release():
     world = climate_world("allow_topup")
     world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.tick()
     assert world.commands == [CommandKind.ENABLE_CHARGER]  # Halo first, no climate yet
     world.tick()
@@ -344,6 +348,7 @@ def test_climate_is_skipped_when_the_halo_does_not_confirm():
         world.set(Inp.CHARGER_ENABLE, "off")
     world.apply = halo_refuses
     world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(70)
     assert CommandKind.CLIMATE_START not in world.commands
     assert "CLIMATE_SKIPPED" in world.events
@@ -356,6 +361,7 @@ def test_climate_is_skipped_when_the_halo_does_not_confirm():
 def test_climate_wish_ends_when_the_car_reports_hvac_off():
     world = hvac_world()
     world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(10)
     assert world.engine.climate_phase == "sent"
     world.set(Inp.OVMS_HVAC, "on")
@@ -376,6 +382,7 @@ def test_climate_wish_ends_when_the_car_reports_hvac_off():
 def test_climate_start_is_frozen_once_reached():
     world = climate_world("allow_topup")
     world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(10)
     world.set(Inp.OVMS_OUTSIDE_TEMP, "-5")  # would mean 15 min – must not send again
     world.run(60)
@@ -386,6 +393,7 @@ def test_climate_start_is_frozen_once_reached():
 def test_climate_is_not_sent_twice_after_a_restart():
     world = climate_world("allow_topup")
     world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(10)
     stored = world.engine.as_dict()
     fresh = climate_world("allow_topup")
@@ -514,10 +522,11 @@ def test_heating_from_the_grid_is_no_data_conflict():
     """Field 19.10.2026: DATA_CONFLICT while the full car heated from the wallbox."""
     world = hvac_world()
     world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
     world.run(10)
     world.set(Inp.OVMS_HVAC, "on")
     world.set(Inp.OVMS_CHARGING, "off")
-    world.run(300)
+    world.run(200)  # longer than the conflict grace of 180 s
     assert world.engine.desired.reason is Reason.CLIMATE
     assert "DATA_CONFLICT" not in world.events
     assert not world.engine.data_conflict

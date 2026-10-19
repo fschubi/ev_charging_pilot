@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.22.0 Fahrt-Details.** `Trip.trace` ([s, km/h, Akku-W wie OVMS: + in den
+  Akku/Rekup, − Antrieb, SOC], 15 s, im offenen Trip-Store); `Inp.OVMS_SPEED`;
+  `get_trip_detail` (Recorder-Fallback 15 s via `async_recorder_minutes(step_s)`, Kosten
+  über `monitor.home_price`); Panel `tripSvg`, Zeile `data-trip`. Mushroom-Karte umgestellt
+  (Backup der alten Dashboard-Config im Browser-localStorage `ev_pilot_smarthome_backup_20261018`).
 - **2026-10-18 – v0.21.1 Shelly-Aussetzer.** `Engine._relay_closed_at` +
   `_shelly_dropout_tolerated`: unerreichbarer Shelly gilt `SHELLY_DROPOUT_GRACE` (3 min) als
   „CP zu“, nicht nach CP-Puls (`executor.last_pulse_at`, 10 min) oder offener CP. Rückfahrt

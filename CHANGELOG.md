@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.5 – 2026-10-19
+
+- **Vorklimatisierung endet nach der Abfahrt, nicht davor:** Sie endet jetzt 2 Minuten
+  *nach* der geplanten Abfahrt statt 2 Minuten davor. Am 19.10. war sie um 05:28 vorbei,
+  eingestiegen wurde um 05:33 – der Innenraum war von 23 auf 15 °C abgekühlt. Bei
+  Abfahrt 05:30 und 10 Minuten läuft sie jetzt 05:22–05:32.
+- **Eine laufende Vorklimatisierung wird nicht mehr abgebrochen,** wenn während des
+  Heizens ein Wert veraltet (z. B. die Außentemperatur) und der Systemzustand auf
+  „eingeschränkt“ fällt. Eine Sicherheitssperre stoppt sie weiterhin.
+
 ## 0.22.4 – 2026-10-19
 
 Korrekturen nach der Vorklimatisierung am 19.10. (der neue Ablauf selbst lief richtig:

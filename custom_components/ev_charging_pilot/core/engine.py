@@ -674,6 +674,10 @@ class Engine:
         degraded = self.health.status is not HealthStatus.HEALTHY
         self.climate_blocked = climate_blocker(self.soc, self.settings, degraded) \
             if self.climate_plan else None
+        if self.climate_active:
+            # A climate the car already runs is not cut off halfway because a value
+            # aged meanwhile (outside temperature, SOC); a safety lock still stops it.
+            self.climate_blocked = None
 
     def _climate_progress(self, now: datetime, result: TickResult) -> None:
         """Follow the running climate: command sent, car reports HVAC on, then off.

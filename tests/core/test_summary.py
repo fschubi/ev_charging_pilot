@@ -124,8 +124,8 @@ def test_climate_ahead_and_running_are_named():
 
     world = climate_world("allow_topup")
     world.run(60)
-    assert text(world).startswith("Vorklimatisierung um 05:18 für 10 min | Abfahrt 05:30 · ")
+    assert text(world).startswith("Vorklimatisierung um 05:22 für 10 min | Abfahrt 05:30 · ")
     assert "Strom aus der Wallbox. Ziel 90 % erreicht." in text(world)
     world.now = local(*CLIMATE_START_AT)
     world.run(30)
-    assert text(world).startswith("Vorklimatisierung läuft | Bis spätestens 05:30")
+    assert text(world).startswith("Vorklimatisierung läuft | Bis spätestens 05:32")

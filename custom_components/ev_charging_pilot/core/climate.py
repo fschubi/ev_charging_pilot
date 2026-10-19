@@ -13,7 +13,10 @@ from datetime import datetime, timedelta
 from .model import ClimateRequest, Desired, Quality, Reason, Value
 from .settings import Settings
 
-LEAD_MIN = 2
+# The climate ends this long AFTER the planned departure. It used to end two minutes
+# before: on 19.10.2026 it stopped at 05:28, the driver got in at 05:33 and the
+# cabin had cooled from 23 to 15 °C – only the air is warmed in five minutes.
+AFTER_DEPARTURE_MIN = 2
 LEVEL_BY_MINUTES = {5: 1, 10: 2, 15: 3}
 
 
@@ -39,8 +42,9 @@ def planned_duration(mode: str, outside: Value, settings: Settings) -> int:
 def climate_request(departure: datetime, duration_min: int) -> ClimateRequest | None:
     if duration_min <= 0:
         return None
-    start = departure - timedelta(minutes=duration_min + LEAD_MIN)
-    return ClimateRequest(duration_min=duration_min, start_at=start, until=departure)
+    until = departure + timedelta(minutes=AFTER_DEPARTURE_MIN)
+    return ClimateRequest(duration_min=duration_min,
+                          start_at=until - timedelta(minutes=duration_min), until=until)
 
 
 def climate_blocker(soc: Value | None, settings: Settings, degraded: bool) -> str | None:

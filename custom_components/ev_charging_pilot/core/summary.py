@@ -83,7 +83,8 @@ def _with_climate(engine: Engine, now: datetime, at, rest: tuple[str, str, str]
     temp = f" · {_de(float(outside.normalized), 1)} °C außen" \
         if outside.available and outside.normalized is not None else ""
     return (f"Vorklimatisierung um {at(plan.start_at)} für {plan.duration_min} min",
-            f"Abfahrt {at(plan.until)}{temp} · {_climate_source(engine)}. {rest[0]}.",
+            f"Abfahrt {at(engine.next_window.departure if engine.next_window else plan.until)}"
+            f"{temp} · {_climate_source(engine)}. {rest[0]}.",
             rest[2])
 
 

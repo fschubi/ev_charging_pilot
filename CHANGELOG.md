@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.22.4 – 2026-10-19
+
+Korrekturen nach der Vorklimatisierung am 19.10. (der neue Ablauf selbst lief richtig:
+Klimabefehl erst nach der Wallbox-Bestätigung, Wallbox aus, sobald das Auto Klima aus
+meldet):
+- **Klima-Energie stimmt:** Sie kommt jetzt aus dem Wallbox-*Zähler* statt aus der
+  angezeigten *Leistung*. Die Halo zeigte 5 kW, die Heizung zog laut Zähler nur etwa
+  1,6 kW (einphasig, die Halo rechnet auf drei Phasen hoch). Gespeicherte Sitzungen werden
+  beim Start korrigiert: Der Klima-Anteil ist nie größer als die Netzenergie.
+- **Jede Ladung bekommt eine eigene Sitzungs-ID:** Die Klima-Sitzung übernahm die ID der
+  Nachtladung, die Detailansicht zeigte dann die falsche Ladung. Doppelte IDs werden
+  beim Start repariert.
+- **Kein „Datenkonflikt“ mehr beim Heizen:** Das volle Auto zieht Strom, ohne zu laden –
+  das ist während der Vorklimatisierung normal.
+
 ## 0.22.3 – 2026-10-19
 
 - **Ladeziel 100 %: das Auto entscheidet, wann es voll ist.** Bei 100 % schaltet der Pilot

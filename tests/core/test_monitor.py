@@ -305,3 +305,22 @@ def test_lock_binary_sensor_on_means_unlocked():
     assert to_value(Inp.OVMS_LOCKED, RawState("off", at, at, sensor)).normalized is True
     assert to_value(Inp.OVMS_LOCKED, RawState("locked", at, at, {})).normalized is True
     assert to_value(Inp.OVMS_LOCKED, RawState("unlocked", at, at, {})).normalized is False
+
+
+def test_restore_repairs_duplicate_ids_and_overstated_climate():
+    """Field 19.10.2026: the climate session reused the night's ID, climate 0.34 > 0.10 kWh."""
+    from custom_components.ev_charging_pilot.core.monitor import Monitor
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+
+    night = ChargeSession(session_id="s-20261019-003045", reason="schedule",
+                          started_at=local(2026, 10, 19, 2, 30, 45), grid_energy_kwh=7.92)
+    climate = ChargeSession(session_id="s-20261019-003045", reason="climate",
+                            started_at=local(2026, 10, 19, 5, 24, 31), grid_energy_kwh=0.10,
+                            climate_energy_kwh=0.3448, climate_cost_eur=0.1512)
+    monitor = Monitor(TZ)
+    monitor.restore({"sessions": [night.as_dict(), climate.as_dict()]})
+    first, second = monitor.data.sessions
+    assert first.session_id == "s-20261019-003045"
+    assert second.session_id == "s-20261019-003045-052431"
+    assert second.climate_energy_kwh == 0.10
+    assert second.climate_cost_eur == round(0.1512 * 0.10 / 0.3448, 4)

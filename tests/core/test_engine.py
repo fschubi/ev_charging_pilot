@@ -496,3 +496,28 @@ def test_target_below_100_still_stops_at_the_soc():
     world.set(Inp.OVMS_SOC, "90")
     world.run(30)
     assert world.engine.desired.charger_enabled is False
+
+
+def test_a_new_start_after_session_end_gets_a_new_session_id():
+    """Field 19.10.2026: the climate session reused the night's session ID."""
+    world = full_charge_world()
+    world.engine.one_shot = replace(world.engine.one_shot, preferred_departure_soc_pct=90)
+    first = world.engine.executor.session_id
+    assert first
+    world.set(Inp.OVMS_SOC, "90")
+    world.run(30)
+    assert "SESSION_END" in world.events
+    assert world.engine.executor.session_id is None
+
+
+def test_heating_from_the_grid_is_no_data_conflict():
+    """Field 19.10.2026: DATA_CONFLICT while the full car heated from the wallbox."""
+    world = hvac_world()
+    world.now = local(*CLIMATE_START_AT)
+    world.run(10)
+    world.set(Inp.OVMS_HVAC, "on")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.run(300)
+    assert world.engine.desired.reason is Reason.CLIMATE
+    assert "DATA_CONFLICT" not in world.events
+    assert not world.engine.data_conflict

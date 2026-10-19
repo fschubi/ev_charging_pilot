@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-18 – v0.21.1 Shelly-Aussetzer.** `Engine._relay_closed_at` +
+  `_shelly_dropout_tolerated`: unerreichbarer Shelly gilt `SHELLY_DROPOUT_GRACE` (3 min) als
+  „CP zu“, nicht nach CP-Puls (`executor.last_pulse_at`, 10 min) oder offener CP. Rückfahrt
+  18.10. sauber erfasst (Fahrt schließt erst nach `trip_merge_gap_min` = 10 min).
 - **2026-10-18 – v0.21.0 Klima-Energie.** `Inp.OVMS_BATTERY_POWER`; `SessionTracker._climate`
   (Halo − Akku/η je 15-min-Slot, nur bei `Engine._climate_heating`), `ChargeSession.
   climate_energy_kwh/climate_cost_eur`; Statistik, Panel-Spalte „Klima“, PDF-Zeile.

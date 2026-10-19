@@ -7,6 +7,8 @@ counted 3.31 kWh while the counter rose by 3.43 kWh.
 
 from datetime import date, datetime, timedelta
 
+import pytest
+
 from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory, PricePoint
 from custom_components.ev_charging_pilot.core.model import (
     Category,
@@ -104,29 +106,42 @@ def test_session_keeps_a_power_curve_once_per_minute():
     assert restored.trace == session.trace
 
 
-def test_climate_share_of_the_grid_energy():
-    """Field 18.10.2026: Halo 8.8 kW, battery 5.4 kW while heating."""
+def climate_tick(tracker, at, total, events=(), climate=True, battery_w=0.0):
+    return tracker.update(
+        T0 + timedelta(seconds=at), list(events), total_energy=kwh(total),
+        power=Value(5000, 5000, "halo", None),  # Halo shows 3 × one phase
+        vehicle_power=Value.unavailable("ovms"), soc=Value(100, 100, "ovms", None),
+        reason="climate", prices=PRICES, climate=climate,
+        battery_power=Value(battery_w, battery_w, "ovms", T0, Quality.GOOD), efficiency=0.88)
+
+
+def test_climate_energy_comes_from_the_counter_not_the_power():
+    """Field 19.10.2026: Halo power 5 kW, counter 13.27 → 13.37 kWh, battery full."""
     tracker = SessionTracker()
-    battery = Value(5400, 5400, "ovms", T0, Quality.GOOD)
-    halo = Value(8800, 8800, "halo", None)
+    climate_tick(tracker, 0, 13.27, [ev("CHARGER_ENABLE")])
+    climate_tick(tracker, 30, 13.27, [ev("CHARGE_STABLE")])
+    for at in range(35, 270, 5):  # counter polled every 30 s, rising 1.6 kW
+        climate_tick(tracker, at, round(13.27 + (at // 30 * 30 - 30) * 1.6 / 3600, 2))
+    # HVAC off; the last counter readings arrive a poll later.
+    climate_tick(tracker, 270, 13.36, [ev("SESSION_END")], climate=False)
+    climate_tick(tracker, 300, 13.37, climate=False)
+    session = climate_tick(tracker, 270 + TAIL_S, 13.37, climate=False)[0]
+    assert session.grid_energy_kwh == pytest.approx(0.10)
+    assert session.climate_energy_kwh == pytest.approx(0.10, abs=0.005)
+    assert session.climate_cost_eur == pytest.approx(session.climate_energy_kwh * 0.38)
 
-    def tick(at, total, events=(), climate=True):
-        return tracker.update(
-            T0 + timedelta(seconds=at), list(events), total_energy=kwh(total), power=halo,
-            vehicle_power=Value.unavailable("ovms"), soc=Value(89, 89, "ovms", None),
-            reason="climate", prices=PRICES, climate=climate, battery_power=battery,
-            efficiency=0.88)
 
-    tick(0, 4.55, [ev("CHARGER_ENABLE")])
-    tick(5, 4.56, [ev("CHARGE_STABLE")])
-    for at in range(10, 305, 5):  # five minutes of heating
-        tick(at, 4.56 + at * 8.8 / 3600)
-    tick(310, 5.30, climate=False)  # HVAC off: charging only
-    tick(400, 5.52, [ev("SESSION_END")], climate=False)
-    session = tick(400 + TAIL_S, 5.52, climate=False)[0]
-    heating_kw = 8.8 - 5.4 / 0.88  # ≈ 2.66 kW
-    assert abs(session.climate_energy_kwh - heating_kw * 300 / 3600) < 0.01
-    assert abs(session.climate_cost_eur - session.climate_energy_kwh * 0.38) < 0.001
+def test_battery_charging_is_not_counted_as_climate():
+    """Field 18.10.2026: heating while charging at 89 %: Halo 8.8 kW, battery 5.4 kW."""
+    tracker = SessionTracker()
+    climate_tick(tracker, 0, 4.55, [ev("CHARGER_ENABLE")], battery_w=5400)
+    climate_tick(tracker, 5, 4.55, [ev("CHARGE_STABLE")], battery_w=5400)
+    for at in range(10, 310, 5):
+        climate_tick(tracker, at, 4.55 + (at - 5) * 8.8 / 3600, battery_w=5400)
+    climate_tick(tracker, 310, 4.55 + 305 * 8.8 / 3600, [ev("SESSION_END")], climate=False)
+    session = climate_tick(tracker, 310 + TAIL_S, 4.55 + 305 * 8.8 / 3600, climate=False)[0]
+    heating = (8.8 - 5.4 / 0.88) * 300 / 3600
+    assert session.climate_energy_kwh == pytest.approx(heating, abs=0.015)  # + 5 s tail
 
 
 def test_no_climate_share_without_climate():

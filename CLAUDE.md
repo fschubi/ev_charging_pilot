@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-18 – v0.21.1 Shelly-Aussetzer.** `Engine._relay_closed_at` +
-  `_shelly_dropout_tolerated`: unerreichbarer Shelly gilt `SHELLY_DROPOUT_GRACE` (3 min) als
-  „CP zu“, nicht nach CP-Puls (`executor.last_pulse_at`, 10 min) oder offener CP. Rückfahrt
-  18.10. sauber erfasst (Fahrt schließt erst nach `trip_merge_gap_min` = 10 min).
 - **2026-10-18 – v0.22.0 Fahrt-Details.** `Trip.trace` ([s, km/h, Akku-W wie OVMS: + in den
   Akku/Rekup, − Antrieb, SOC], 15 s, im offenen Trip-Store); `Inp.OVMS_SPEED`;
   `get_trip_detail` (Recorder-Fallback 15 s via `async_recorder_minutes(step_s)`, Kosten
@@ -162,3 +158,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   (`FULL_TARGET_PCT`) kein `target_soc_wish`, sondern Aus nach `FULL_END_WAIT` (3 min) in
   `CHARGE_ENDED`. Nacht 19.10.: 58 → 100 % ohne Wecken (M8 17 s), Anzeige 100 % ≈ real 93 %,
   `CURRENT_SET` griff erst beim 2. Mal, OVMS `charger_power` = Netzseite (Messprotokoll).
+- **2026-10-19 – v0.22.4 Klima-Feldtest 2.** Klima-Energie aus Zählerdelta − Akku/η je Slot
+  (`SessionTracker._climate`, Nachlauf `CLIMATE_TAIL`), Halo-Leistung ×3 bei einphasiger Last;
+  `executor.session_id = None` bei `SESSION_END`; kein `DATA_CONFLICT` bei `_climate_heating`;
+  `monitor._repair_sessions` (doppelte IDs, Klima ≤ Netz).

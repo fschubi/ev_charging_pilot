@@ -397,8 +397,10 @@ class Engine:
         values[Inp.CHARGE_POWER] = classify(power, now, rule(ages.halo_power_s, non_negative))
 
         self._was_conflict = self.data_conflict
+        # While the car heats from the grid it draws power without charging – that is
+        # no contradiction (field 19.10.2026: DATA_CONFLICT during the climate).
         if charging_conflict(values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING],
-                             s.power_threshold_w):
+                             s.power_threshold_w) and not self._climate_heating(values):
             self._conflict_since = self._conflict_since or now
         else:
             self._conflict_since = None

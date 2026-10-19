@@ -105,7 +105,14 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
 - Anzeige 100 % bei `real_soc` ≈ 93 %: Pilot schaltet ab, bevor das Auto selbst aufhört.
 - OVMS `charger_power` misst die Netzseite – „im Akku“/Ladeverlust in der Sitzung damit
   nicht aussagekräftig (Ladeverlust ≈ 0 %).
-- Vorklimatisierung 05:23 (5 min, 8,2 °C) – Auswertung folgt.
+- Vorklimatisierung 05:23 (5 min, 8,2 °C, v0.22.2): Wallbox an 05:23:00, bestätigt
+  05:23:05, **erst dann** `CLIMATE_START` (05:23:05); Auto wach 05:23:07 durch OVMS,
+  kein Wecken. Klima 05:23:17–05:28:39, Innenraum 11 → 28 °C. Bei `hvac_active` aus
+  sofort `CLIMATE_ENDED` + Wallbox aus (05:28:39) – nicht erst zur Abfahrt.
+- Fehler (behoben in **v0.22.4**): Klima-Sitzung bekam die ID der Nachtladung;
+  `DATA_CONFLICT` während des Heizens (Auto voll, lädt nicht, Wallbox liefert);
+  Klima-Energie 0,34 kWh aus der Halo-*Leistung* (zeigte 5 kW), der Halo-*Zähler* stieg
+  nur 0,10 kWh (≈ 1,6 kW, einphasige Heizung, Halo rechnet ×3).
 
 **Vorklimatisierung 18.10. (v0.19.9):**
 - `CLIMATE_START` und `CHARGER_ENABLE` gleichzeitig 15:53:04, Halo bestätigt nach 7 s, Auto

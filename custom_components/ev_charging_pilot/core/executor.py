@@ -717,6 +717,9 @@ class Executor:
         if snap.desired.charger_enabled is False:
             self._event(now, Category.CHARGING, Severity.INFO, "SESSION_END",
                         f"Ladesession beendet ({snap.desired.reason})")
+            # The next start is a new session (field 19.10.2026: the climate session
+            # reused the night's ID).
+            self.session_id = None
             if not self._start_disabling(snap):
                 # Minimum switch interval not over yet: wait in COOLDOWN (switching off
                 # follows from IDLE) instead of ending the session again every tick.

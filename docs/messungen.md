@@ -26,3 +26,5 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | 2026-10-19 | Leistung sinkt ab ~85–89 % Anzeige-SOC auf 6,4–7,0 kW | Restdauer oberhalb 85 % |
 | 2026-10-19 | Anzeige-SOC 100 % bei `real_soc` ≈ 93 % (91,3 % um 03:28) – die Anzeige läuft oben schneller | Ziel-SOC-Abschaltung |
 | 2026-10-19 | OVMS `charger_power` ≈ Halo-Leistung (7,91 vs. 7,92 kWh): misst die Netzseite, nicht den Akku – Ladeverlust daraus nicht bestimmbar | Eingang `ovms_charge_power` |
+| 2026-10-19 | Vorklimatisierung bei vollem Akku: Halo-Leistung 5,0–5,3 kW, Zähler +0,10 kWh in 5 min (≈ 1,6 kW), Akku ≈ 0 kW – Halo-Leistung bei einphasiger Last ×3 überhöht | Klima-Energie aus dem Zähler |
+| 2026-10-19 | Halo bestätigt Freigabe für Klima nach 5 s (Vortag 7 s) | `CLIMATE_CONFIRM_TIMEOUT` 60 s reicht |

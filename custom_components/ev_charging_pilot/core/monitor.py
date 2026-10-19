@@ -166,3 +166,25 @@ class Monitor:
             soc_log=readings(raw.get("soc_log")),
             days_seen={date.fromisoformat(d) for d in raw.get("days_seen") or []},
         )
+        _repair_sessions(self.data.sessions)
+
+
+def _repair_sessions(sessions: list[ChargeSession]) -> None:
+    """Fix records of v0.22.3 and older (field 19.10.2026).
+
+    A session started after another one ended reused its ID, and the climate
+    share came from the Halo power, which overstates single-phase loads. IDs
+    must be unique for the detail view; the climate can never exceed the grid.
+    """
+    seen: set[str] = set()
+    for session in sessions:
+        if session.session_id in seen:
+            session.session_id = f"{session.session_id}-{session.started_at:%H%M%S}"
+        seen.add(session.session_id)
+        if session.climate_energy_kwh is not None \
+                and session.climate_energy_kwh > session.grid_energy_kwh:
+            ratio = session.grid_energy_kwh / session.climate_energy_kwh \
+                if session.climate_energy_kwh else 0.0
+            session.climate_energy_kwh = round(session.grid_energy_kwh, 4)
+            if session.climate_cost_eur is not None:
+                session.climate_cost_eur = round(session.climate_cost_eur * ratio, 4)

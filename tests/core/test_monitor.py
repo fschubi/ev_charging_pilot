@@ -360,3 +360,47 @@ def test_a_trip_can_be_deleted():
     assert monitor.delete_trip("t1") is True
     assert monitor.delete_trip("t1") is False
     assert [t.trip_id for t in monitor.data.trips] == ["t2"]
+
+
+def test_year_balance_starts_with_the_first_soc_and_leaves_out_the_climate():
+    """Field 20.10.2026: 21.25 kWh / 104 km = 20.4 kWh/100 km – no SOC at 1 January,
+    so 8 % still in the battery and the climate counted as driving."""
+    start, end = local(2026, 1, 1), local(2027, 1, 1)
+    climate = session(local(2026, 10, 19, 5, 24), 0.1)
+    climate.climate_energy_kwh, climate.climate_cost_eur = 0.1, 0.03
+    data = MonitorData(
+        sessions=[session(local(2026, 10, 17, 3), 21.15), climate],
+        trips=[trip(local(2026, 10, 18, 7), 104, 18.98, 10.0)],
+        external=[],
+        odometer_readings=[Reading(local(2026, 10, 16, 2), 9000),
+                           Reading(local(2026, 10, 20, 7), 9104)],
+        soc_log=[Reading(local(2026, 10, 16, 2), 71), Reading(local(2026, 10, 20, 7), 79)],
+        days_seen=set(),
+    )
+    year = period_summary(data, start, end, prices=PRICES, capacity_kwh=17.6, efficiency=0.88,
+                          odometer_source="manual")
+    assert year["delta_soc_pct"] == pytest.approx(8)
+    driving = (21.25 - 0.1 - 0.08 * 17.6 / 0.88) / 104 * 100
+    assert year["grid_consumption_kwh_100km"] == pytest.approx(driving, rel=1e-3)
+    assert year["grid_consumption_kwh_100km"] < 19.5
+    assert year["vehicle_consumption_kwh_100km"] == pytest.approx(
+        (18.98 - 1.898) / 104 * 100, rel=1e-3)
+
+
+def test_charging_loss_prefers_the_real_battery_energy():
+    from custom_components.ev_charging_pilot.core.statistics import measured_sessions
+
+    grid_side = session(local(2026, 10, 18, 4), 3.31, 3.38)  # integrated charge power
+    real = session(local(2026, 10, 20, 2), 8.99, 7.68)
+    real.vehicle_energy_source = "ovms_charge_energy"
+    assert measured_sessions([grid_side, real]) == [real]
+    assert measured_sessions([grid_side]) == [grid_side]
+
+
+def test_charge_energy_must_belong_to_the_session():
+    from custom_components.ev_charging_pilot.core.sessions import plausible_charge_energy
+
+    assert plausible_charge_energy((0.2, 7.68), 8.99) == 7.68
+    assert plausible_charge_energy((7.68, 7.68), 8.99) is None  # previous charge's value
+    assert plausible_charge_energy((7.68, 7.68), 0.1) is None   # climate session
+    assert plausible_charge_energy((0.0, 2.0), 8.99) is None    # implausibly low

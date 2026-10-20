@@ -95,3 +95,40 @@ async def test_session_detail_takes_the_curve_from_the_recorder(hass, entry, hal
     assert len(msg["result"]["trace"]) >= 10
     assert msg["result"]["trace"][0][0] == 0
     assert any(p[1] == 9200 for p in msg["result"]["trace"])
+
+
+async def test_older_sessions_get_their_battery_energy_from_the_recorder(hass, halo, freezer):
+    """v0.25.0: sessions stored with the grid-side charge power get OVMS charge_energy."""
+    from homeassistant.components.recorder import get_instance
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+
+    from .conftest import DATA, SOC
+
+    kwh = "sensor.car_charge_energy"
+    start = dt_util.utcnow()
+    hass.states.async_set(kwh, "7.92", {"unit_of_measurement": "kWh"})  # previous charge
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=2))
+    hass.states.async_set(kwh, "0.1", {"unit_of_measurement": "kWh"})  # new charge starts
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=60))
+    hass.states.async_set(kwh, "7.68", {"unit_of_measurement": "kWh"})
+    await hass.async_block_till_done()
+    await get_instance(hass).async_block_till_done()
+    freezer.tick(timedelta(minutes=30))
+    entry = MockConfigEntry(domain=DOMAIN, data={**DATA, "ovms_soc": SOC, "ovms_charge_energy": kwh,
+                                                 "charge_energy_discovery_done": True},
+                            options={"mode": "dry_run"}, version=2, minor_version=2)
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    center.monitor.data.sessions = [ChargeSession(
+        session_id="s1", started_at=start + timedelta(minutes=1),
+        ended_at=start + timedelta(minutes=63), reason="schedule", grid_energy_kwh=8.99,
+        vehicle_charge_energy_kwh=8.97)]
+    assert await center.async_backfill_charge_energy() == 1
+    session = center.monitor.data.sessions[0]
+    assert session.vehicle_charge_energy_kwh == 7.68
+    assert session.vehicle_energy_source == "ovms_charge_energy"
+    assert await center.async_backfill_charge_energy() == 0  # only once

@@ -420,6 +420,7 @@ class Engine:
             (Inp.OVMS_SPEED, rule(ages.vehicle_charging_s)),
             (Inp.OVMS_LOCKED, rule(ages.vehicle_charging_s)),
             (Inp.OVMS_CABIN_TEMP, rule(ages.temperature_s)),
+            (Inp.OVMS_CHARGE_ENERGY, rule(ages.odometer_s)),
         ):
             values[key] = classify(values[key], now, r, self._activity_for_quality())
         for key, r in (
@@ -955,6 +956,7 @@ class Engine:
             dynamic_price=self._dynamic_price,
             climate=self._climate_heating(v), battery_power=v.get(Inp.OVMS_BATTERY_POWER),
             efficiency=self.settings.charge_efficiency,
+            charge_energy=v.get(Inp.OVMS_CHARGE_ENERGY),
         )
         if self.shadow:
             # A start that "failed" only because nothing was switched is no session.

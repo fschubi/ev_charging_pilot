@@ -17,6 +17,7 @@ from .statistics import (
     ExternalCharge,
     MonitorData,
     Reading,
+    measured_sessions,
     month_summary,
     temperature_statistics,
     year_summary,
@@ -130,7 +131,7 @@ class Monitor:
     def temperatures(self, settings: Settings, year: int | None = None) -> dict[str, Any]:
         trips = [t for t in self.data.trips
                  if year is None or t.started_at.astimezone(self.tz).year == year]
-        measured = [s for s in self.data.sessions if s.success and s.vehicle_charge_energy_kwh]
+        measured = measured_sessions(self.data.sessions)
         grid = sum(s.grid_energy_kwh for s in measured)
         loss_pct = (grid - sum(s.vehicle_charge_energy_kwh for s in measured)) / grid * 100 \
             if grid else None

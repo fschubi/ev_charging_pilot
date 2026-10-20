@@ -32,3 +32,5 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | 2026-10-19 | Halo bestätigt Freigabe für Klima nach 5 s (Vortag 7 s) | `CLIMATE_CONFIRM_TIMEOUT` 60 s reicht |
 | 2026-10-19 | OVMS-Außentemperatur 13,2–13,8 °C während der Fahrt, Wetterstation zur selben Zeit 9,5–10,1 °C (+3–4 °C); schlafend eingefroren (13,1 °C ab 16:08) | Quelle Außentemperatur |
 | 2026-10-20 | 55 → 100 % (Anzeige) in 79 min, 8,99 kWh = 0,20 kWh je % inkl. Nachladen nach Anzeige-100 % (~0,7 kWh), max. 7,9 kW (12 A), ab ~90 % ~6 kW | Lernmodell / Prognose |
+| 2026-10-20 | Ladeverlust: OVMS `charge_energy` 7,68 kWh in den Akku bei 8,99 kWh Halo-Zähler → ~14,6 % | `charge_efficiency` (0,88 → ~0,85) |
+| 2026-10-20 | Fahrzeugverbrauch 16.–20.10.: (18,98 − 1,79) kWh / 104 km = 16,5 kWh/100 km bei 5–13 °C | Plausibilität |

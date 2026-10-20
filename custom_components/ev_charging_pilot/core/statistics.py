@@ -161,6 +161,17 @@ def _odometer_at(readings: Sequence[Reading], moment: datetime) -> tuple[float |
     return last.value, False
 
 
+def measured_sessions(sessions: Iterable[ChargeSession]) -> list[ChargeSession]:
+    """Sessions whose battery energy is known – OVMS "energy of this charge" first.
+
+    The integrated OVMS charge power is the grid side on the smart (loss ~0 %), so it
+    only counts while no session has the real value yet.
+    """
+    known = [s for s in sessions if s.success and s.vehicle_charge_energy_kwh]
+    real = [s for s in known if s.vehicle_energy_source == "ovms_charge_energy"]
+    return real or known
+
+
 def period_summary(
     data: MonitorData,
     start: datetime,
@@ -192,11 +203,17 @@ def period_summary(
     aux = sum(t.auxiliary_energy_kwh or 0 for t in trips) if trips else None
 
     soc_start = _value_at(data.soc_log, start)
+    if soc_start is None:
+        # The record began inside the period (first SOC on 16.10.2026, not on 1 Jan):
+        # start the balance there – otherwise energy still in the battery counts as
+        # consumption.
+        inside = [r for r in data.soc_log if start <= r.at < end]
+        soc_start = inside[0].value if inside else None
     soc_end = _value_at(data.soc_log, end)
     delta_soc = (soc_end - soc_start) / 100 if soc_start is not None and soc_end is not None \
         else None
 
-    measured = [s for s in successful if s.vehicle_charge_energy_kwh]
+    measured = measured_sessions(successful)
     vehicle_charged = round(sum(s.vehicle_charge_energy_kwh for s in measured), 3) \
         if measured else None
     grid_of_measured = sum(s.grid_energy_kwh for s in measured)
@@ -211,10 +228,17 @@ def period_summary(
     grid_documented = round(home_kwh + external_kwh, 3)
     soc_term = (delta_soc or 0.0) * capacity_kwh
     battery_net = round(vehicle_charged - soc_term, 3) if vehicle_charged is not None else None
-    grid_per_100 = None
+    # Driving only: the pre-climatisation is shown on its own ("davon Klima").
+    driving_grid = grid_documented - (climate_kwh or 0.0)
+    grid_per_100 = grid_incl_climate_per_100 = vehicle_per_100 = None
     if distance:
-        grid_per_100 = round((grid_documented - soc_term / efficiency) / distance * 100, 2)
+        grid_per_100 = round((driving_grid - soc_term / efficiency) / distance * 100, 2)
+        grid_incl_climate_per_100 = round(
+            (grid_documented - soc_term / efficiency) / distance * 100, 2)
+        if used is not None:
+            vehicle_per_100 = round((used - (recd or 0.0)) / distance * 100, 2)
     cost_total = round(home_cost + external_cost, 2)
+    driving_cost = cost_total - (climate_cost or 0.0)
 
     weighted = [(t.outside_temp_avg_c, t.distance_km or 0) for t in trips
                 if t.outside_temp_avg_c is not None]
@@ -245,6 +269,8 @@ def period_summary(
         "charging_loss_kwh": loss_kwh,
         "charging_loss_pct": loss_pct,
         "grid_consumption_kwh_100km": grid_per_100,
+        "grid_consumption_incl_climate_kwh_100km": grid_incl_climate_per_100,
+        "vehicle_consumption_kwh_100km": vehicle_per_100,
         "home_cost_eur": home_cost,
         "climate_energy_kwh": climate_kwh,
         "climate_cost_eur": climate_cost,
@@ -253,8 +279,8 @@ def period_summary(
         # Same SOC correction as the kWh figure: energy still in (or taken from) the
         # battery is valued at the period's average price.
         "cost_per_100km_eur": round(
-            (cost_total - soc_term / efficiency * cost_total / grid_documented
-             if grid_documented > 0 else cost_total) / distance * 100, 2)
+            (driving_cost - soc_term / efficiency * cost_total / grid_documented
+             if grid_documented > 0 else driving_cost) / distance * 100, 2)
         if distance else None,
         "sessions": len(successful),
         "failed_sessions": len(sessions) - len(successful),

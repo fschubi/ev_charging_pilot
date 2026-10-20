@@ -59,6 +59,10 @@ class ChargeSession:
     # Grid energy that went into the pre-climatisation (None: no climate measured).
     climate_energy_kwh: float | None = None
     climate_cost_eur: float | None = None
+    # Where vehicle_charge_energy_kwh comes from: "ovms_charge_energy" (energy into
+    # the battery as the car counts it) or None (integrated OVMS charge power, which
+    # on the smart is the grid side – the loss then reads ~0 %).
+    vehicle_energy_source: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -107,6 +111,8 @@ class SessionTracker:
         self._climate_counter: float | None = None
         self._climate_tail: datetime | None = None
         self._efficiency = 0.88
+        # OVMS "energy of this charge" (v.c.kwh): first and latest reading in the session.
+        self._charge_kwh: tuple[float, float] | None = None
         self._dynamic: Callable[[datetime], float | None] | None = None
         # Counter reading when the wallbox was enabled (session baseline).
         self._enable_kwh: tuple[datetime, float] | None = None
@@ -131,9 +137,12 @@ class SessionTracker:
         climate: bool = False,
         battery_power: Value | None = None,
         efficiency: float = 0.88,
+        charge_energy: Value | None = None,
     ) -> list[ChargeSession]:
         self._dynamic = dynamic_price
         self._efficiency = efficiency
+        if self.open is not None:
+            self._watch_charge_energy(charge_energy)
         closed: list[ChargeSession] = []
         for event in events:
             closed += self._on_event(now, event, total_energy, soc, reason, prices)
@@ -261,6 +270,13 @@ class SessionTracker:
         self._trace_at = None
         self._climate_kwh = {}
         self._climate_at = self._climate_counter = self._climate_tail = None
+        self._charge_kwh = None
+
+    def _watch_charge_energy(self, value: Value | None) -> None:
+        if value is None or not value.quality.usable_for_planning or value.normalized is None:
+            return
+        kwh = float(value.normalized)
+        self._charge_kwh = (self._charge_kwh[0] if self._charge_kwh else kwh, kwh)
 
     def _price(self, moment: datetime, prices: FixedPriceHistory) -> float:
         return _price_at(self._dynamic, prices, moment)
@@ -373,6 +389,11 @@ class SessionTracker:
                                         else prices.price_at(interval.start), 5)
         session.energy_intervals = items
         session.cost_eur = round(sum(i["kwh"] * i["eur_per_kwh"] for i in items), 4)
+        energy = plausible_charge_energy(self._charge_kwh, session.grid_energy_kwh)
+        if energy is not None:
+            session.vehicle_charge_energy_kwh = energy
+            session.vehicle_energy_source = "ovms_charge_energy"
+        self._charge_kwh = None
         if self._climate_kwh:
             shares = {slot: max(0.0, grid - battery / self._efficiency)
                       for slot, (grid, battery) in self._climate_kwh.items()}
@@ -386,6 +407,22 @@ class SessionTracker:
         self.open = None
         self._acc = IntervalAccumulator(self.interval_min)
         return session
+
+
+def plausible_charge_energy(readings: tuple[float, float] | None,
+                            grid_kwh: float) -> float | None:
+    """OVMS energy of this charge, if it belongs to it.
+
+    The counter restarts with each charge; a value that never changed during the
+    session is the previous charge's. Between half and all of the grid energy
+    (field 20.10.2026: 7.68 kWh into the battery for 8.99 kWh from the wallbox).
+    """
+    if readings is None or grid_kwh < 0.5:
+        return None
+    first, last = readings
+    if first == last or not 0.5 * grid_kwh <= last <= grid_kwh * 1.02:
+        return None
+    return round(last, 3)
 
 
 def _price_at(dynamic, prices: FixedPriceHistory, moment: datetime) -> float:

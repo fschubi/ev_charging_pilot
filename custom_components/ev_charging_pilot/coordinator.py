@@ -190,6 +190,8 @@ class ChargingCenter:
             self.hass, self._drift_check(), f"{DOMAIN} drift check")
         self.entry.async_create_background_task(
             self.hass, self._async_backfill_history(), f"{DOMAIN} chart history")
+        self.entry.async_create_background_task(
+            self.hass, self.async_backfill_charge_energy(), f"{DOMAIN} charge energy")
         self.price_fetcher.start(self.settings)
         from .vehicle_image import image_version
 
@@ -468,6 +470,56 @@ class ChargingCenter:
         self.history.extend(s for s in samples if first_live is None or s[0] < first_live)
         self.history.extend(live)
         self._notify_listeners()
+
+    async def async_backfill_charge_energy(self) -> int:
+        """Older sessions: the energy into the battery from the recorder (v0.25.0).
+
+        Until then the "vehicle" energy was the integrated OVMS charge power – the
+        grid side on the smart, so the charging loss read ~0 %. Returns how many
+        sessions were completed.
+        """
+        from .core.sessions import plausible_charge_energy
+
+        entity_id = self.entity_ids.get(Inp.OVMS_CHARGE_ENERGY)
+        if entity_id is None or "recorder" not in self.hass.config.components:
+            return 0
+        from homeassistant.components.recorder import get_instance, history
+
+        oldest = dt_util.utcnow() - timedelta(days=10)
+        todo = [s for s in self.monitor.data.sessions
+                if s.vehicle_energy_source is None and s.success and s.ended_at
+                and s.ended_at >= oldest and s.grid_energy_kwh >= 0.5]
+        done = 0
+        for session in todo:
+            start = session.started_at - timedelta(minutes=30)
+            end = session.ended_at + timedelta(minutes=15)
+
+            def load(start=start, end=end) -> dict[str, list]:
+                return history.get_significant_states(
+                    self.hass, start, end, [entity_id], include_start_time_state=True,
+                    significant_changes_only=False)
+
+            try:
+                states = await get_instance(self.hass).async_add_executor_job(load)
+            except Exception:  # noqa: BLE001 – a nicety, never a reason to fail
+                _LOGGER.debug("Ladeenergie aus dem Recorder nicht ladbar", exc_info=True)
+                return done
+            values = []
+            for state in states.get(entity_id, []):
+                value = to_value(Inp.OVMS_CHARGE_ENERGY, RawState(
+                    state.state, state.last_updated, state.last_updated, dict(state.attributes)))
+                if value.available and value.normalized is not None:
+                    values.append(float(value.normalized))
+            energy = plausible_charge_energy(
+                (values[0], values[-1]) if values else None, session.grid_energy_kwh)
+            if energy is not None:
+                session.vehicle_charge_energy_kwh = energy
+                session.vehicle_energy_source = "ovms_charge_energy"
+                done += 1
+        if done:
+            _LOGGER.info("Energie in den Akku für %d ältere Ladungen aus OVMS ergänzt", done)
+            self.monitor_changed()
+        return done
 
     async def async_recorder_minutes(
         self, inputs: tuple[Inp, ...], start: datetime, end: datetime, step_s: int = 60

@@ -1853,12 +1853,14 @@ class EvPilotPanel extends HTMLElement {
     return `<div class="grid">
       <div class="card"><h2>${this._year}: Strecke</h2><div class="big">${num(y.distance_km, 0, "km")}</div>
         <div class="sub">${y.trips ?? 0} Fahrten · Qualität ${esc(QUALITY_TEXT[y.quality] || y.quality || "–")}</div></div>
-      <div class="card"><h2>Netzverbrauch</h2><div class="big">${num(y.grid_consumption_kwh_100km, 1, "kWh/100 km")}</div>
-        <div class="sub">inkl. Ladeverlust, mit SOC-Ausgleich</div></div>
+      <div class="card"><h2>Fahrzeugverbrauch</h2><div class="big">${num(y.vehicle_consumption_kwh_100km, 1, "kWh/100 km")}</div>
+        <div class="sub">aus dem Akku laut OVMS (verbraucht minus Rekuperation) – der Wert aus dem Auto</div></div>
+      <div class="card"><h2>Netzverbrauch Fahren</h2><div class="big">${num(y.grid_consumption_kwh_100km, 1, "kWh/100 km")}</div>
+        <div class="sub">aus der Wallbox inkl. Ladeverlust, Strom noch im Akku abgezogen${y.climate_energy_kwh ? ` · Vorklimatisierung extra: ${num(y.climate_energy_kwh, 2, "kWh")}` : ""}</div></div>
       <div class="card"><h2>Kosten</h2><div class="big">${num(y.cost_per_100km_eur, 2, "€/100 km")}</div>
-        <div class="sub">Heim ${num(y.home_cost_eur, 2, "€")} · Fremd ${num(y.external_cost_eur, 2, "€")}</div></div>
+        <div class="sub">fürs Fahren · Heim gesamt ${num(y.home_cost_eur, 2, "€")} · Fremd ${num(y.external_cost_eur, 2, "€")}</div></div>
       <div class="card"><h2>Ladeverlust</h2><div class="big">${num(y.charging_loss_pct, 1, "%")}</div>
-        <div class="sub">nur Sessions mit gemessener Fahrzeugenergie</div></div>
+        <div class="sub">${y.charging_loss_pct === null || y.charging_loss_pct === undefined ? "noch nicht gemessen – " : ""}Wallbox-Zähler gegen Energie in den Akku (OVMS)</div></div>
       ${group("Temperaturgruppen", temps.bands)}
       ${group("Jahreszeiten", temps.seasons)}
       <div class="card wide"><h2>Fahrten</h2><div class="scroll"><table>

@@ -149,3 +149,23 @@ def test_no_climate_share_without_climate():
     night(tracker)
     session = step(tracker, 1416 + TAIL_S, 4.55)[0]
     assert session.climate_energy_kwh is None and session.climate_cost_eur is None
+
+
+def test_session_takes_the_ovms_energy_of_this_charge():
+    tracker = SessionTracker()
+
+    def tick(at, total, ovms_kwh, events=()):
+        return tracker.update(
+            T0 + timedelta(seconds=at), list(events), total_energy=kwh(total),
+            power=Value(9000, 9000, "halo", None), vehicle_power=Value.unavailable("ovms"),
+            soc=Value(80, 80, "ovms", None), reason="schedule", prices=PRICES,
+            charge_energy=Value(ovms_kwh, ovms_kwh, "ovms", T0, Quality.GOOD))
+
+    tick(0, 4.55, 7.68, [ev("CHARGER_ENABLE")])
+    tick(40, 4.60, 0.0, [ev("CHARGE_STABLE")])  # OVMS restarts its counter
+    tick(1800, 13.10, 7.30)
+    tick(1810, 13.54, 7.68, [ev("SESSION_END")])
+    session = tick(1810 + TAIL_S, 13.54, 7.68)[0]
+    assert session.grid_energy_kwh == pytest.approx(8.99)
+    assert session.vehicle_charge_energy_kwh == 7.68
+    assert session.vehicle_energy_source == "ovms_charge_energy"

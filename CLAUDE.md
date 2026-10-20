@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-19 – v0.23.1 Temperaturquellen.** `outside_temperature`: HA-Sensor → Auto (GOOD)
-  → Wetter; `Engine._changed` (Store `changed`) merkt echte Wertänderungen für
-  `CHANGE_TRACKED`, unverändert > `UNCHANGED_STALE` (30 min) → LAST_KNOWN_VALID;
-  `cabin_changed_at` daraus. OVMS-Außensensor 3–4 °C zu hoch (Feld 19.10.).
 - **2026-10-19 – v0.23.2 Fahrten löschen.** Dienst `delete_trip` (`monitor.delete_trip`),
   Panel-Knopf in der Fahrt-Detailzeile; `monitor._repair_trips` (Verbrauch None < 1 km);
   `temperature_statistics` ohne Fahrten < `MIN_CONSUMPTION_KM`. Außentemperatur seit
@@ -163,3 +159,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `MAX_RESTARTS` 3, nur wenn ≥ 2 min übrig)→finished; Wunsch hält bis `until` (nur „done“ =
   manueller Stopp beendet früher). OVMS-Anleitung: smart nur 5-min-Blöcke, homelink 2/3
   mit Auto-Neustart – am 20.10. fehlte der 3. Block.
+- **2026-10-20 – v0.25.0 Verbrauch realistisch.** `period_summary`: Start-SOC = erster SOC im
+  Zeitraum, `grid_consumption` ohne Klima (+ `…_incl_climate`, `vehicle_consumption`), Kosten
+  fürs Fahren; `Inp.OVMS_CHARGE_ENERGY` (v.c.kwh) → `plausible_charge_energy` (geändert,
+  0,5–1,02 × Netz), `vehicle_energy_source`; `measured_sessions` bevorzugt echte Werte;
+  `async_backfill_charge_energy` (Recorder, 10 Tage) beim Start.

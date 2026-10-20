@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.25.0 – 2026-10-20
+
+Realistische Verbrauchswerte (Reiter „Drive & Energy“), nach dem Hinweis vom 20.10.:
+- **Strom, der noch im Akku ist, zählt nicht mehr als Verbrauch.** Der SOC-Ausgleich
+  suchte einen Ladestand vom 1. Januar, den es nicht gab – also fiel er weg, und die 8 %,
+  die seit dem 16.10. zusätzlich im Akku stecken, liefen als „verbraucht“ mit (daher
+  20,4 kWh/100 km). Jetzt beginnt die Bilanz beim ersten bekannten Ladestand.
+- **Vorklimatisierung extra:** Der Netzverbrauch gilt fürs Fahren; die Vorklimatisierung
+  steht getrennt daneben. Auch die Kosten pro 100 km sind die fürs Fahren.
+- **Fahrzeugverbrauch ganz vorn:** der Wert aus dem Auto (OVMS: verbraucht minus
+  Rekuperation), darunter der Netzverbrauch mit Ladeverlust.
+- **Ladeverlust stimmt:** Bisher stand dort −0,0 %, weil die OVMS-„Ladeleistung“ beim
+  smart die Netzseite misst. Jetzt zählt die Energie, die laut OVMS wirklich in den Akku
+  ging (`…_charge_energy`): am 20.10. 7,68 kWh für 8,99 kWh aus der Wallbox, also etwa
+  15 %. Neuer OVMS-Eingang, wird automatisch übernommen.
+- **Rückwirkend:** Die Bilanz rechnet aus den gespeicherten Daten immer neu. Die Energie
+  in den Akku holt der Pilot für ältere Ladungen einmal aus der HA-Historie (soweit der
+  Recorder die Tage noch hat).
+
 ## 0.24.1 – 2026-10-20
 
 Vorklimatisierung bis zum Einsteigen:

@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-19 – v0.23.1 Temperaturquellen.** `outside_temperature`: HA-Sensor → Auto (GOOD)
+  → Wetter; `Engine._changed` (Store `changed`) merkt echte Wertänderungen für
+  `CHANGE_TRACKED`, unverändert > `UNCHANGED_STALE` (30 min) → LAST_KNOWN_VALID;
+  `cabin_changed_at` daraus. OVMS-Außensensor 3–4 °C zu hoch (Feld 19.10.).
 - **2026-10-19 – v0.23.0 Temperaturen im Cockpit.** `Inp.OVMS_CABIN_TEMP`;
   `engine.cabin_changed_at` (RawState.last_updated, weil OVMS schlafend wiederholt) →
   Snapshot; WS `get_temperature_history` (Recorder, 60/120/300 s); Panel `_sohChip`-Plakette

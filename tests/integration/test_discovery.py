@@ -93,6 +93,7 @@ async def test_existing_installation_gets_the_new_ovms_inputs_once(hass):
     from custom_components.ev_charging_pilot.discovery import (
         BATTERY_POWER_DISCOVERY_DONE,
         CABIN_DISCOVERY_DONE,
+        CHARGE_ENERGY_DISCOVERY_DONE,
         HVAC_DISCOVERY_DONE,
         LOCKED_DISCOVERY_DONE,
         PLUG_DISCOVERY_DONE,
@@ -112,6 +113,7 @@ async def test_existing_installation_gets_the_new_ovms_inputs_once(hass):
     registry.async_get_or_create("lock", "ovms", "lock", suggested_object_id="car_vehicle_lock")
     registry.async_get_or_create("sensor", "ovms", "cabin",
                                  suggested_object_id="car_cabin_temperature")
+    registry.async_get_or_create("sensor", "ovms", "ckwh", suggested_object_id="car_charge_energy")
     data = {"ovms_soc": "sensor.car_battery_level", PLUG_DISCOVERY_DONE: True}
     late = async_discover_late(hass, data)
     assert late == {"ovms_hvac": "binary_sensor.car_hvac_active", HVAC_DISCOVERY_DONE: True,
@@ -120,7 +122,9 @@ async def test_existing_installation_gets_the_new_ovms_inputs_once(hass):
                     "ovms_speed": "sensor.car_vehicle_speed", SPEED_DISCOVERY_DONE: True,
                     "ovms_locked": "lock.car_vehicle_lock", LOCKED_DISCOVERY_DONE: True,
                     "ovms_cabin_temp": "sensor.car_cabin_temperature",
-                    CABIN_DISCOVERY_DONE: True}
+                    CABIN_DISCOVERY_DONE: True,
+                    "ovms_charge_energy": "sensor.car_charge_energy",
+                    CHARGE_ENERGY_DISCOVERY_DONE: True}
     assert async_discover_late(hass, {**data, **late}) == {}
 
 

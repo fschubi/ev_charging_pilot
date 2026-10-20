@@ -137,6 +137,13 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.
 - Preisoptimierung lädt standardmäßig in einem Block (Wakeup-Schonung); 2 Blöcke optional.
 - Noch nicht gebaut: OCPP (Prüfauftrag §16 #9).
+- **Geplant v0.23.3 (Frank, 20.10.): Ladepause unter dem Ziel.** Kein Strom mehr bei
+  SOC < Ziel ≠ Ladeende: Wallbox bleibt frei; 15 min auf Wiederanlauf warten; dann einmal
+  Weckkette (OVMS → kurz warten → CP → 5 min); danach Wallbox frei bis abgesteckt (auch
+  über Block/Abfahrt hinaus), Wiederanlauf erkennen, bis Ziel laden. Push bei Pause nach
+  Weckkette und bei Wiederanlauf; OVMS `charge_current_limit`/`charge_control`/
+  `hv_contactor_state` bei Pausen protokollieren. Ziel 100 %: Aus nur bei SOC ≥ 99 % + 3 min
+  ohne Strom (heute fehlt die SOC-Prüfung in `_full_charge_ended`).
 - Franks Mushroom-Karte (Dashboard „Smarthome“, Home) zeigt `sensor.ev_pilot_status`
   (Headline) – Texte dort also nur über `core/summary.py` ändern.
 

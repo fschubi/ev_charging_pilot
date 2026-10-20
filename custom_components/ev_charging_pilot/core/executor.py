@@ -15,7 +15,7 @@ from enum import StrEnum
 from typing import Any
 
 from .health import Health, HealthStatus
-from .model import Category, Desired, Event, Quality, Severity, Value
+from .model import Category, Desired, Event, Quality, Reason, Severity, Value
 from .ports import Command, CommandKind
 from .settings import Settings
 
@@ -536,6 +536,12 @@ class Executor:
         """OVMS first, then CP, each at most once per window – then give up (§6)."""
         now = snap.now
         cfg = self.config
+        if snap.desired.reason is Reason.CLIMATE:
+            # The wallbox only offers grid power for the climate: the car may draw
+            # nothing (full battery) or only later (field 20.10.2026: the HVAC started
+            # 70 s after the release, the Halo had been switched off 6 s before).
+            self.state_since = now
+            return
         if not snap.desired.wake_allowed:
             self._topup_not_started(snap)
             return
@@ -746,6 +752,8 @@ class Executor:
             return
         if (now - self._below_since).total_seconds() >= self.config.charging_loss_timeout_s:
             self._below_since = None
+            if snap.desired.reason is Reason.CLIMATE:
+                return  # a cycling heater is no broken charge – the wallbox stays on
             self._go(ExecState.INTERRUPTED, now, "CHARGE_INTERRUPTED",
                      "Ladeleistung ohne Ladeende weggefallen", severity=Severity.WARNING)
 

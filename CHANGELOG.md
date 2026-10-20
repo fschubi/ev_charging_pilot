@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.3 – 2026-10-20
+
+- **Wallbox bleibt während der Vorklimatisierung frei:** Am 20.10. wartete der Pilot nach
+  der Freigabe 60 Sekunden auf Ladeleistung. Der Akku war voll, es kam keine, also schaltete
+  er die Wallbox um 05:18:06 ab („Nachladen nicht gestartet“). Die Klimaanlage startete erst
+  6 Sekunden später und heizte aus dem Akku. Jetzt hält der Pilot die Wallbox für die ganze
+  Vorklimatisierung frei, egal ob und wann das Auto Strom zieht. Taktet die Heizung, gilt
+  das auch nicht mehr als Ladeabbruch.
+
 ## 0.23.2 – 2026-10-19
 
 - **Fahrten löschen:** In der aufgeklappten Fahrt (Reiter „Drive & Energy“) gibt es den

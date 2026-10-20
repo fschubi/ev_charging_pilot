@@ -105,6 +105,13 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
   3 min um 03:53:32. Echter SOC 96,2 % statt 94 % – M3 gemessen.
 - Sitzung `s-20261020-003101`: 8,99 kWh, 3,76 € (0,42 €/kWh), 55 → 100 %.
 - Außentemperatur jetzt von der Gartenstation (4,5 °C) → Klima 15 min, 05:17–05:32.
+- Vorklimatisierung 20.10.: Wallbox an 05:17:01, `CLIMATE_START` 05:17:05, Auto wach
+  05:17:11, **05:18:05 `TOPUP_SKIPPED` → Wallbox aus** (60 s ohne Ladeleistung, Akku voll),
+  Klima erst 05:18:12 an → Heizung lief aus dem Akku (−1,1 … −1,8 kW, Zähler +0,01 kWh).
+  → Fehler, behoben in **v0.23.3** (Wallbox bleibt während der Klimatisierung frei).
+- Klima lief nur 05:18:12–05:27:55 (**~10 min statt 15**, `homelink 3`); Innenraum 11 → 31 °C,
+  dann 21–27 °C, Ende 23 °C; Einstieg 05:33 bei 15 °C. Bisher: `homelink 1` → ~5 min.
+  Offen: setzt der smart Stufe 3 nur als 10 min um? (OVMS-Konfiguration prüfen)
 
 **Nacht zum Montag 19.10. (v0.22.2):**
 - Block 02:30–03:52 geplant; Freigabe 02:30:04, bestätigt 02:30:15, Auto wach 02:30:21

@@ -149,10 +149,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-19 – v0.22.4 Klima-Feldtest 2.** Klima-Energie aus Zählerdelta − Akku/η je Slot
-  (`SessionTracker._climate`, Nachlauf `CLIMATE_TAIL`), Halo-Leistung ×3 bei einphasiger Last;
-  `executor.session_id = None` bei `SESSION_END`; kein `DATA_CONFLICT` bei `_climate_heating`;
-  `monitor._repair_sessions` (doppelte IDs, Klima ≤ Netz).
 - **2026-10-19 – v0.22.5 Klima-Zeitfenster.** `climate.AFTER_DEPARTURE_MIN` = 2: Klima endet
   2 min nach Abfahrt (`until` > Abfahrt, Lock hält es über das Fensterende); Summary nennt
   die Abfahrt aus `next_window`; `climate_blocked` entfällt, solange `climate_active`.
@@ -169,3 +165,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Panel-Knopf in der Fahrt-Detailzeile; `monitor._repair_trips` (Verbrauch None < 1 km);
   `temperature_statistics` ohne Fahrten < `MIN_CONSUMPTION_KM`. Außentemperatur seit
   19.10. von der Gartenstation `sensor.hmip_swo_b_…_actual_temperature` (Reconfigure).
+- **2026-10-20 – v0.23.3 Klima hält die Wallbox.** `executor._escalate` und Leistungsverlust in
+  `_in_charging` ignorieren `Reason.CLIMATE` (kein `TOPUP_SKIPPED`/`INTERRUPTED`). Feld 20.10.:
+  Wallbox aus 05:18:06, HVAC an 05:18:12 → Akku. Klima lief nur ~10 statt 15 min (homelink 3).

@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-19 – v0.22.4 Klima-Feldtest 2.** Klima-Energie aus Zählerdelta − Akku/η je Slot
+  (`SessionTracker._climate`, Nachlauf `CLIMATE_TAIL`), Halo-Leistung ×3 bei einphasiger Last;
+  `executor.session_id = None` bei `SESSION_END`; kein `DATA_CONFLICT` bei `_climate_heating`;
+  `monitor._repair_sessions` (doppelte IDs, Klima ≤ Netz).
 - **2026-10-19 – v0.22.3 Ziel 100 %.** `Engine._full_charge_ended`: bei Ziel ≥ 100
   (`FULL_TARGET_PCT`) kein `target_soc_wish`, sondern Aus nach `FULL_END_WAIT` (3 min) in
   `CHARGE_ENDED`. Nacht 19.10.: 58 → 100 % ohne Wecken (M8 17 s), Anzeige 100 % ≈ real 93 %,

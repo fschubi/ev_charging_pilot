@@ -570,3 +570,35 @@ def test_last_change_survives_a_restart():
     later.engine.restore(stored)
     later.run(10)
     assert later.engine.cabin_changed_at == start
+
+
+def test_wallbox_stays_on_for_the_climate_although_the_full_car_draws_nothing():
+    """Field 20.10.2026: 60 s without charging power → TOPUP_SKIPPED, wallbox off at
+    05:18:06; the HVAC started at 05:18:12 and heated from the battery."""
+    world = hvac_world()
+    world.car_charges_when_enabled = False  # full battery: no charging power
+    world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
+    world.run(70)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+    world.set(Inp.OVMS_HVAC, "on")
+    world.run(240)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+    assert "TOPUP_SKIPPED" not in world.events
+    assert "CHARGE_INTERRUPTED" not in world.events
+    world.set(Inp.OVMS_HVAC, "off")
+    world.run(30)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "off"
+
+
+def test_heater_cycling_during_the_climate_is_no_interruption():
+    world = hvac_world()
+    world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, world.states[Inp.OVMS_SOC][0])  # keep the SOC fresh
+    world.run(10)
+    world.set(Inp.OVMS_HVAC, "on")
+    world.run(60)
+    world.car_charges_when_enabled = False  # heater pauses for four minutes
+    world.run(240)
+    assert "CHARGE_INTERRUPTED" not in world.events
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"

@@ -80,12 +80,16 @@ def test_tapering_charge_ends_as_finished_without_wakeup():
     assert "start_failed" not in world.notifications
 
 
-def test_abrupt_loss_without_signal_pushes_once():
+def test_abrupt_loss_without_signal_pauses_wakes_once_and_keeps_the_wallbox():
+    """Since v0.24.0 a lost power is a pause: 15 min wait, one wakeup, then the
+    wallbox stays on until unplugged – with exactly one push."""
     world = World(TUESDAY_0255, configured=WITH_CP, cp_pulse=True, cp_failsafe_verified=True)
     world.run(3600)
     world.car_charges_when_enabled = False
-    world.run(900)
+    world.run(1800)
+    assert "CHARGE_PAUSED" in world.events and "PAUSE_HOLD" in world.events
     assert world.notifications.count("start_failed") == 1
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
 
 
 def test_full_battery_ends_the_charge():

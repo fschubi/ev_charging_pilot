@@ -31,6 +31,7 @@ class ExecState(StrEnum):
     CHARGING = "CHARGING"
     CHARGE_ENDED = "CHARGE_ENDED"
     INTERRUPTED = "INTERRUPTED"
+    PAUSED = "PAUSED"
     DISABLING = "DISABLING"
     COOLDOWN = "COOLDOWN"
     START_FAILED = "START_FAILED"
@@ -43,8 +44,15 @@ STATE_TEXT = {
     ExecState.DISCONNECTED: "nicht eingesteckt", ExecState.IDLE: "bereit",
     ExecState.WAITING_FOR_CHARGE: "wartet auf Ladeleistung", ExecState.CHARGING: "lädt",
     ExecState.CHARGE_ENDED: "Auto hat fertig geladen",
+    ExecState.PAUSED: "Ladepause (Auto nimmt keinen Strom)",
     ExecState.START_FAILED: "Start fehlgeschlagen",
 }
+# A car that stops drawing power below its target pauses (battery too warm or cold)
+# rather than ending: the wallbox stays on. After this long without power it is woken
+# once (OVMS, then CP with a longer wait); after that the wallbox simply stays on until
+# the cable is pulled (Frank, 20.10.2026).
+PAUSE_WAIT = timedelta(minutes=15)
+PAUSE_POST_CP_WAIT_S = 300.0
 # Pre-climatisation on grid power: the OVMS command only goes out once the Halo
 # confirmed its release (field 18.10.2026: 7 s). Without confirmation it is skipped.
 CLIMATE_CONFIRM_TIMEOUT = timedelta(seconds=60)
@@ -125,6 +133,8 @@ class Snapshot:
     cp_relay_on: Value | None = None
     vehicle_charging: Value | None = None
     vehicle_charge_finished: bool = False
+    # The known SOC is clearly below the target: a falling power is no end of charge.
+    below_target: bool | None = None
 
 
 @dataclass(slots=True)
@@ -166,6 +176,11 @@ class Executor:
         self._mask_until: datetime | None = None
         self._pulse_check_at: datetime | None = None
         self.last_pulse_at: datetime | None = None
+        # Charging paused below the target (PAUSED): since when, woken already, and
+        # whether the wakeup cascade currently runs on behalf of the pause.
+        self._pause_since: datetime | None = None
+        self._pause_woken = False
+        self._pause_recovery = False
         self._confirm_attempts = 0
         self._resume: tuple[ExecState, datetime] | None = None
         self._below_since: datetime | None = None
@@ -417,9 +432,11 @@ class Executor:
                  Category.CONFIG)
 
     def _on_unplugged(self, now: datetime) -> None:
-        if self.state in (ExecState.CHARGING, ExecState.CHARGE_ENDED):
+        if self.state in (ExecState.CHARGING, ExecState.CHARGE_ENDED, ExecState.PAUSED) \
+                or self._pause_recovery:
             self._event(now, Category.CHARGING, Severity.INFO, "SESSION_END",
                         "Ladesession beendet (Kabel gezogen)")
+        self._clear_pause()
         self.session_id = None
         self.failure_code = None
         self._failed_window = None
@@ -543,6 +560,9 @@ class Executor:
             self.state_since = now
             return
         if not snap.desired.wake_allowed:
+            if self._pause_recovery:
+                self._hold_pause(snap)
+                return
             self._topup_not_started(snap)
             return
         if _flag(snap.cable_connected) is not True:
@@ -572,6 +592,9 @@ class Executor:
             self._start_pulse(now)
             self._go(ExecState.WAKEUP_CP, now, "CP_PULSE_START",
                      f"CP-Puls {cfg.cp_pulse_s} s", Category.WAKEUP)
+            return
+        if self._pause_recovery:
+            self._hold_pause(snap)
             return
         if attempts.restart_used:
             self._fail(snap, "CHARGE_INTERRUPTED", "Ladung abgebrochen, Neustart erfolglos")
@@ -633,6 +656,11 @@ class Executor:
     def _starting(self, snap: Snapshot, timeout_s: float, on_timeout) -> None:
         """Shared logic of WAITING_FOR_CHARGE and both wakeup states."""
         if snap.desired.charger_enabled is False:
+            if self._pause_recovery:
+                self._event(snap.now, Category.CHARGING, Severity.INFO, "SESSION_END",
+                            f"Ladesession beendet ({snap.desired.reason})")
+                self.session_id = None
+                self._clear_pause()
             self._start_disabling(snap)
             return
         if self.stable(snap):
@@ -648,6 +676,10 @@ class Executor:
 
     def _charging_started(self, snap: Snapshot) -> None:
         now = snap.now
+        if self._pause_recovery:
+            self._event(now, Category.CHARGING, Severity.INFO, "PAUSE_RESUMED",
+                        "Lädt wieder nach der Ladepause (nach dem Wecken)")
+        self._clear_pause()
         self.session_id = self.session_id or f"s-{now.strftime('%Y%m%d-%H%M%S')}"
         self._ended_window = None
         self.consecutive_start_failures = 0
@@ -702,8 +734,8 @@ class Executor:
     def _in_wakeup_cp(self, snap: Snapshot) -> None:
         if self.cp_not_restored:
             return
-        wait = self.config.cp_pulse_s + self.config.post_cp_wait_s
-        self._starting(snap, wait, self._escalate)
+        post = PAUSE_POST_CP_WAIT_S if self._pause_recovery else self.config.post_cp_wait_s
+        self._starting(snap, self.config.cp_pulse_s + post, self._escalate)
 
     def _in_charge_stabilizing(self, snap: Snapshot) -> None:
         if snap.desired.charger_enabled is False:
@@ -737,8 +769,11 @@ class Executor:
         if self._below_since is None:
             self._below_since = now
         status = snap.charger_status.normalized if snap.charger_status else None
+        # A falling power only means "full" when the SOC does not say otherwise: a
+        # battery too warm or cold also derates before it pauses.
         tapered = self._peak_w > 0 and self._last_flow_w is not None \
-            and self._last_flow_w < TAPER_RATIO * self._peak_w
+            and self._last_flow_w < TAPER_RATIO * self._peak_w \
+            and snap.below_target is not True
         if snap.vehicle_charge_finished or tapered or (
                 status is not None and status in self.config.finished_statuses):
             self._below_since = None
@@ -754,8 +789,10 @@ class Executor:
             self._below_since = None
             if snap.desired.reason is Reason.CLIMATE:
                 return  # a cycling heater is no broken charge – the wallbox stays on
-            self._go(ExecState.INTERRUPTED, now, "CHARGE_INTERRUPTED",
-                     "Ladeleistung ohne Ladeende weggefallen", severity=Severity.WARNING)
+            self._pause_since, self._pause_woken = now, False
+            self._go(ExecState.PAUSED, now, "CHARGE_PAUSED",
+                     "Auto nimmt keinen Strom mehr, obwohl das Ziel nicht erreicht ist – "
+                     "Ladepause, die Wallbox bleibt frei", severity=Severity.WARNING)
 
     def _in_charge_ended(self, snap: Snapshot) -> None:
         if self._reconcile_off(snap):
@@ -769,6 +806,54 @@ class Executor:
             return
         if self.stable(snap):
             self._go(ExecState.CHARGING, snap.now, "CHARGE_RESUMED", "Fahrzeug lädt wieder")
+
+    def _in_paused(self, snap: Snapshot) -> None:
+        now = snap.now
+        if snap.desired.charger_enabled is False:
+            self._event(now, Category.CHARGING, Severity.INFO, "SESSION_END",
+                        f"Ladesession beendet ({snap.desired.reason})")
+            self.session_id = None
+            self._clear_pause()
+            if not self._start_disabling(snap):
+                self._go(ExecState.COOLDOWN, now)
+            return
+        if self.stable(snap):
+            self._event(now, Category.CHARGING, Severity.INFO, "PAUSE_RESUMED",
+                        "Lädt wieder nach der Ladepause")
+            self._clear_pause()
+            self._below_since = None
+            self._go(ExecState.CHARGING, now, "CHARGE_RESUMED", "Fahrzeug lädt wieder")
+            return
+        if self._pause_woken or self._pause_since is None \
+                or now - self._pause_since < PAUSE_WAIT:
+            return
+        self._pause_woken = True
+        if not snap.desired.wake_allowed:
+            self._hold_pause(snap)
+            return
+        self._pause_recovery = True
+        self._go(ExecState.WAITING_FOR_CHARGE, now, "PAUSE_WAKE",
+                 f"Seit {int(PAUSE_WAIT.total_seconds() // 60)} min keine Leistung – "
+                 "einmal wecken")
+
+    def _hold_pause(self, snap: Snapshot) -> None:
+        """Nothing brought the power back: keep the wallbox on until the cable is pulled."""
+        self._pause_recovery = False
+        self._pause_woken = True
+        self._pause_since = self._pause_since or snap.now
+        self._go(ExecState.PAUSED, snap.now, "PAUSE_HOLD",
+                 "Ladepause hält an – die Wallbox bleibt frei, bis das Kabel gezogen wird",
+                 severity=Severity.WARNING)
+
+    def _clear_pause(self) -> None:
+        self._pause_since = None
+        self._pause_woken = False
+        self._pause_recovery = False
+
+    @property
+    def paused(self) -> bool:
+        """Charging paused below the target, the wallbox is held on for it."""
+        return self.state is ExecState.PAUSED or self._pause_recovery
 
     def _in_interrupted(self, snap: Snapshot) -> None:
         if self._reconcile_off(snap):

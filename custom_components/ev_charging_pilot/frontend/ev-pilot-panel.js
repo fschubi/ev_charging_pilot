@@ -16,7 +16,7 @@ const STATE_LABELS = {
   DISCONNECTED: "Nicht gesteckt", IDLE: "Bereit", ENABLING: "Freigabe läuft",
   WAITING_FOR_CHARGE: "Warte auf Ladung", CHARGE_STABILIZING: "Ladung stabilisiert sich",
   WAKEUP_OVMS: "Wakeup OVMS", WAKEUP_CP: "Wakeup CP", CHARGING: "Lädt",
-  CHARGE_ENDED: "Ladung beendet", INTERRUPTED: "Unterbrochen", DISABLING: "Abschaltung läuft",
+  CHARGE_ENDED: "Ladung beendet", INTERRUPTED: "Unterbrochen", PAUSED: "Ladepause", DISABLING: "Abschaltung läuft",
   COOLDOWN: "Pause", START_FAILED: "Start fehlgeschlagen",
 };
 const REASON_LABELS = {

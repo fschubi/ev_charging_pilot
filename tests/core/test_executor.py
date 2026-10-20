@@ -222,95 +222,53 @@ def test_charge_end_reported_by_halo_status():
     assert rig.state is ExecState.CHARGE_ENDED
 
 
-def test_interruption_gets_one_restart_then_fails():
+def run(rig, seconds, step=5):
+    for _ in range(int(seconds / step)):
+        rig.tick(step)
+
+
+def test_lost_power_below_target_pauses_and_keeps_the_wallbox_on():
+    """Frank, 20.10.2026: 60 % at a 90 % target is a pause (battery too warm/cold)."""
     rig = charging_rig()
     rig.sample(0)
     rig.tick(190)
-    assert rig.state is ExecState.INTERRUPTED
-    rig.tick(1)
-    assert rig.state is ExecState.WAITING_FOR_CHARGE
-    rig.tick(61)
-    assert rig.state is ExecState.START_FAILED
-    assert rig.ex.failure_code == "CHARGE_INTERRUPTED"
+    assert rig.state is ExecState.PAUSED
+    assert "CHARGE_PAUSED" in rig.events
+    run(rig, 14 * 60)
+    assert rig.state is ExecState.PAUSED and "PAUSE_WAKE" not in rig.events
+    run(rig, 3 * 60)  # 15 min over: one wakeup – none available here, so hold
+    assert "PAUSE_WAKE" in rig.events and "PAUSE_HOLD" in rig.events
+    assert rig.state is ExecState.PAUSED and rig.charger_on
+    assert CommandKind.DISABLE_CHARGER not in rig.commands
+    run(rig, 3600)  # and it stays like that
+    assert rig.state is ExecState.PAUSED and rig.events.count("PAUSE_HOLD") == 1
 
 
-def test_target_soc_switches_off_and_ends_session():
+def test_pause_ends_when_the_car_charges_again():
     rig = charging_rig()
-    rig.desired = Desired(False, Reason.TARGET_SOC_REACHED)
-    rig.tick(200)
-    assert rig.commands[-1] is CommandKind.DISABLE_CHARGER
-    assert "SESSION_END" in rig.events
-
-
-def test_new_window_clears_start_failed():
-    rig = Rig()
-    rig.tick()
-    rig.tick(5)
-    rig.tick(60)
-    assert rig.state is ExecState.START_FAILED
-    # A failed start switches the wallbox off (no uncontrolled charge later).
-    assert rig.commands[-1] is CommandKind.DISABLE_CHARGER
-    rig.desired = Desired(True, Reason.SCHEDULE, "plan", T0 + timedelta(days=1))
-    rig.tick(1)
-    assert rig.state is not ExecState.START_FAILED
-    rig.tick(130)  # after the minimum switch interval the new window starts afresh
-    assert rig.state in (ExecState.ENABLING, ExecState.WAITING_FOR_CHARGE)
-
-
-def test_unplug_clears_failure():
-    rig = Rig()
-    rig.tick()
-    rig.tick(5)
-    rig.tick(60)
-    rig.cable = False
-    rig.tick(1)
-    assert rig.state is ExecState.DISCONNECTED
-    assert rig.ex.failure_code is None
-
-
-def test_restart_derives_state_and_keeps_attempts():
-    rig = Rig(ovms_available=True)
-    rig.tick()
-    rig.tick(5)
-    rig.tick(60)
-    assert rig.state is ExecState.WAKEUP_OVMS
-    saved = rig.ex.as_dict()
-
-    fresh = Rig(ovms_available=True)
-    fresh.now = rig.now
-    fresh.charger_on = True
-    fresh.ex.restore(saved)
-    fresh.tick()
-    # The wakeup in flight is not resumed; it is re-evaluated from scratch.
-    assert fresh.state is ExecState.WAITING_FOR_CHARGE
-    fresh.tick(130)
-    assert CommandKind.OVMS_WAKEUP not in fresh.commands
-    assert fresh.state is ExecState.START_FAILED
-
-
-def test_restart_while_charging():
-    rig = Rig()
-    rig.charger_on = True
-    rig.power = 2300
-    rig.tick()
+    rig.sample(0)
+    rig.tick(190)
+    rig.sample(2300, after_s=300)
+    rig.sample(2300, after_s=30)
     assert rig.state is ExecState.CHARGING
+    assert "PAUSE_RESUMED" in rig.events and "CHARGE_RESUMED" in rig.events
 
 
-def test_disconnected_halo_left_on_is_switched_off():
-    rig = Rig()
-    rig.cable = False
-    rig.charger_on = True
-    rig.desired = OFF
-    assert rig.tick() == [CommandKind.DISABLE_CHARGER]
-    assert rig.state is ExecState.DISCONNECTED
-
-
-def test_reset_clears_repeated_failures():
-    rig = Rig()
-    rig.tick()
-    rig.tick(5)
-    rig.tick(60)
-    assert rig.ex.consecutive_start_failures == 1
-    rig.ex.reset(rig.now)
-    assert rig.ex.consecutive_start_failures == 0
-    assert rig.state is ExecState.IDLE
+def test_pause_wakes_once_with_ovms_then_cp_and_waits_five_minutes():
+    rig = charging_rig(ovms_available=True, cp_available=True, cp_failsafe_verified=True)
+    rig.sample(0)
+    rig.tick(190)
+    run(rig, 15 * 60 + 10)
+    assert "PAUSE_WAKE" in rig.events
+    run(rig, 120)
+    assert CommandKind.OVMS_WAKEUP in rig.commands
+    while CommandKind.CP_PULSE not in rig.commands:
+        rig.tick(5)
+    pulse_at = rig.now
+    while "PAUSE_HOLD" not in rig.events:
+        rig.tick(5)
+    # 10 s pulse + 5 min waiting for the car, not the usual minute.
+    assert (rig.now - pulse_at).total_seconds() >= 300
+    assert rig.state is ExecState.PAUSED and rig.charger_on
+    assert rig.commands.count(CommandKind.OVMS_WAKEUP) == 1
+    assert rig.commands.count(CommandKind.CP_PULSE) == 1

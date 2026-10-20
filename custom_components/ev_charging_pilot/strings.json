@@ -364,6 +364,7 @@
           "charging": "Charging",
           "charge_ended": "Charge ended",
           "interrupted": "Interrupted",
+          "paused": "Paused",
           "disabling": "Disabling",
           "cooldown": "Cooldown",
           "start_failed": "Start failed"

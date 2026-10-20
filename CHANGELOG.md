@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.0 – 2026-10-20
+
+Ladepause statt Abbruch – wie am 20.10. besprochen:
+- **Nimmt das Auto unter dem Ziel keinen Strom mehr** (z. B. Akku zu warm oder zu kalt),
+  ist das eine **Ladepause**, kein Ende: Die Wallbox bleibt frei. Lädt das Auto wieder,
+  geht es normal weiter bis zum Ziel.
+- Nach **15 Minuten** ohne Strom weckt der Pilot **einmal** (erst OVMS, dann CP-Puls mit
+  anschließend 5 Minuten Wartezeit). Bringt auch das nichts, bleibt die Wallbox frei, **bis
+  du das Kabel ziehst** – auch über das Ladefenster und den Preisblock hinaus. Lädt das
+  Auto später weiter, stoppt der Pilot beim Ziel.
+- Push „Ladepause bei 60 % – Wallbox bleibt frei …“ und später „Lädt wieder“.
+- Cockpit und Statussensor zeigen „Ladepause bei … %“.
+- **Ziel 100 %:** Die Wallbox geht nur aus, wenn das Auto selbst aufgehört hat **und** der
+  SOC bei mindestens 99 % steht. Hört es bei 60 % auf, ist das eine Pause.
+- Eine Leistung, die vor dem Stopp absinkt, gilt nur dann als „voll geladen“, wenn der SOC
+  nicht deutlich unter dem Ziel liegt.
+
 ## 0.23.3 – 2026-10-20
 
 - **Wallbox bleibt während der Vorklimatisierung frei:** Am 20.10. wartete der Pilot nach

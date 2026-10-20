@@ -123,6 +123,14 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
         return ("Vorklimatisierung läuft",
                 f"Bis spätestens {at(engine.climate_plan.until)} · "
                 f"{_climate_source(engine)}{charging}.", "ok")
+    if state is ExecState.PAUSED or engine.executor.paused:
+        soc = engine.soc
+        level = f" bei {float(soc.normalized):.0f} %" if soc.available \
+            and soc.normalized is not None else ""
+        return (f"Ladepause{level}",
+                "Das Auto nimmt gerade keinen Strom (z. B. Akku zu warm oder zu kalt). "
+                "Die Wallbox bleibt frei – es lädt weiter, sobald das Auto wieder Strom "
+                "nimmt.", "warn")
     if state in (ExecState.CHARGING, ExecState.CHARGE_STABILIZING):
         kw = _kw(engine.values.get(Inp.CHARGE_POWER))
         headline = f"Lädt mit {kw:.1f} kW".replace(".", ",") if kw else "Lädt"

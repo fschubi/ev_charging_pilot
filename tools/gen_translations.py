@@ -279,6 +279,7 @@ STATES = {
         "wakeup_ovms": T("Wakeup OVMS", "OVMS wakeup"), "wakeup_cp": T("Wakeup CP", "CP wakeup"),
         "charging": T("Lädt", "Charging"), "charge_ended": T("Ladung beendet", "Charge ended"),
         "interrupted": T("Unterbrochen", "Interrupted"),
+        "paused": T("Ladepause", "Paused"),
         "disabling": T("Abschaltung läuft", "Disabling"), "cooldown": T("Pause", "Cooldown"),
         "start_failed": T("Start fehlgeschlagen", "Start failed"),
     },

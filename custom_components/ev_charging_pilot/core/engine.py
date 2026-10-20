@@ -217,6 +217,9 @@ class Engine:
         # must not move it and send a second command) with its progress:
         # due → sent → running (car reports HVAC on) → done; or skipped.
         self._climate_lock: ClimateRequest | None = None
+        # A charge paused below its target: (target %, the request that charged).
+        self._pause_hold: tuple[int | None, Desired] | None = None
+        self._pause_pushed = False
         self.cabin_changed_at: datetime | None = None
         # Last real change per tracked input: (state, when). HA resets last_updated
         # on every restart, so this is kept in the store.
@@ -337,6 +340,7 @@ class Engine:
             cp_relay_on=values[Inp.CP_RELAY] if self.config.cp_configured else None,
             vehicle_charging=self._vehicle_charging,
             vehicle_charge_finished=self._vehicle_finished(now),
+            below_target=self._below_target(),
         )))
         if self.shadow:
             for command in result.commands:
@@ -344,6 +348,7 @@ class Engine:
                     self._virtual_charger = True
                 elif command.kind is CommandKind.DISABLE_CHARGER:
                     self._virtual_charger = False
+        self._pause_bookkeeping(result, cable_flag is True)
         self._climate_progress(now, result)
         self._charge_test(now, result)
         self._monitor(now, result)
@@ -733,6 +738,11 @@ class Engine:
         if window is None or ex.state is not ExecState.CHARGE_ENDED or ex.state_since is None \
                 or now - ex.state_since < FULL_END_WAIT:
             return None
+        soc = self.soc
+        if soc.quality is not Quality.GOOD or soc.normalized is None \
+                or float(soc.normalized) < FULL_SOC_PCT:
+            # "The car stopped" at 60 % is a pause, not a full battery (Frank, 20.10.2026).
+            return None
         return Desired(False, Reason.TARGET_SOC_REACHED, source_id="vehicle_full")
 
     def _climate_heating(self, values: dict[Inp, Value]) -> bool:
@@ -802,7 +812,44 @@ class Engine:
                     Reason.SCHEDULE, Reason.ONE_SHOT, Reason.CLIMATE):
             # Topping up after the target: the car is awake anyway or it is not worth a wakeup.
             desired = replace(desired, wake_allowed=False)
+        hold = self._pause_hold
+        if hold is not None and plugged_in and desired.reason is Reason.DEFAULT_OFF:
+            # A charge paused below its target keeps its wallbox until the cable is
+            # pulled – also after the window or price block (Frank, 20.10.2026).
+            desired = replace(hold[1], valid_until=None)
         return desired
+
+    def _soc_text(self) -> str:
+        soc = self.soc
+        return f"{float(soc.normalized):.0f} %" if soc.available and soc.normalized is not None \
+            else "unbekanntem Ladestand"
+
+    def _below_target(self) -> bool | None:
+        """Is a GOOD SOC clearly below the target of the running charge?"""
+        window = self.active_window
+        target = window.preferred_soc_pct if window else \
+            (self._pause_hold[0] if self._pause_hold else None)
+        soc = self.soc
+        if target is None or soc.quality is not Quality.GOOD or soc.normalized is None:
+            return None
+        return float(soc.normalized) < min(target, FULL_SOC_PCT) - FINISHED_TARGET_MARGIN_PCT
+
+    def _pause_bookkeeping(self, result: TickResult, plugged_in: bool) -> None:
+        """Remember the request of a paused charge; forget it once it is over."""
+        if any(e.code == "CHARGE_PAUSED" for e in result.events) and self.desired \
+                and self.desired.charger_enabled:
+            window = self.active_window
+            self._pause_hold = (window.preferred_soc_pct if window else None, self.desired)
+            return
+        if self._pause_hold is None:
+            return
+        target, soc = self._pause_hold[0], self.soc
+        reached = target is not None and soc.quality is Quality.GOOD \
+            and soc.normalized is not None and float(soc.normalized) >= target
+        over = self.executor.state in (ExecState.IDLE, ExecState.DISCONNECTED,
+                                       ExecState.START_FAILED, ExecState.CHARGE_ENDED)
+        if not plugged_in or reached or over:
+            self._pause_hold = None
 
     # -------------------------------------------------------------- health
 
@@ -979,6 +1026,16 @@ class Engine:
                 out.append(Notification("start_failed", "high", "Vorklimatisierung ausgefallen",
                                         f"{event.message}. Das Auto wurde nicht geweckt; "
                                         "bitte Wallbox prüfen."))
+            elif event.code == "PAUSE_HOLD" and n.start_failed:
+                self._pause_pushed = True
+                out.append(Notification("start_failed", "high", "Ladepause",
+                                        f"Ladung pausiert bei {self._soc_text()} – das Auto "
+                                        "nimmt keinen Strom. Die Wallbox bleibt frei, bis du "
+                                        "das Kabel ziehst."))
+            elif event.code == "PAUSE_RESUMED" and self._pause_pushed and n.start_failed:
+                self._pause_pushed = False
+                out.append(Notification("start_failed", "normal", "Lädt wieder",
+                                        f"Die Ladepause ist vorbei ({self._soc_text()})."))
             elif event.code.startswith("HV_CYCLE") and n.hv_cycles:
                 out.append(Notification("hv_cycles", "normal", "HV-Kontaktor auffällig",
                                         event.message))

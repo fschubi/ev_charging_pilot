@@ -471,9 +471,11 @@ def test_target_100_lets_the_car_finish_and_balance():
     # The car ends the charge itself.
     world.car_charges_when_enabled = False
     world.set(Inp.OVMS_CHARGING, "off")
+    world.set(Inp.OVMS_SOC, "100")  # the awake car keeps reporting its SOC
     world.run(60)
     assert world.engine.executor.state is ExecState.CHARGE_ENDED
     assert world.engine.desired.charger_enabled is True  # not before three minutes
+    world.set(Inp.OVMS_SOC, "100")
     world.run(150)
     assert world.engine.desired.charger_enabled is False
     assert world.engine.desired.reason is Reason.TARGET_SOC_REACHED
@@ -492,8 +494,10 @@ def test_target_100_resumed_balancing_restarts_the_wait():
     world.run(120)
     assert world.engine.desired.charger_enabled is True
     world.car_charges_when_enabled = False
+    world.set(Inp.OVMS_SOC, "100")
     world.run(150)
     assert world.engine.desired.charger_enabled is True
+    world.set(Inp.OVMS_SOC, "100")
     world.run(60)
     assert world.engine.desired.charger_enabled is False
 
@@ -602,3 +606,50 @@ def test_heater_cycling_during_the_climate_is_no_interruption():
     world.run(240)
     assert "CHARGE_INTERRUPTED" not in world.events
     assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+
+
+def test_pause_at_60_keeps_the_wallbox_past_the_window_and_finishes_at_90():
+    """Frank's case (20.10.2026): summer, battery too warm at 60 % of a 90 % target."""
+    world = World(local(2026, 10, 20, 12, 0), configured=WITH_OVMS)
+    world.engine.plans = []
+    world.set(Inp.OVMS_SOC, "55")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.tick()
+    world.apply(world.engine.start_one_shot(
+        world.now, departure_at=world.now + timedelta(minutes=50), target_soc=90))
+    world.tick()
+    departure = world.engine.next_window.departure
+    world.now = max(world.now, world.engine.next_window.start)
+    world.run(60)
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.run(120)
+    assert world.engine.executor.state is ExecState.CHARGING
+    # The battery gets too warm: the car stops drawing power at 60 %.
+    world.car_charges_when_enabled = False
+    while world.now < departure + timedelta(minutes=20):  # well past the departure
+        world.set(Inp.OVMS_SOC, "60")
+        world.set(Inp.OVMS_CHARGING, "off")
+        world.run(60)
+    assert "CHARGE_PAUSED" in world.events and "PAUSE_HOLD" in world.events
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"  # held although the window is over
+    assert world.notifications.count("start_failed") == 1  # one push about the pause
+    # Cooled down: the car charges again and is stopped at its target.
+    world.car_charges_when_enabled = True
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.run(120)
+    assert "PAUSE_RESUMED" in world.events
+    world.set(Inp.OVMS_SOC, "90")
+    world.run(300)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "off"
+    assert "CHARGE_ENDED" not in world.events
+
+
+def test_target_100_with_a_pause_at_60_is_not_full():
+    world = full_charge_world()
+    world.set(Inp.OVMS_SOC, "60")
+    world.car_charges_when_enabled = False
+    for _ in range(10):
+        world.set(Inp.OVMS_SOC, "60")
+        world.run(60)
+    assert world.engine.executor.state is ExecState.PAUSED
+    assert world.engine.desired.charger_enabled is True

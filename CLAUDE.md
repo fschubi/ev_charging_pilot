@@ -137,22 +137,11 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   vorgezogen (v0.6) – entgegen §1.2 des Masterplans, bewusst.
 - Preisoptimierung lädt standardmäßig in einem Block (Wakeup-Schonung); 2 Blöcke optional.
 - Noch nicht gebaut: OCPP (Prüfauftrag §16 #9).
-- **Geplant v0.23.3 (Frank, 20.10.): Ladepause unter dem Ziel.** Kein Strom mehr bei
-  SOC < Ziel ≠ Ladeende: Wallbox bleibt frei; 15 min auf Wiederanlauf warten; dann einmal
-  Weckkette (OVMS → kurz warten → CP → 5 min); danach Wallbox frei bis abgesteckt (auch
-  über Block/Abfahrt hinaus), Wiederanlauf erkennen, bis Ziel laden. Push bei Pause nach
-  Weckkette und bei Wiederanlauf; OVMS `charge_current_limit`/`charge_control`/
-  `hv_contactor_state` bei Pausen protokollieren. Ziel 100 %: Aus nur bei SOC ≥ 99 % + 3 min
-  ohne Strom (heute fehlt die SOC-Prüfung in `_full_charge_ended`).
 - Franks Mushroom-Karte (Dashboard „Smarthome“, Home) zeigt `sensor.ev_pilot_status`
   (Headline) – Texte dort also nur über `core/summary.py` ändern.
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-19 – v0.22.5 Klima-Zeitfenster.** `climate.AFTER_DEPARTURE_MIN` = 2: Klima endet
-  2 min nach Abfahrt (`until` > Abfahrt, Lock hält es über das Fensterende); Summary nennt
-  die Abfahrt aus `next_window`; `climate_blocked` entfällt, solange `climate_active`.
-  Feld 19.10.: Klima 05:23–05:28, Einstieg 05:33, Innenraum 23 → 15 °C, nur ~1,3 kW.
 - **2026-10-19 – v0.23.0 Temperaturen im Cockpit.** `Inp.OVMS_CABIN_TEMP`;
   `engine.cabin_changed_at` (RawState.last_updated, weil OVMS schlafend wiederholt) →
   Snapshot; WS `get_temperature_history` (Recorder, 60/120/300 s); Panel `_sohChip`-Plakette
@@ -168,3 +157,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-20 – v0.23.3 Klima hält die Wallbox.** `executor._escalate` und Leistungsverlust in
   `_in_charging` ignorieren `Reason.CLIMATE` (kein `TOPUP_SKIPPED`/`INTERRUPTED`). Feld 20.10.:
   Wallbox aus 05:18:06, HVAC an 05:18:12 → Akku. Klima lief nur ~10 statt 15 min (homelink 3).
+- **2026-10-20 – v0.24.0 Ladepause.** `ExecState.PAUSED`: Leistung weg bei SOC < Ziel →
+  `CHARGE_PAUSED`, nach `PAUSE_WAIT` (15 min) einmal Weckkette (`_pause_recovery`, CP-Nachlauf
+  `PAUSE_POST_CP_WAIT_S` 300 s), sonst `PAUSE_HOLD`; `Snapshot.below_target`; Engine
+  `_pause_hold` hält den Wunsch über Fensterende bis Ziel/abgesteckt; `_full_charge_ended`
+  nur bei SOC ≥ 99. Pushes `PAUSE_HOLD`/`PAUSE_RESUMED`. Pausen-Zustand übersteht keinen Neustart.

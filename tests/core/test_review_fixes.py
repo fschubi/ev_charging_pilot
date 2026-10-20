@@ -182,7 +182,7 @@ def test_k9_interruption_far_below_target_is_no_end_of_charge():
     world.set(Inp.OVMS_SOC, "55")
     world.set(Inp.OVMS_CHARGING, "off")
     world.run(400)
-    assert "CHARGE_INTERRUPTED" in world.events
+    assert "CHARGE_PAUSED" in world.events  # since v0.24.0: a pause, not a failure
     assert "CHARGE_ENDED" not in world.events
 
 

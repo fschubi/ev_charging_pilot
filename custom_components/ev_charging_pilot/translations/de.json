@@ -364,6 +364,7 @@
           "charging": "Lädt",
           "charge_ended": "Ladung beendet",
           "interrupted": "Unterbrochen",
+          "paused": "Ladepause",
           "disabling": "Abschaltung läuft",
           "cooldown": "Pause",
           "start_failed": "Start fehlgeschlagen"

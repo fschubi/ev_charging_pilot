@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-19 – v0.22.5 Klima-Zeitfenster.** `climate.AFTER_DEPARTURE_MIN` = 2: Klima endet
+  2 min nach Abfahrt (`until` > Abfahrt, Lock hält es über das Fensterende); Summary nennt
+  die Abfahrt aus `next_window`; `climate_blocked` entfällt, solange `climate_active`.
+  Feld 19.10.: Klima 05:23–05:28, Einstieg 05:33, Innenraum 23 → 15 °C, nur ~1,3 kW.
 - **2026-10-19 – v0.22.4 Klima-Feldtest 2.** Klima-Energie aus Zählerdelta − Akku/η je Slot
   (`SessionTracker._climate`, Nachlauf `CLIMATE_TAIL`), Halo-Leistung ×3 bei einphasiger Last;
   `executor.session_id = None` bei `SESSION_END`; kein `DATA_CONFLICT` bei `_climate_heating`;

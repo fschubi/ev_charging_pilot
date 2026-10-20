@@ -16,7 +16,13 @@ from .settings import Settings
 # The climate ends this long AFTER the planned departure. It used to end two minutes
 # before: on 19.10.2026 it stopped at 05:28, the driver got in at 05:33 and the
 # cabin had cooled from 23 to 15 °C – only the air is warmed in five minutes.
-AFTER_DEPARTURE_MIN = 2
+# Frank, 20.10.2026: five minutes after the departure.
+AFTER_DEPARTURE_MIN = 5
+# The smart only climatises in 5-minute blocks; OVMS is meant to restart them for
+# 10/15 min but skipped the third block on 20.10.2026. The pilot restarts a block
+# itself when the car reports the HVAC off before the planned end.
+BLOCK_MIN = 5
+MAX_RESTARTS = 3
 LEVEL_BY_MINUTES = {5: 1, 10: 2, 15: 3}
 
 

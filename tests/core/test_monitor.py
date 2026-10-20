@@ -227,9 +227,9 @@ def test_climate_profiles_and_blockers():
     assert planned_duration("off", v(-5.0, now), settings) == 0
     assert homelink_level(15) == 3
     request = climate_request(local(2026, 1, 10, 7, 0), 10)
-    # Ends two minutes after the departure, not before it (field 19.10.2026).
-    assert request.start_at == local(2026, 1, 10, 6, 52)
-    assert request.until == local(2026, 1, 10, 7, 2)
+    # Ends five minutes after the departure, not before it (Frank, 20.10.2026).
+    assert request.start_at == local(2026, 1, 10, 6, 55)
+    assert request.until == local(2026, 1, 10, 7, 5)
     assert climate_blocker(v(30.0, now), settings, False) == "SOC_TOO_LOW"
     assert climate_blocker(v(50.0, now, Quality.LAST_KNOWN_VALID), settings, False) is None
     assert climate_blocker(v(50.0, now), settings, True) == "HEALTH_NOT_HEALTHY"

@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-19 – v0.23.0 Temperaturen im Cockpit.** `Inp.OVMS_CABIN_TEMP`;
-  `engine.cabin_changed_at` (RawState.last_updated, weil OVMS schlafend wiederholt) →
-  Snapshot; WS `get_temperature_history` (Recorder, 60/120/300 s); Panel `_sohChip`-Plakette
-  `temp-toggle` + `tempSvg` (unveränderte Strecken > 30 min gestrichelt).
 - **2026-10-19 – v0.23.1 Temperaturquellen.** `outside_temperature`: HA-Sensor → Auto (GOOD)
   → Wetter; `Engine._changed` (Store `changed`) merkt echte Wertänderungen für
   `CHANGE_TRACKED`, unverändert > `UNCHANGED_STALE` (30 min) → LAST_KNOWN_VALID;
@@ -162,3 +158,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `PAUSE_POST_CP_WAIT_S` 300 s), sonst `PAUSE_HOLD`; `Snapshot.below_target`; Engine
   `_pause_hold` hält den Wunsch über Fensterende bis Ziel/abgesteckt; `_full_charge_ended`
   nur bei SOC ≥ 99. Pushes `PAUSE_HOLD`/`PAUSE_RESUMED`. Pausen-Zustand übersteht keinen Neustart.
+- **2026-10-20 – v0.24.1 Klima-Blöcke.** `AFTER_DEPARTURE_MIN` = 5; Phasen sent→running→gap
+  →(Neustart `executor.request_climate_restart`, `homelink 1`, nach `CLIMATE_GAP` 30 s, max.
+  `MAX_RESTARTS` 3, nur wenn ≥ 2 min übrig)→finished; Wunsch hält bis `until` (nur „done“ =
+  manueller Stopp beendet früher). OVMS-Anleitung: smart nur 5-min-Blöcke, homelink 2/3
+  mit Auto-Neustart – am 20.10. fehlte der 3. Block.

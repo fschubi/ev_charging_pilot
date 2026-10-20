@@ -59,7 +59,8 @@ def _climate_source(engine: Engine) -> str:
 
 def _climate_running(engine: Engine, now: datetime) -> bool:
     plan = engine.climate_plan
-    if plan is None or engine.climate_blocked or engine.climate_phase in ("done", "skipped"):
+    if plan is None or engine.climate_blocked \
+            or engine.climate_phase in ("done", "skipped", "finished"):
         return False
     return engine.climate_active or plan.start_at <= now < plan.until
 

@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-19 – v0.23.0 Temperaturen im Cockpit.** `Inp.OVMS_CABIN_TEMP`;
+  `engine.cabin_changed_at` (RawState.last_updated, weil OVMS schlafend wiederholt) →
+  Snapshot; WS `get_temperature_history` (Recorder, 60/120/300 s); Panel `_sohChip`-Plakette
+  `temp-toggle` + `tempSvg` (unveränderte Strecken > 30 min gestrichelt).
 - **2026-10-19 – v0.22.5 Klima-Zeitfenster.** `climate.AFTER_DEPARTURE_MIN` = 2: Klima endet
   2 min nach Abfahrt (`until` > Abfahrt, Lock hält es über das Fensterende); Summary nennt
   die Abfahrt aus `next_window`; `climate_blocked` entfällt, solange `climate_active`.

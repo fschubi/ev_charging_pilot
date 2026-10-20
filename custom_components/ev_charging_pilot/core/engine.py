@@ -16,7 +16,14 @@ from zoneinfo import ZoneInfo
 
 from .arbiter import DEFAULT_OFF, HANDS_OFF, arbitrate
 from .charge_test import ChargeTest
-from .climate import climate_blocker, climate_request, climate_wish, planned_duration
+from .climate import (
+    BLOCK_MIN,
+    MAX_RESTARTS,
+    climate_blocker,
+    climate_request,
+    climate_wish,
+    planned_duration,
+)
 from .costs import FixedPriceHistory
 from .executor import ExecState, Executor, ExecutorConfig, Snapshot, StepResult
 from .external import ExternalChargeDetector
@@ -92,6 +99,8 @@ CONFLICT_GRACE_S = 180
 # An OVMS "not charging" is only an end-of-charge signal while it is this recent.
 FINISHED_SIGNAL_MAX_AGE = timedelta(minutes=15)
 FULL_SOC_PCT = 99
+# HVAC off this long before the planned end → the pilot restarts a climate block.
+CLIMATE_GAP = timedelta(seconds=30)
 # OVMS repeats the last values of a sleeping car, so a value that has not changed for
 # this long is no current measurement any more (temperatures only).
 UNCHANGED_STALE = timedelta(minutes=30)
@@ -217,6 +226,8 @@ class Engine:
         # must not move it and send a second command) with its progress:
         # due → sent → running (car reports HVAC on) → done; or skipped.
         self._climate_lock: ClimateRequest | None = None
+        self._climate_restarts = 0
+        self._climate_off_since: datetime | None = None
         # A charge paused below its target: (target %, the request that charged).
         self._pause_hold: tuple[int | None, Desired] | None = None
         self._pause_pushed = False
@@ -693,6 +704,8 @@ class Engine:
                 self.manual_climate is not None and self.manual_climate.key != lock.key)):
             lock = self._climate_lock = None
             self.climate_phase = None
+            self._climate_restarts = 0
+            self._climate_off_since = None
         if lock is not None:
             self.climate_plan = lock
         elif self.climate_plan is not None and self.climate_plan.start_at <= now \
@@ -708,29 +721,48 @@ class Engine:
             self.climate_blocked = None
 
     def _climate_progress(self, now: datetime, result: TickResult) -> None:
-        """Follow the running climate: command sent, car reports HVAC on, then off.
+        """Follow the running climate: command sent, HVAC on, gaps, restarts.
 
-        Grid power is only granted while the climate runs: once the car reports
-        its HVAC off again, the climate wish ends and the target SOC rules again
-        (field 18.10.2026: HVAC off at 15:58, but the Halo charged on to 16:00).
-        Without the HVAC input the wish lasts until departure, as before.
+        The smart climatises in 5-minute blocks. When the car reports its HVAC off
+        before the planned end (departure + 5 min) for ``CLIMATE_GAP``, the pilot
+        sends one more block itself (at most ``MAX_RESTARTS``). The wallbox stays on
+        until the planned end – a gap between blocks never cuts the grid power
+        (field 20.10.2026: OVMS skipped the third block, the cabin cooled down).
         """
-        if self._climate_lock is None:
+        lock = self._climate_lock
+        if lock is None:
             return
         for event in result.events:
-            if event.code == "CLIMATE_START":
+            if event.code == "CLIMATE_START" and self.climate_phase in (None, "due"):
                 self.climate_phase = "sent"
             elif event.code == "CLIMATE_SKIPPED":
                 self.climate_phase = "skipped"
         hvac = self.values.get(Inp.OVMS_HVAC)
         if hvac is None or not hvac.available or hvac.normalized is None:
             return
-        if self.climate_phase == "sent" and hvac.normalized:
-            self.climate_phase = "running"
-        elif self.climate_phase == "running" and not hvac.normalized:
-            self.climate_phase = "done"
+        if hvac.normalized:
+            self._climate_off_since = None
+            if self.climate_phase in ("sent", "gap"):
+                self.climate_phase = "running"
+            return
+        if self.climate_phase not in ("running", "gap"):
+            return
+        self._climate_off_since = self._climate_off_since or now
+        remaining = lock.until - now
+        if self.climate_phase == "running":
+            self.climate_phase = "gap"
+        if remaining >= timedelta(minutes=2) and self._climate_restarts < MAX_RESTARTS \
+                and now - self._climate_off_since >= CLIMATE_GAP:
+            self._climate_restarts += 1
+            self._climate_off_since = None
+            result.extend(self.executor.request_climate_restart(
+                now, BLOCK_MIN, self._climate_restarts))
+            self.climate_phase = "sent"
+        elif remaining < timedelta(minutes=2) or self._climate_restarts >= MAX_RESTARTS:
+            self.climate_phase = "finished"
             result.events.append(Event(now, Category.CLIMATE, Severity.INFO, "CLIMATE_ENDED",
-                                       "Vorklimatisierung beendet – Auto meldet Klima aus"))
+                                       "Vorklimatisierung beendet – Auto meldet Klima aus; "
+                                       f"Wallbox bleibt frei bis {lock.until:%H:%M} UTC"))
 
     def _full_charge_ended(self, now: datetime, window) -> Desired | None:
         """Target 100 %: off only after the car ended the charge itself (FULL_END_WAIT)."""
@@ -755,7 +787,7 @@ class Engine:
     @property
     def climate_active(self) -> bool:
         """The climate command went out and the climate has not ended yet."""
-        return self.climate_phase in ("sent", "running")
+        return self.climate_phase in ("sent", "running", "gap")
 
     def _arbitrate(self, now: datetime, plugged_in: bool) -> Desired:
         s = self.settings
@@ -1286,7 +1318,8 @@ class Engine:
             "climate_lock": {"duration_min": self._climate_lock.duration_min,
                              "start_at": self._climate_lock.start_at.isoformat(),
                              "until": self._climate_lock.until.isoformat(),
-                             "phase": self.climate_phase} if self._climate_lock else None,
+                             "phase": self.climate_phase,
+                             "restarts": self._climate_restarts} if self._climate_lock else None,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -1324,3 +1357,4 @@ class Engine:
                 int(lock["duration_min"]), datetime.fromisoformat(lock["start_at"]),
                 datetime.fromisoformat(lock["until"]))
             self.climate_phase = lock.get("phase")
+            self._climate_restarts = int(lock.get("restarts", 0))

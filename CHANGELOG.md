@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.24.1 – 2026-10-20
+
+Vorklimatisierung bis zum Einsteigen:
+- **Klima und Wallbox laufen bis 5 Minuten nach der Abfahrt** (vorher 2). Bei Abfahrt
+  05:30 und 15 Minuten also 05:20–05:35.
+- **Der Pilot startet fehlende 5-Minuten-Blöcke selbst nach.** Der smart klimatisiert nur
+  in 5-Minuten-Blöcken; OVMS sollte bei 10/15 Minuten nachstarten, hat am 20.10. aber den
+  dritten Block ausgelassen (Klima 05:18–05:28, beim Einsteigen 05:33 nur 15 °C). Meldet
+  das Auto die Klima 30 Sekunden lang aus, obwohl noch mindestens 2 Minuten geplant sind,
+  sendet der Pilot `homelink 1` für einen weiteren Block – höchstens 3-mal.
+- **Die Wallbox bleibt bis zum geplanten Klima-Ende frei,** auch in den Lücken zwischen den
+  Blöcken. Danach gilt wieder das Ladeziel.
+
 ## 0.24.0 – 2026-10-20
 
 Ladepause statt Abbruch – wie am 20.10. besprochen:

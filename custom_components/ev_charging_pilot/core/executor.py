@@ -285,6 +285,16 @@ class Executor:
                         f"Manueller CP-Puls {self.config.cp_pulse_s} s")
         return self._result
 
+    def request_climate_restart(self, now: datetime, minutes: int, number: int) -> StepResult:
+        """One more climate block, sent by the pilot itself (no Halo wait: it is on)."""
+        self._result = StepResult()
+        if self.config.climate_available:
+            self._command(CommandKind.CLIMATE_START, duration_min=minutes)
+            self._event(now, Category.CLIMATE, Severity.INFO, "CLIMATE_RESTART",
+                        f"Klima {minutes} min nachgestartet ({number}. Mal) – geplant ist "
+                        "sie bis 5 min nach der Abfahrt")
+        return self._result
+
     def request_climate_stop(self, now: datetime) -> StepResult:
         self._result = StepResult()
         self._command(CommandKind.CLIMATE_STOP)

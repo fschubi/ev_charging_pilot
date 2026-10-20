@@ -97,6 +97,15 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
 - [x] Wochenplan Montag 19.10. (Büro Mo–Mi, 100 %) – Ergebnisse unten.
 - [ ] Monatsbericht 01.11. – noch offen.
 
+**Nacht zum Dienstag 20.10. (v0.23.2):**
+- Freigabe 02:30:00, bestätigt 02:30:05, Auto wach 02:30:16 (**kein Wecken**), stabil
+  02:31:01. Ladestrom stand schon auf 12 A (kein `CURRENT_SET` nötig).
+- **100-%-Regel (v0.22.3) bestätigt:** Anzeige 100 % um 03:42, Auto lud weiter bis
+  03:50:31 und beendete selbst (`CHARGE_ENDED`, Halo „SuspendedEV“), Wallbox aus nach
+  3 min um 03:53:32. Echter SOC 96,2 % statt 94 % – M3 gemessen.
+- Sitzung `s-20261020-003101`: 8,99 kWh, 3,76 € (0,42 €/kWh), 55 → 100 %.
+- Außentemperatur jetzt von der Gartenstation (4,5 °C) → Klima 15 min, 05:17–05:32.
+
 **Nacht zum Montag 19.10. (v0.22.2):**
 - Block 02:30–03:52 geplant; Freigabe 02:30:04, bestätigt 02:30:15, Auto wach 02:30:21
   (17 s, **kein Wecken**), stabil 02:30:45, Abschaltung bei 100 % um 03:34:57, Sitzung

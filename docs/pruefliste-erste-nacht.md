@@ -121,7 +121,11 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
   ergänzt (19.10. 13,6 %, 20.10. 14,5 %). Jahr: Fahrzeug 16,2, Netz 19,1 kWh/100 km.
 - Fahrten 20.10.: Stopp mit Abschließen ergab zwei Fahrten (16:12 aus, 16:13 abgeschlossen;
   16:22 neue Fahrt) – v0.22.1 ✓.
-- Klima geplant 05:20–05:35 (15 min, 7,8 °C Gartenstation) – Auswertung folgt.
+- Klima 21.10. (v0.25.0): Wallbox an 05:20:03, bestätigt/`CLIMATE_START` 05:20:08, HVAC
+  05:21:16–05:30:24 (wieder nur 2 Blöcke), **Pilot startet nach** 05:30:56 (`CLIMATE_RESTART`),
+  HVAC wieder an 05:31:22. Wallbox durchgehend an (0,15 kWh, davon Klima 0,14 kWh, 0,06 €).
+  Innen 14 → 23–27 °C; beim Entsperren 05:30:56 **24 °C** (Vortag 15 °C). Kabel gezogen 05:31:39.
+  → Blöcke nachstarten (v0.24.1) und Wallbox-Halten (v0.23.3) im Feld bestätigt.
 
 **Nacht zum Montag 19.10. (v0.22.2):**
 - Block 02:30–03:52 geplant; Freigabe 02:30:04, bestätigt 02:30:15, Auto wach 02:30:21

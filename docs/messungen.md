@@ -11,6 +11,7 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | M2 | 2026-10-19 | Freigabe 11 s, Abschaltung 5 s. **Ladestrom 14 → 12 A** übernahm die Halo erst nach dem zweiten Setzen (02:30:04, 02:32:04 → 02:33:05), die ersten 3 min liefen mit 14 A | Wiederholung `CURRENT_SET` |
 | M3 | 2026-10-19 | offen: Pilot schaltete bei Anzeige-SOC 100 % ab (03:34:57), das Auto beendete nicht selbst; Halo-Status „Charging“ bis zur Abschaltung, danach „Unavailable“ | `finished_statuses` |
 | M3 | 2026-10-20 | **Auto beendet selbst** (v0.22.3): Anzeige 100 % um 03:42:23 (real 94,5 %), weitergeladen mit ~5,5 kW bis 03:50:31 (real 96,2 %); Halo-Status dann **„SuspendedEV“**, OVMS „lädt nicht“ 03:51:28; Wallbox aus 3 min später | `finished_statuses` = SuspendedEV |
+| M3 | 2026-10-21 | bestätigt: Anzeige 100 % 03:00:59 (real ~95 %), Auto beendet 03:07:03 (real ~96,3 %, Halo „SuspendedEV“), Wallbox aus 03:10:05 | – |
 | M4 | | | `cp_mask_grace_s` |
 | M5 | | | – |
 | M6 | | | RFID-Variante |
@@ -19,6 +20,7 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | M8 | 2026-10-17 | Testladung: wach 16 s nach Freigabe, kein Wecken | – |
 | M8 | 2026-10-19 | wach/lädt 17 s nach Freigabe nach 7 h Schlaf (SOC 58 %), kein Wecken – dritter Start in Folge ohne Weckkette | `start_detection_wait_s` |
 | M8 | 2026-10-20 | wach 16 s nach Freigabe (SOC 55 %), kein Wecken – vierter Start in Folge | – |
+| M8 | 2026-10-21 | wach 16 s nach Freigabe (SOC 51 %), kein Wecken – fünfter Start in Folge | – |
 
 ## Ladekurve und Energie (Feld)
 
@@ -34,3 +36,5 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | 2026-10-20 | 55 → 100 % (Anzeige) in 79 min, 8,99 kWh = 0,20 kWh je % inkl. Nachladen nach Anzeige-100 % (~0,7 kWh), max. 7,9 kW (12 A), ab ~90 % ~6 kW | Lernmodell / Prognose |
 | 2026-10-20 | Ladeverlust: OVMS `charge_energy` 7,68 kWh in den Akku bei 8,99 kWh Halo-Zähler → ~14,6 % | `charge_efficiency` (0,88 → ~0,85) |
 | 2026-10-20 | Fahrzeugverbrauch 16.–20.10.: (18,98 − 1,79) kWh / 104 km = 16,5 kWh/100 km bei 5–13 °C | Plausibilität |
+| 2026-10-21 | Ladeverlust 14,2 % (9,72 kWh Wallbox, 8,34 kWh in den Akku), 51 → 100 % in 81 min; rückwirkend 19.10. 13,6 %, 20.10. 14,5 % – Jahr 13,3 % | `charge_efficiency` → ~0,86 |
+| 2026-10-21 | Verbrauch 16.–20.10. (v0.25.0): Fahrzeug 16,2 kWh/100 km, Netz fürs Fahren 19,1 kWh/100 km, 7,99 €/100 km | – |

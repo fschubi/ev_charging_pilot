@@ -113,6 +113,16 @@ Leistung 8,8–9,2 kW (gegen Ende 7,6–7,9 kW).
   dann 21–27 °C, Ende 23 °C; Einstieg 05:33 bei 15 °C. Bisher: `homelink 1` → ~5 min.
   Offen: setzt der smart Stufe 3 nur als 10 min um? (OVMS-Konfiguration prüfen)
 
+**Nacht zum Mittwoch 21.10. (v0.25.0):**
+- Freigabe 01:45:03, bestätigt 01:45:08, Auto wach 01:45:19 (**kein Wecken**, 5. Start in
+  Folge), stabil 01:46:03. Anzeige 100 % um 03:00:59, Auto beendet 03:07:03, Wallbox aus
+  03:10:05 (100-%-Regel ✓). Sitzung `s-20261020-234603`: 9,72 kWh, 4,08 €, 51 → 100 %.
+- Ladeverlust jetzt gemessen: 8,34 kWh in den Akku → 14,2 %; ältere Ladungen per Recorder
+  ergänzt (19.10. 13,6 %, 20.10. 14,5 %). Jahr: Fahrzeug 16,2, Netz 19,1 kWh/100 km.
+- Fahrten 20.10.: Stopp mit Abschließen ergab zwei Fahrten (16:12 aus, 16:13 abgeschlossen;
+  16:22 neue Fahrt) – v0.22.1 ✓.
+- Klima geplant 05:20–05:35 (15 min, 7,8 °C Gartenstation) – Auswertung folgt.
+
 **Nacht zum Montag 19.10. (v0.22.2):**
 - Block 02:30–03:52 geplant; Freigabe 02:30:04, bestätigt 02:30:15, Auto wach 02:30:21
   (17 s, **kein Wecken**), stabil 02:30:45, Abschaltung bei 100 % um 03:34:57, Sitzung

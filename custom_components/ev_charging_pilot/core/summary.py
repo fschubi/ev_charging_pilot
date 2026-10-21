@@ -109,6 +109,16 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
         title = "Ladung abgebrochen" if ex.failure_code == "CHARGE_INTERRUPTED" \
             else "Ladestart fehlgeschlagen"
         return title, FAILURE_HINTS.get(ex.failure_code, "") + ".", "bad"
+    away = engine.external.status
+    if away is not None:
+        kw = away["power_w"] / 1000 if away["power_w"] else None
+        parts = [f"seit {at(datetime.fromisoformat(away['since']))}"]
+        if away["battery_kwh"]:
+            parts.append(f"bisher {_de(away['battery_kwh'], 1)} kWh in den Akku")
+        if away["soc_start"] is not None and away["soc"] is not None:
+            parts.append(f"{away['soc_start']:.0f} → {away['soc']:.0f} %")
+        return (f"Lädt unterwegs mit {_de(kw, 1)} kW" if kw else "Lädt unterwegs",
+                " · ".join(parts) + ". Wird als Fremdladung erfasst.", "info")
     if state is ExecState.DISCONNECTED:
         if window is None:
             return "Nicht eingesteckt", "Kein Ladeplan aktiv.", "info"

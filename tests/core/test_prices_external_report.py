@@ -387,3 +387,36 @@ def test_more_price_formats():
     # Epoch seconds work too.
     secs = {"forecast": [[int(local(2026, 10, 17, h).timestamp()), 0.3] for h in range(3)]}
     assert len(parse_price_attributes(secs, TZ, day)) == 3
+
+
+def test_lidl_charge_with_a_charging_flag_sent_only_once():
+    """Field 21.10.2026: OVMS sent "charging" at 16:01 and nothing more for 26 minutes;
+    the charge power and "energy of this charge" kept coming. The live detection never
+    started, a SOC jump at 16:14 reported 2.47 kWh – the car charged on to 4.35 kWh."""
+    d = detector()
+    t = local(2026, 10, 21, 16, 1)
+    flag = Value(True, True, "ovms", t, Quality.LAST_KNOWN_VALID)  # aged single report
+    found = []
+    d.update(t - timedelta(minutes=1), vehicle_charging=v(False, t), vehicle_power=v(0.0, t),
+             soc=v(66.0, t), halo_power=v(0.0, t), cable_connected=False,
+             halo_total=v(22.36, t), charge_energy=v(8.34, t))  # the night's value
+    for minute in range(27):
+        now = t + timedelta(minutes=minute)
+        found += d.update(now, vehicle_charging=flag, vehicle_power=v(18000.0 - minute * 450, now),
+                          soc=v(66 + minute, now), halo_power=v(0.0, now),
+                          cable_connected=False, halo_total=v(22.36, now),
+                          charge_energy=v(round(0.36 + minute * 0.15, 2), now))
+        if minute == 13:
+            status = d.status
+            assert status is not None and status["power_w"] > 10000
+            assert status["battery_kwh"] == pytest.approx(0.36 + 13 * 0.15)
+    assert found == []  # no early "finished" from the SOC jump
+    for minute in range(27, 40):
+        now = t + timedelta(minutes=minute)
+        found += d.update(now, vehicle_charging=v(False, now), vehicle_power=v(0.0, now),
+                          soc=v(92.0, now), halo_power=v(0.0, now), cable_connected=False,
+                          halo_total=v(22.36, now), charge_energy=v(4.26, now))
+    assert len(found) == 1
+    assert found[0].energy_kwh == pytest.approx(4.26 / 0.88, rel=0.01)
+    assert "(ovms_live)" in found[0].note
+    assert d.status is None

@@ -100,7 +100,8 @@ CONFLICT_GRACE_S = 180
 FINISHED_SIGNAL_MAX_AGE = timedelta(minutes=15)
 FULL_SOC_PCT = 99
 # HVAC off this long before the planned end → the pilot restarts a climate block.
-CLIMATE_GAP = timedelta(seconds=30)
+# 10 s (was 30): the driver noticed a silent car between two blocks (21.10.2026).
+CLIMATE_GAP = timedelta(seconds=10)
 # OVMS repeats the last values of a sleeping car, so a value that has not changed for
 # this long is no current measurement any more (temperatures only).
 UNCHANGED_STALE = timedelta(minutes=30)
@@ -436,8 +437,12 @@ class Engine:
         self._was_conflict = self.data_conflict
         # While the car heats from the grid it draws power without charging – that is
         # no contradiction (field 19.10.2026: DATA_CONFLICT during the climate).
+        # Away from home the wallbox is not involved at all (field 21.10.2026: charging
+        # at a supermarket raised a conflict).
+        at_home = values[Inp.CABLE_CONNECTED].normalized is not False
         if charging_conflict(values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING],
-                             s.power_threshold_w) and not self._climate_heating(values):
+                             s.power_threshold_w) and not self._climate_heating(values) \
+                and at_home:
             self._conflict_since = self._conflict_since or now
         else:
             self._conflict_since = None
@@ -999,6 +1004,7 @@ class Engine:
                 halo_power=v[Inp.CHARGE_POWER],
                 cable_connected=bool(cable.normalized) if cable.available else None,
                 halo_total=v[Inp.TOTAL_ENERGY],
+                charge_energy=v.get(Inp.OVMS_CHARGE_ENERGY),
             ):
                 self.monitor.add_external(charge)
                 result.external.append(charge)
@@ -1029,7 +1035,9 @@ class Engine:
         hvac = v.get(Inp.OVMS_HVAC)
         active = self.executor.state is ExecState.CHARGING or self.executor.starting \
             or self.climate_active or bool(v[Inp.OVMS_VEHICLE_ON].normalized) \
-            or bool(hvac is not None and hvac.available and hvac.normalized)
+            or bool(hvac is not None and hvac.available and hvac.normalized) \
+            or self.external.live is not None \
+            or bool(v[Inp.OVMS_CHARGING].available and v[Inp.OVMS_CHARGING].normalized)
         for code in self.hv.update(v[Inp.OVMS_HV_CYCLES], local_day, active):
             message = ("HV-Kontaktor geschaltet, ohne dass das Auto lud oder fuhr"
                        if code == "HV_CYCLE_WITHOUT_ACTIVITY"

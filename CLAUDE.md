@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-19 – v0.23.2 Fahrten löschen.** Dienst `delete_trip` (`monitor.delete_trip`),
-  Panel-Knopf in der Fahrt-Detailzeile; `monitor._repair_trips` (Verbrauch None < 1 km);
-  `temperature_statistics` ohne Fahrten < `MIN_CONSUMPTION_KM`. Außentemperatur seit
-  19.10. von der Gartenstation `sensor.hmip_swo_b_…_actual_temperature` (Reconfigure).
 - **2026-10-20 – v0.23.3 Klima hält die Wallbox.** `executor._escalate` und Leistungsverlust in
   `_in_charging` ignorieren `Reason.CLIMATE` (kein `TOPUP_SKIPPED`/`INTERRUPTED`). Feld 20.10.:
   Wallbox aus 05:18:06, HVAC an 05:18:12 → Akku. Klima lief nur ~10 statt 15 min (homelink 3).
@@ -164,3 +160,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   fürs Fahren; `Inp.OVMS_CHARGE_ENERGY` (v.c.kwh) → `plausible_charge_energy` (geändert,
   0,5–1,02 × Netz), `vehicle_energy_source`; `measured_sessions` bevorzugt echte Werte;
   `async_backfill_charge_energy` (Recorder, 10 Tage) beim Start.
+- **2026-10-21 – v0.25.1 Fremdladen live.** `ExternalChargeDetector`: laden = OVMS-Flag GOOD
+  oder OVMS-Ladeleistung GOOD > Schwelle; kein SOC-Sprung, solange „lädt“ (auch gealtert);
+  Energie über `_charge_battery_kwh` (erster/kleinster/letzter `charge_energy`); `status` →
+  `summary` „Lädt unterwegs“; kein `DATA_CONFLICT` bei Kabel aus; HV-Aktivität inkl. Laden
+  unterwegs; `CLIMATE_GAP` 10 s. Feld: Lidl 4,35 kWh Akku / 4,9 kWh bezahlt (89 %).

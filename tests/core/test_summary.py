@@ -131,3 +131,24 @@ def test_climate_ahead_and_running_are_named():
     world.set(Inp.OVMS_OUTSIDE_TEMP, "6")
     world.run(30)
     assert text(world).startswith("Vorklimatisierung läuft | Bis spätestens 05:35")
+
+
+def test_charging_away_is_shown_and_raises_no_false_warnings():
+    """Field 21.10.2026: charging at a supermarket – nothing in the cockpit, but a
+    DATA_CONFLICT and an HV warning."""
+    world = World(datetime(2026, 10, 21, 16, 0, tzinfo=TZ), configured=WITH_OVMS)
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.set(Inp.OVMS_SOC, "66")
+    world.set(Inp.OVMS_HV_CYCLES, "100")
+    world.run(30)
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.set(Inp.OVMS_HV_CYCLES, "99")  # the contactor closes for the public charger
+    for minute in range(6):
+        world.set(Inp.OVMS_CHARGE_POWER, str(15000 - minute * 500), unit_of_measurement="W")
+        world.set(Inp.OVMS_SOC, str(66 + minute))
+        world.run(60)
+    line = text(world)
+    assert line.startswith("Lädt unterwegs mit 12,5 kW | seit 16:00"), line
+    assert "66 → 71 %" in line
+    assert "DATA_CONFLICT" not in world.events
+    assert "HV_CYCLE_WITHOUT_ACTIVITY" not in world.events

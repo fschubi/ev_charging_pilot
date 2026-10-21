@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.25.1 – 2026-10-21
+
+Fremdladen nach der ersten echten Ladung unterwegs (Lidl, 21.10., 16:01–16:27):
+- **Fremdladung wird live erkannt:** OVMS meldete „lädt“ nur einmal um 16:01 und dann
+  26 Minuten nicht mehr – der Wert galt als veraltet, die Ladung wurde nicht erkannt. Jetzt
+  zählt auch die OVMS-Ladeleistung, die laufend kommt.
+- **Kein „Ladung beendet“ mitten in der Ladung:** Um 16:14 meldete die Ersatz-Erkennung
+  über den SOC-Sprung die Ladung als fertig (2,47 kWh), obwohl das Auto bis 16:27 weiterlud.
+  Solange das Auto „lädt“ meldet, gibt es keine SOC-Sprung-Erkennung mehr; das Ende kommt
+  erst 10 Minuten ohne Strom.
+- **Energie aus dem Auto:** Die Menge kommt aus OVMS „Energie dieser Ladung“ (4,35 kWh in
+  den Akku), daraus die Netzenergie mit dem Wirkungsgrad.
+- **Im Cockpit sichtbar:** „Lädt unterwegs mit 9,6 kW · seit 16:01 · bisher 3,1 kWh in den
+  Akku · 66 → 84 %“ – auch im Statussensor und damit auf der Dashboard-Karte.
+- **Keine Fehlwarnungen unterwegs:** kein „Datenkonflikt“ (die Wallbox ist nicht beteiligt)
+  und keine Warnung „HV-Kontaktor ohne Aktivität“ beim Laden unterwegs.
+- **Vorklimatisierung:** Fehlende Blöcke startet der Pilot schon nach 10 statt 30 Sekunden
+  nach – am 21.10. stand das Auto beim Hingehen kurz still.
+
 ## 0.25.0 – 2026-10-20
 
 Realistische Verbrauchswerte (Reiter „Drive & Energy“), nach dem Hinweis vom 20.10.:

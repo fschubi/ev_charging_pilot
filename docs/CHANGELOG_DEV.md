@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-19 – v0.23.2 Fahrten löschen.** Dienst `delete_trip` (`monitor.delete_trip`),
+  Panel-Knopf in der Fahrt-Detailzeile; `monitor._repair_trips` (Verbrauch None < 1 km);
+  `temperature_statistics` ohne Fahrten < `MIN_CONSUMPTION_KM`. Außentemperatur seit
+  19.10. von der Gartenstation `sensor.hmip_swo_b_…_actual_temperature` (Reconfigure).
 - **2026-10-19 – v0.23.1 Temperaturquellen.** `outside_temperature`: HA-Sensor → Auto (GOOD)
   → Wetter; `Engine._changed` (Store `changed`) merkt echte Wertänderungen für
   `CHANGE_TRACKED`, unverändert > `UNCHANGED_STALE` (30 min) → LAST_KNOWN_VALID;

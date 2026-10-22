@@ -404,3 +404,37 @@ def test_charge_energy_must_belong_to_the_session():
     assert plausible_charge_energy((7.68, 7.68), 8.99) is None  # previous charge's value
     assert plausible_charge_energy((7.68, 7.68), 0.1) is None   # climate session
     assert plausible_charge_energy((0.0, 2.0), 8.99) is None    # implausibly low
+
+
+def test_trip_records_the_range_estimate_and_how_well_it_fit():
+    tracker = TripTracker(10, TZ)
+    start = local(2026, 10, 22, 10, 31)
+    for minute in range(21):
+        now = start + timedelta(minutes=minute)
+        tracker.update(
+            now, vehicle_on=v(True, now), odometer=v(9300 + minute * 1.25, now),
+            energy_used=v(minute * 0.2, now), energy_recd=v(0, now), aux=v(0, now),
+            soc=v(54 - minute, now), outside_temp=v(9, now), range_km=v(80 - minute * 1.5, now))
+    off = start + timedelta(minutes=21)
+    tracker.update(off, vehicle_on=v(False, off), odometer=v(9325, off), energy_used=v(4, off),
+                   energy_recd=v(0, off), aux=v(0, off), soc=v(33, off), outside_temp=v(9, off),
+                   range_km=v(50, off))  # the final estimate after switching off
+    trip = park(tracker, off, 11, 9325)[0]
+    assert (trip.range_start_km, trip.range_end_km) == (80, 50)
+    assert trip.range_used_km == 30
+    assert trip.range_accuracy_pct == pytest.approx(25 / 30 * 100, abs=0.1)
+    data = trip.as_dict()
+    assert data["range_accuracy_pct"] == trip.range_accuracy_pct
+    assert Trip.from_dict(data).range_end_km == 50
+
+
+def test_range_accuracy_per_temperature_band():
+    from custom_components.ev_charging_pilot.core.statistics import temperature_statistics
+
+    first = trip(local(2026, 10, 20, 7), 25, 4.0, 8.0)
+    first.range_start_km, first.range_end_km = 80, 50   # 25 km for 30 km of range
+    second = trip(local(2026, 10, 21, 7), 25, 4.0, 9.0)
+    second.range_start_km, second.range_end_km = 70, 50  # 25 km for 20 km of range
+    stats = temperature_statistics([first, second], loss_pct=14, price_eur_kwh=0.4)
+    assert stats["bands"]["5-10"]["range_accuracy_pct"] == pytest.approx(50 / 50 * 100)
+    assert stats["bands"]["10-15"]["range_accuracy_pct"] is None

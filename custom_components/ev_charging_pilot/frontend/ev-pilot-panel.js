@@ -1804,7 +1804,9 @@ class EvPilotPanel extends HTMLElement {
         <div>${row("Verbraucht", num(d.vehicle_energy_used_kwh, 2, "kWh"))}${row("Rekuperiert", `${num(d.recovered_energy_kwh, 2, "kWh")}${share !== null ? ` (${num(share, 0, "%")})` : ""}`)}
           ${row("Netto", num(net, 2, "kWh"))}${row("davon Nebenverbraucher", num(d.auxiliary_energy_kwh, 2, "kWh"))}</div>
         <div>${row("Verbrauch", num(d.consumption_kwh_100km, 1, "kWh/100 km"))}${row("SOC", `${num(d.soc_start_pct, 0, "%")} → ${num(d.soc_end_pct, 0, "%")}`)}
-          ${row("Außentemperatur", num(d.outside_temp_avg_c, 1, "°C"))}${row("Kosten zu Hause*", d.cost_eur !== null && d.cost_eur !== undefined ? `${num(d.cost_eur, 2, "€")} (${num(d.grid_energy_kwh, 2, "kWh")} Netz)` : "–")}</div>
+          ${row("Außentemperatur", num(d.outside_temp_avg_c, 1, "°C"))}
+          ${d.range_start_km !== null && d.range_start_km !== undefined ? row("Reichweitenanzeige", `${num(d.range_start_km, 0)} → ${num(d.range_end_km, 0, "km")} (−${num(d.range_used_km, 0, "km")})`) : ""}
+          ${d.range_accuracy_pct ? row("Reichweite stimmt", `${num(d.range_accuracy_pct, 0, "%")} – ${d.range_accuracy_pct >= 100 ? "Anzeige war vorsichtig" : "Anzeige war zu optimistisch"}`) : ""}${row("Kosten zu Hause*", d.cost_eur !== null && d.cost_eur !== undefined ? `${num(d.cost_eur, 2, "€")} (${num(d.grid_energy_kwh, 2, "kWh")} Netz)` : "–")}</div>
       </div>
       ${chart ? `<h3>Fahrtkurve</h3>${chart}${source}` : `<p class="sub">Kein Verlauf vorhanden – weder in der Fahrt gespeichert noch in der HA-Historie.</p>`}
       <p class="hint">* Netto-Energie inklusive Ladeverlust zum durchschnittlichen Heimstrompreis (${num(d.home_price_eur_kwh, 3, "€/kWh")}).</p>
@@ -1846,10 +1848,10 @@ class EvPilotPanel extends HTMLElement {
     const trips = (c.trips && c.trips.items) || [];
     const external = (c.external && c.external.items) || [];
     const group = (title, entries) => `<div class="card wide"><h2>${title}</h2><div class="scroll"><table>
-      <tr><th></th><th class="n">km</th><th class="n">Fahrzeug kWh/100</th><th class="n">Netz kWh/100*</th><th class="n">Rekup. %</th><th class="n">Neben kWh</th><th class="n">€*</th></tr>
+      <tr><th></th><th class="n">km</th><th class="n">Fahrzeug kWh/100</th><th class="n">Netz kWh/100*</th><th class="n">Rekup. %</th><th class="n">Neben kWh</th><th class="n" title="Gefahrene km je km, um die die Reichweitenanzeige sank">Reichweite stimmt</th><th class="n">€*</th></tr>
       ${Object.entries(entries).map(([k, g]) => `<tr><td>${esc(SEASON_LABELS[k] || BAND_LABELS[k] || k)}</td><td class="n">${num(g.distance_km, 0)}</td><td class="n">${num(g.vehicle_kwh_100km, 1)}</td>
-        <td class="n">${num(g.grid_kwh_100km, 1)}</td><td class="n">${num(g.recuperation_share_pct, 0)}</td><td class="n">${num(g.auxiliary_kwh, 1)}</td><td class="n">${num(g.cost_eur, 2)}</td></tr>`).join("")}
-      </table></div><p class="sub">Fahrzeugverbrauch netto (verbraucht minus Rekuperation), nur Fahrten ab 1 km mit Energiedaten. * Netz geschätzt mit dem gemessenen Ladeverlust, Kosten mit deinem tatsächlichen Heimstrompreis.</p></div>`;
+        <td class="n">${num(g.grid_kwh_100km, 1)}</td><td class="n">${num(g.recuperation_share_pct, 0)}</td><td class="n">${num(g.auxiliary_kwh, 1)}</td><td class="n">${num(g.range_accuracy_pct, 0, "%")}</td><td class="n">${num(g.cost_eur, 2)}</td></tr>`).join("")}
+      </table></div><p class="sub">Fahrzeugverbrauch netto (verbraucht minus Rekuperation), nur Fahrten ab 1 km mit Energiedaten. * Netz geschätzt mit dem gemessenen Ladeverlust, Kosten mit deinem tatsächlichen Heimstrompreis. „Reichweite stimmt“: gefahrene km je km, um den die Reichweitenanzeige sank – unter 100 % war das Auto zu optimistisch.</p></div>`;
     return `<div class="grid">
       <div class="card"><h2>${this._year}: Strecke</h2><div class="big">${num(y.distance_km, 0, "km")}</div>
         <div class="sub">${y.trips ?? 0} Fahrten · Qualität ${esc(QUALITY_TEXT[y.quality] || y.quality || "–")}</div></div>
@@ -1864,11 +1866,12 @@ class EvPilotPanel extends HTMLElement {
       ${group("Temperaturgruppen", temps.bands)}
       ${group("Jahreszeiten", temps.seasons)}
       <div class="card wide"><h2>Fahrten</h2><div class="scroll"><table>
-        <tr><th>Start</th><th class="n">km</th><th class="n">min</th><th class="n">kWh/100</th><th class="n">°C</th><th class="n">SOC</th><th>Qualität</th></tr>
+        <tr><th>Start</th><th class="n">km</th><th class="n">min</th><th class="n">kWh/100</th><th class="n">°C</th><th class="n">SOC</th><th class="n" title="Reichweitenanzeige Start → Ende (gefahrene km je angezeigtem km)">Reichweite</th><th>Qualität</th></tr>
         ${trips.slice(0, 50).map((t) => `<tr class="sess-row${this._tripOpen === t.trip_id ? " open" : ""}" data-trip="${esc(t.trip_id)}" title="Details anzeigen"><td>${dateTime(t.started_at)}</td><td class="n">${num(t.distance_km, 1)}</td><td class="n">${num(t.duration_min, 0)}</td>
           <td class="n">${num(t.consumption_kwh_100km, 1)}</td><td class="n">${num(t.outside_temp_avg_c, 0)}</td>
-          <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(QUALITY_TEXT[t.quality] || t.quality)}</span></td></tr>
-          ${this._tripOpen === t.trip_id ? `<tr class="sess-open"><td colspan="7">${this._tripDetailHtml(t)}</td></tr>` : ""}`).join("") || `<tr><td colspan="7" class="sub">Noch keine Fahrten.</td></tr>`}
+          <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td>
+          <td class="n">${t.range_start_km !== null && t.range_start_km !== undefined ? `${num(t.range_start_km, 0)}→${num(t.range_end_km, 0)}${t.range_accuracy_pct ? ` (${num(t.range_accuracy_pct, 0, "%")})` : ""}` : "–"}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(QUALITY_TEXT[t.quality] || t.quality)}</span></td></tr>
+          ${this._tripOpen === t.trip_id ? `<tr class="sess-open"><td colspan="8">${this._tripDetailHtml(t)}</td></tr>` : ""}`).join("") || `<tr><td colspan="8" class="sub">Noch keine Fahrten.</td></tr>`}
       </table></div></div>
       <div class="card wide"><h2>Fremdladungen</h2>
         <p class="sub">Ladungen außer Haus erkennt der Pilot automatisch über OVMS (Auto lädt, ist aber nicht an der eigenen Wallbox). Den bezahlten Preis fragt er per Push ab, oder du ergänzt ihn hier.</p>

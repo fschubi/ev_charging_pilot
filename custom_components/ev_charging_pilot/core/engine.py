@@ -989,6 +989,7 @@ class Engine:
             speed=v.get(Inp.OVMS_SPEED),
             battery_power=v.get(Inp.OVMS_BATTERY_POWER),
             locked=v.get(Inp.OVMS_LOCKED),
+            range_km=v.get(Inp.OVMS_RANGE),
         )
         for trip in trips:
             self.monitor.add_trip(trip)

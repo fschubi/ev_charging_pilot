@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-20 – v0.24.0 Ladepause.** `ExecState.PAUSED`: Leistung weg bei SOC < Ziel →
+  `CHARGE_PAUSED`, nach `PAUSE_WAIT` (15 min) einmal Weckkette (`_pause_recovery`, CP-Nachlauf
+  `PAUSE_POST_CP_WAIT_S` 300 s), sonst `PAUSE_HOLD`; `Snapshot.below_target`; Engine
+  `_pause_hold` hält den Wunsch über Fensterende bis Ziel/abgesteckt; `_full_charge_ended`
+  nur bei SOC ≥ 99. Pushes `PAUSE_HOLD`/`PAUSE_RESUMED`. Pausen-Zustand übersteht keinen Neustart.
 - **2026-10-20 – v0.23.3 Klima hält die Wallbox.** `executor._escalate` und Leistungsverlust in
   `_in_charging` ignorieren `Reason.CLIMATE` (kein `TOPUP_SKIPPED`/`INTERRUPTED`). Feld 20.10.:
   Wallbox aus 05:18:06, HVAC an 05:18:12 → Akku. Klima lief nur ~10 statt 15 min (homelink 3).

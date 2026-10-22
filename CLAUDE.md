@@ -142,11 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-20 – v0.24.0 Ladepause.** `ExecState.PAUSED`: Leistung weg bei SOC < Ziel →
-  `CHARGE_PAUSED`, nach `PAUSE_WAIT` (15 min) einmal Weckkette (`_pause_recovery`, CP-Nachlauf
-  `PAUSE_POST_CP_WAIT_S` 300 s), sonst `PAUSE_HOLD`; `Snapshot.below_target`; Engine
-  `_pause_hold` hält den Wunsch über Fensterende bis Ziel/abgesteckt; `_full_charge_ended`
-  nur bei SOC ≥ 99. Pushes `PAUSE_HOLD`/`PAUSE_RESUMED`. Pausen-Zustand übersteht keinen Neustart.
 - **2026-10-20 – v0.24.1 Klima-Blöcke.** `AFTER_DEPARTURE_MIN` = 5; Phasen sent→running→gap
   →(Neustart `executor.request_climate_restart`, `homelink 1`, nach `CLIMATE_GAP` 30 s, max.
   `MAX_RESTARTS` 3, nur wenn ≥ 2 min übrig)→finished; Wunsch hält bis `until` (nur „done“ =
@@ -166,3 +161,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   bei Änderung binnen `POWER_FRESH` (10 min) oder frischem Flag, nie bei Flag „aus“;
   `_finish_live` verwirft ohne `charge_energy`-Anstieg und < `MIN_SOC_RISE_PCT` (2 %). Feld:
   OVMS wiederholte 5,695 kW nach Lidl, Cockpit zeigte den ganzen 22.10. „Lädt unterwegs“.
+- **2026-10-22 – v0.26.0 Reichweite je Fahrt.** `Trip.range_start_km/range_end_km` (OVMS_RANGE,
+  Ende bis 2 min nach Aus), Properties `range_used_km`, `range_accuracy_pct` (km ÷ Anzeige-km);
+  `temperature_statistics` → `range_accuracy_pct` je Gruppe; `async_backfill_trip_range`
+  (Recorder, 10 Tage); Panel-Spalte „Reichweite“ + Gruppen-Spalte „Reichweite stimmt“.

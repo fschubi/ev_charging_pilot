@@ -132,3 +132,40 @@ async def test_older_sessions_get_their_battery_energy_from_the_recorder(hass, h
     assert session.vehicle_charge_energy_kwh == 7.68
     assert session.vehicle_energy_source == "ovms_charge_energy"
     assert await center.async_backfill_charge_energy() == 0  # only once
+
+
+async def test_older_trips_get_their_range_from_the_recorder(hass, halo, freezer):
+    from homeassistant.components.recorder import get_instance
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.ev_charging_pilot.core.trips import Trip
+
+    from .conftest import DATA, SOC
+
+    reach = "sensor.car_estimated_range"
+    start = dt_util.utcnow()
+    hass.states.async_set(reach, "80", {"unit_of_measurement": "km"})
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=10))
+    hass.states.async_set(reach, "65", {"unit_of_measurement": "km"})
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=10))
+    hass.states.async_set(reach, "50", {"unit_of_measurement": "km"})
+    await hass.async_block_till_done()
+    await get_instance(hass).async_block_till_done()
+    freezer.tick(timedelta(minutes=5))
+    entry = MockConfigEntry(domain=DOMAIN, data={**DATA, "ovms_soc": SOC, "ovms_range": reach},
+                            options={"mode": "dry_run"}, version=2, minor_version=2)
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    center.monitor.data.trips = [Trip(
+        trip_id="t1", started_at=start + timedelta(seconds=30),
+        ended_at=start + timedelta(minutes=20, seconds=30), odometer_start_km=9300,
+        odometer_end_km=9325, distance_km=25.0, duration_min=20, average_speed_kmh=75,
+        vehicle_energy_used_kwh=4.0, recovered_energy_kwh=0.3, auxiliary_energy_kwh=0.1,
+        consumption_kwh_100km=14.8, outside_temp_avg_c=9.0, season="autumn",
+        soc_start_pct=54, soc_end_pct=33)]
+    assert await center.async_backfill_trip_range() == 1
+    trip = center.monitor.data.trips[0]
+    assert (trip.range_start_km, trip.range_end_km) == (80, 50)
+    assert await center.async_backfill_trip_range() == 0

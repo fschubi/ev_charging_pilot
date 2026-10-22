@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.26.0 – 2026-10-22
+
+Reichweitenanzeige gegen echte Kilometer (Reiter „Drive & Energy“):
+- **Jede Fahrt merkt sich die Reichweitenanzeige des Autos** (OVMS) beim Losfahren und
+  nach dem Abstellen, z. B. „80 → 50“.
+- **„Reichweite stimmt“:** gefahrene km je km, um den die Anzeige sank. 25 km gefahren,
+  Anzeige 30 km gesunken = 83 % – das Auto war zu optimistisch; über 100 % war es vorsichtig.
+  Je Fahrt in der Tabelle und in den Details, in den Temperatur- und Jahreszeitengruppen als
+  Mittel.
+- **Rückwirkend:** Für Fahrten der letzten 10 Tage holt der Pilot die Reichweite einmal aus
+  der HA-Historie.
+
 ## 0.25.2 – 2026-10-22
 
 - **Kein falsches „Lädt unterwegs“ mehr:** Nach der Lidl-Ladung meldete OVMS stundenlang

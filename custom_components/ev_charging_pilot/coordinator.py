@@ -192,6 +192,8 @@ class ChargingCenter:
             self.hass, self._async_backfill_history(), f"{DOMAIN} chart history")
         self.entry.async_create_background_task(
             self.hass, self.async_backfill_charge_energy(), f"{DOMAIN} charge energy")
+        self.entry.async_create_background_task(
+            self.hass, self.async_backfill_trip_range(), f"{DOMAIN} trip range")
         self.price_fetcher.start(self.settings)
         from .vehicle_image import image_version
 
@@ -518,6 +520,45 @@ class ChargingCenter:
                 done += 1
         if done:
             _LOGGER.info("Energie in den Akku für %d ältere Ladungen aus OVMS ergänzt", done)
+            self.monitor_changed()
+        return done
+
+    async def async_backfill_trip_range(self) -> int:
+        """Older trips: the range estimate at start and end from the recorder (v0.26.0)."""
+        entity_id = self.entity_ids.get(Inp.OVMS_RANGE)
+        if entity_id is None or "recorder" not in self.hass.config.components:
+            return 0
+        from homeassistant.components.recorder import get_instance, history
+
+        oldest = dt_util.utcnow() - timedelta(days=10)
+        todo = [t for t in self.monitor.data.trips
+                if t.range_start_km is None and t.ended_at >= oldest
+                and t.distance_km and t.distance_km >= 1]
+        done = 0
+        for trip in todo:
+            start, end = trip.started_at, trip.ended_at + timedelta(minutes=2)
+
+            def load(start=start, end=end) -> dict[str, list]:
+                return history.get_significant_states(
+                    self.hass, start, end, [entity_id], include_start_time_state=True,
+                    significant_changes_only=False)
+
+            try:
+                states = await get_instance(self.hass).async_add_executor_job(load)
+            except Exception:  # noqa: BLE001 – a nicety, never a reason to fail
+                _LOGGER.debug("Reichweite aus dem Recorder nicht ladbar", exc_info=True)
+                return done
+            values = []
+            for state in states.get(entity_id, []):
+                value = to_value(Inp.OVMS_RANGE, RawState(
+                    state.state, state.last_updated, state.last_updated, dict(state.attributes)))
+                if value.available and value.normalized is not None:
+                    values.append(float(value.normalized))
+            if len(values) >= 2 and values[0] > values[-1]:
+                trip.range_start_km, trip.range_end_km = values[0], values[-1]
+                done += 1
+        if done:
+            _LOGGER.info("Reichweite für %d ältere Fahrten aus OVMS ergänzt", done)
             self.monitor_changed()
         return done
 

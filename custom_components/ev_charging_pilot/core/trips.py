@@ -67,16 +67,37 @@ class Trip:
     # [seconds since start, km/h, battery W as OVMS reports it (+ into the battery,
     # i.e. recuperation; − drive), SOC %].
     trace: list[list[float | None]] = field(default_factory=list)
+    # The car's estimated range at start and end (OVMS): how far the estimate fits.
+    range_start_km: float | None = None
+    range_end_km: float | None = None
+
+    @property
+    def range_used_km(self) -> float | None:
+        if self.range_start_km is None or self.range_end_km is None:
+            return None
+        return round(self.range_start_km - self.range_end_km, 1)
+
+    @property
+    def range_accuracy_pct(self) -> float | None:
+        """Driven km per km the estimate dropped: 83 % = the car was too optimistic."""
+        used = self.range_used_km
+        if used is None or used < 1 or not self.distance_km \
+                or self.distance_km < MIN_CONSUMPTION_KM:
+            return None
+        return round(self.distance_km / used * 100, 1)
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
+        data["range_used_km"] = self.range_used_km
+        data["range_accuracy_pct"] = self.range_accuracy_pct
         data["started_at"] = self.started_at.isoformat()
         data["ended_at"] = self.ended_at.isoformat()
         return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Trip:
-        values = dict(data)
+        values = {k: v for k, v in data.items()
+                  if k not in ("range_used_km", "range_accuracy_pct")}
         values["started_at"] = datetime.fromisoformat(values["started_at"])
         values["ended_at"] = datetime.fromisoformat(values["ended_at"])
         return cls(**values)
@@ -127,6 +148,7 @@ class TripTracker:
         speed: Value | None = None,
         battery_power: Value | None = None,
         locked: Value | None = None,
+        range_km: Value | None = None,
     ) -> list[Trip]:
         closed: list[Trip] = []
         known = vehicle_on.quality is Quality.GOOD
@@ -141,9 +163,18 @@ class TripTracker:
                 self.open["unlocked_after_off"] = False
             self._sample(now, km, energy_used, energy_recd, aux, soc, outside_temp)
             self._trace(now, speed, battery_power, soc)
+            reach = _num(range_km)
+            if reach is not None:
+                self.open.setdefault("range_start", reach)
+                self.open["range_end"] = reach
         elif self.open is not None:
             if self.open["off_since"] is None:
                 self.open["off_since"] = now
+            reach = _num(range_km)
+            if reach is not None and self.open.get("range_start") is not None \
+                    and now - self.open["off_since"] <= timedelta(minutes=2):
+                # The final estimate arrives just after switching off.
+                self.open["range_end"] = reach
             if km is not None and (self.open["odometer_end"] is None
                                    or km > self.open["odometer_end"]):
                 # The last metres after switching off – or everything driven while HA
@@ -275,6 +306,8 @@ class TripTracker:
             soc_end_pct=t["soc_end"],
             quality=quality,
             trace=t.get("trace") or [],
+            range_start_km=t.get("range_start"),
+            range_end_km=t.get("range_end"),
         )
 
     def _reconstruct(self, now: datetime, km: float, soc: Value | None) -> Trip:

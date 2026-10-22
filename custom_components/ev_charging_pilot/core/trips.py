@@ -25,6 +25,52 @@ TRACE_MAX = 1440
 MIN_CONSUMPTION_KM = 1.0
 
 
+# Driving style from the 15-s drive curve – the pilot's own measure, not the car's
+# eco display (OVMS does not provide that one).
+STYLE_MIN_SAMPLES = 20
+STRONG_DRIVE_W = 25000      # drive power that counts as hard acceleration …
+STRONG_SPEEDUP_KMH = 10     # … while the speed rises at least this much per sample
+STEADY_MAX_DELTA_KMH = 5    # cruising: speed change per sample at most this
+STEADY_MIN_KMH = 30
+# Speed drop per sample that counts as hard braking. 15-s samples average a normal
+# stop at a traffic light (70 → 20 km/h); only far more is really hard.
+HARD_BRAKE_KMH = 40
+
+
+def driving_style(trace: list[list[float | None]]) -> dict[str, float] | None:
+    """Score 0–100 from [s, km/h, battery W (− drive), SOC] samples, or None.
+
+    Three parts, each 0–100: gentle acceleration, steady cruising and anticipation
+    (few hard brakings); the score is their mean.
+    """
+    points = [p for p in trace if p[1] is not None]
+    if len(points) < STYLE_MIN_SAMPLES:
+        return None
+    moving = strong = cruising = steady = hard = 0
+    for prev, cur in zip(points, points[1:], strict=False):
+        speed, delta = cur[1], cur[1] - prev[1]
+        if speed < 5 and prev[1] < 5:
+            continue
+        moving += 1
+        drive_w = -cur[2] if cur[2] is not None else 0.0
+        if drive_w > STRONG_DRIVE_W and delta >= STRONG_SPEEDUP_KMH:
+            strong += 1
+        if delta <= -HARD_BRAKE_KMH:
+            hard += 1
+        if speed >= STEADY_MIN_KMH and prev[1] >= STEADY_MIN_KMH:
+            cruising += 1
+            if abs(delta) <= STEADY_MAX_DELTA_KMH:
+                steady += 1
+    if moving < STYLE_MIN_SAMPLES:
+        return None
+    gentle = max(0.0, 100 - 400 * strong / moving)
+    smooth = 100 * steady / cruising if cruising else 100.0
+    anticipating = max(0.0, 100 - 400 * hard / moving)
+    return {"score": round((gentle + smooth + anticipating) / 3),
+            "gentle": round(gentle), "steady": round(smooth),
+            "anticipating": round(anticipating)}
+
+
 def net_energy(used: float | None, recovered: float | None) -> float | None:
     """What the battery really lost: OVMS counts drawn and recuperated energy separately."""
     if used is None:
@@ -70,6 +116,8 @@ class Trip:
     # The car's estimated range at start and end (OVMS): how far the estimate fits.
     range_start_km: float | None = None
     range_end_km: float | None = None
+    # driving_style(): score and its parts (gentle, steady, anticipating), 0–100.
+    style: dict[str, float] | None = None
 
     @property
     def range_used_km(self) -> float | None:
@@ -308,6 +356,8 @@ class TripTracker:
             trace=t.get("trace") or [],
             range_start_km=t.get("range_start"),
             range_end_km=t.get("range_end"),
+            style=driving_style(t.get("trace") or [])
+            if distance and distance >= MIN_CONSUMPTION_KM else None,
         )
 
     def _reconstruct(self, now: datetime, km: float, soc: Value | None) -> Trip:

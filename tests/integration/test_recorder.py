@@ -169,3 +169,33 @@ async def test_older_trips_get_their_range_from_the_recorder(hass, halo, freezer
     trip = center.monitor.data.trips[0]
     assert (trip.range_start_km, trip.range_end_km) == (80, 50)
     assert await center.async_backfill_trip_range() == 0
+
+
+async def test_older_trips_get_their_driving_style_from_the_recorder(hass, halo, freezer):
+    from homeassistant.components.recorder import get_instance
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.ev_charging_pilot.core.trips import Trip
+
+    from .conftest import DATA, SOC
+
+    speed = "sensor.car_vehicle_speed"
+    start = dt_util.utcnow()
+    for value in [0, 30, 50, 60] + [70, 72, 70, 71] * 8 + [40, 0]:
+        hass.states.async_set(speed, str(value), {"unit_of_measurement": "km/h"})
+        await hass.async_block_till_done()
+        freezer.tick(timedelta(seconds=15))
+    await get_instance(hass).async_block_till_done()
+    freezer.tick(timedelta(minutes=2))
+    entry = MockConfigEntry(domain=DOMAIN, data={**DATA, "ovms_soc": SOC, "ovms_speed": speed},
+                            options={"mode": "dry_run"}, version=2, minor_version=2)
+    await _setup(hass, entry)
+    center = entry.runtime_data
+    center.monitor.data.trips = [Trip(
+        trip_id="t1", started_at=start, ended_at=start + timedelta(minutes=9),
+        odometer_start_km=9300, odometer_end_km=9310, distance_km=10.0, duration_min=9,
+        average_speed_kmh=66, vehicle_energy_used_kwh=1.6, recovered_energy_kwh=0.1,
+        auxiliary_energy_kwh=0.05, consumption_kwh_100km=15.0, outside_temp_avg_c=9.0,
+        season="autumn", soc_start_pct=54, soc_end_pct=46)]
+    assert await center.async_backfill_trip_style() == 1
+    assert center.monitor.data.trips[0].style["score"] >= 80

@@ -338,6 +338,10 @@ async def ws_trip_detail(hass, connection, msg) -> None:
                      Inp.OVMS_BATTERY_POWER), 0), _rounded(values.get(Inp.OVMS_SOC), 1)]
                 for moment, values in steps]
             data["trace_source"] = "recorder"
+    if data.get("style") is None and data.get("trace"):
+        from .core.trips import driving_style
+
+        data["style"] = driving_style(data["trace"])
     # What the trip cost at home: net battery energy, charging loss, home price.
     s = center.engine.settings
     net = (trip.vehicle_energy_used_kwh or 0) - (trip.recovered_energy_kwh or 0) \

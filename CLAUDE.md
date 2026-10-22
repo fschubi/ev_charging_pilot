@@ -142,11 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-20 – v0.24.1 Klima-Blöcke.** `AFTER_DEPARTURE_MIN` = 5; Phasen sent→running→gap
-  →(Neustart `executor.request_climate_restart`, `homelink 1`, nach `CLIMATE_GAP` 30 s, max.
-  `MAX_RESTARTS` 3, nur wenn ≥ 2 min übrig)→finished; Wunsch hält bis `until` (nur „done“ =
-  manueller Stopp beendet früher). OVMS-Anleitung: smart nur 5-min-Blöcke, homelink 2/3
-  mit Auto-Neustart – am 20.10. fehlte der 3. Block.
 - **2026-10-20 – v0.25.0 Verbrauch realistisch.** `period_summary`: Start-SOC = erster SOC im
   Zeitraum, `grid_consumption` ohne Klima (+ `…_incl_climate`, `vehicle_consumption`), Kosten
   fürs Fahren; `Inp.OVMS_CHARGE_ENERGY` (v.c.kwh) → `plausible_charge_energy` (geändert,
@@ -165,3 +160,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Ende bis 2 min nach Aus), Properties `range_used_km`, `range_accuracy_pct` (km ÷ Anzeige-km);
   `temperature_statistics` → `range_accuracy_pct` je Gruppe; `async_backfill_trip_range`
   (Recorder, 10 Tage); Panel-Spalte „Reichweite“ + Gruppen-Spalte „Reichweite stimmt“.
+- **2026-10-22 – v0.27.0 Fahrstil.** `trips.driving_style(trace)` (gentle/steady/anticipating,
+  Mittel = score; Schwellen `STRONG_DRIVE_W` 25 kW + ≥ 10 km/h, `STEADY_MAX_DELTA_KMH` 5,
+  `HARD_BRAKE_KMH` 40 je 15 s); `Trip.style` beim Schließen, `async_backfill_trip_style`,
+  WS-Detail rechnet aus Recorder-Kurve; Gruppen `style_score` (km-gewichtet). Kein OVMS-Eco-Score.

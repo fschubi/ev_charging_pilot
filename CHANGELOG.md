@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.27.0 – 2026-10-22
+
+Eigener Fahrstil-Wert je Fahrt (Reiter „Drive & Energy“):
+- **Fahrstil 0–100** aus dem 15-Sekunden-Verlauf von Geschwindigkeit und Akkuleistung,
+  aus drei Teilen:
+  - **sanft beschleunigt** – selten kräftig beschleunigt (hohe Antriebsleistung bei
+    steigendem Tempo),
+  - **gleichmäßig** – über 30 km/h schwankt das Tempo höchstens 5 km/h je 15 Sekunden,
+  - **vorausschauend** – selten hart gebremst (mehr als 40 km/h weniger in 15 Sekunden;
+    normales Anhalten an der Ampel zählt nicht).
+- Je Fahrt in der Tabelle und in den Details (mit den drei Teilen), in den Temperatur- und
+  Jahreszeitengruppen nach Strecke gewichtet.
+- Der smart-eigene Eco-Score kommt über OVMS nicht an – das ist ein eigener Wert nach
+  demselben Prinzip, nicht identisch mit der Anzeige im Auto.
+- **Rückwirkend:** Für Fahrten der letzten 10 Tage aus der HA-Historie berechnet.
+
 ## 0.26.0 – 2026-10-22
 
 Reichweitenanzeige gegen echte Kilometer (Reiter „Drive & Energy“):

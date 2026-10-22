@@ -193,7 +193,7 @@ class ChargingCenter:
         self.entry.async_create_background_task(
             self.hass, self.async_backfill_charge_energy(), f"{DOMAIN} charge energy")
         self.entry.async_create_background_task(
-            self.hass, self.async_backfill_trip_range(), f"{DOMAIN} trip range")
+            self.hass, self._async_backfill_trips(), f"{DOMAIN} trip backfill")
         self.price_fetcher.start(self.settings)
         from .vehicle_image import image_version
 
@@ -520,6 +520,39 @@ class ChargingCenter:
                 done += 1
         if done:
             _LOGGER.info("Energie in den Akku für %d ältere Ladungen aus OVMS ergänzt", done)
+            self.monitor_changed()
+        return done
+
+    async def _async_backfill_trips(self) -> None:
+        await self.async_backfill_trip_range()
+        await self.async_backfill_trip_style()
+
+    async def async_backfill_trip_style(self) -> int:
+        """Older trips: the driving style from the recorder's drive curve (v0.27.0)."""
+        from .core.trips import MIN_CONSUMPTION_KM, driving_style
+
+        if Inp.OVMS_SPEED not in self.entity_ids:
+            return 0
+        oldest = dt_util.utcnow() - timedelta(days=10)
+        todo = [t for t in self.monitor.data.trips
+                if t.style is None and t.ended_at >= oldest
+                and t.distance_km and t.distance_km >= MIN_CONSUMPTION_KM]
+        done = 0
+        for trip in todo:
+            steps = await self.async_recorder_minutes(
+                (Inp.OVMS_SPEED, Inp.OVMS_BATTERY_POWER, Inp.OVMS_SOC), trip.started_at,
+                trip.ended_at, step_s=15)
+            if not steps:
+                continue
+            trace = [[round((at - trip.started_at).total_seconds()),
+                      values.get(Inp.OVMS_SPEED), values.get(Inp.OVMS_BATTERY_POWER),
+                      values.get(Inp.OVMS_SOC)] for at, values in steps]
+            style = driving_style(trace)
+            if style is not None:
+                trip.style = style
+                done += 1
+        if done:
+            _LOGGER.info("Fahrstil für %d ältere Fahrten berechnet", done)
             self.monitor_changed()
         return done
 

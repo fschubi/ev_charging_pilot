@@ -438,3 +438,42 @@ def test_range_accuracy_per_temperature_band():
     stats = temperature_statistics([first, second], loss_pct=14, price_eur_kwh=0.4)
     assert stats["bands"]["5-10"]["range_accuracy_pct"] == pytest.approx(50 / 50 * 100)
     assert stats["bands"]["10-15"]["range_accuracy_pct"] is None
+
+
+def _curve(speeds, drive_kw=8.0):
+    return [[i * 15, s, -drive_kw * 1000, 60.0] for i, s in enumerate(speeds)]
+
+
+def test_driving_style_rewards_steady_gentle_driving():
+    from custom_components.ev_charging_pilot.core.trips import driving_style
+
+    steady = driving_style(_curve([0, 20, 35, 50, 60] + [70, 72, 70, 71, 69] * 6 + [50, 30, 10, 0]))
+    assert steady is not None and steady["score"] >= 90
+    assert steady["gentle"] == 100 and steady["anticipating"] == 100
+
+
+def test_driving_style_marks_hard_acceleration_and_braking():
+    from custom_components.ev_charging_pilot.core.trips import driving_style
+
+    jumpy = [0, 50, 90, 40, 0] * 6
+    trace = [[i * 15, s, -45000.0 if i % 5 in (1, 2) else 2000.0, 60.0]
+             for i, s in enumerate(jumpy)]
+    style = driving_style(trace)
+    assert style["gentle"] < 50 and style["anticipating"] < 50 and style["score"] < 60
+
+
+def test_too_short_curve_has_no_style():
+    from custom_components.ev_charging_pilot.core.trips import driving_style
+
+    assert driving_style(_curve([0, 30, 50, 30, 0])) is None
+
+
+def test_style_score_per_group_is_weighted_by_distance():
+    from custom_components.ev_charging_pilot.core.statistics import temperature_statistics
+
+    short = trip(local(2026, 10, 20, 7), 5, 1.0, 8.0)
+    short.style = {"score": 50, "gentle": 50, "steady": 50, "anticipating": 50}
+    long = trip(local(2026, 10, 21, 7), 25, 4.0, 9.0)
+    long.style = {"score": 80, "gentle": 80, "steady": 80, "anticipating": 80}
+    stats = temperature_statistics([short, long], loss_pct=14, price_eur_kwh=0.4)
+    assert stats["bands"]["5-10"]["style_score"] == round((50 * 5 + 80 * 25) / 30)

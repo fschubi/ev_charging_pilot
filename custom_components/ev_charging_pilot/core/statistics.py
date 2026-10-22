@@ -323,7 +323,8 @@ def temperature_statistics(
 
     def empty() -> dict[str, float]:
         return {"distance_km": 0.0, "vehicle_kwh": 0.0, "used_kwh": 0.0, "recovered_kwh": 0.0,
-                "auxiliary_kwh": 0.0, "trips": 0, "range_driven_km": 0.0, "range_used_km": 0.0}
+                "auxiliary_kwh": 0.0, "trips": 0, "range_driven_km": 0.0, "range_used_km": 0.0,
+                "style_km": 0.0, "style_sum": 0.0}
 
     bands = {name: empty() for name, _, _ in TEMPERATURE_BANDS}
     seasons = {name: empty() for name in SEASONS}
@@ -347,6 +348,9 @@ def temperature_statistics(
             if trip.range_accuracy_pct is not None:
                 group["range_driven_km"] += trip.distance_km
                 group["range_used_km"] += trip.range_used_km
+            if trip.style is not None:
+                group["style_km"] += trip.distance_km
+                group["style_sum"] += trip.style["score"] * trip.distance_km
 
     def finish(group: dict[str, float]) -> dict[str, Any]:
         km = group["distance_km"]
@@ -364,6 +368,9 @@ def temperature_statistics(
             # Driven km per km the range estimate dropped (100 % = estimate exact).
             "range_accuracy_pct": round(group["range_driven_km"] / group["range_used_km"] * 100, 1)
             if group["range_used_km"] >= 1 else None,
+            # Driving style, weighted by distance.
+            "style_score": round(group["style_sum"] / group["style_km"])
+            if group["style_km"] else None,
             "quality": "ESTIMATED",
         }
 

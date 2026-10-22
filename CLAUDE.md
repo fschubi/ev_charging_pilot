@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-20 – v0.23.3 Klima hält die Wallbox.** `executor._escalate` und Leistungsverlust in
-  `_in_charging` ignorieren `Reason.CLIMATE` (kein `TOPUP_SKIPPED`/`INTERRUPTED`). Feld 20.10.:
-  Wallbox aus 05:18:06, HVAC an 05:18:12 → Akku. Klima lief nur ~10 statt 15 min (homelink 3).
 - **2026-10-20 – v0.24.0 Ladepause.** `ExecState.PAUSED`: Leistung weg bei SOC < Ziel →
   `CHARGE_PAUSED`, nach `PAUSE_WAIT` (15 min) einmal Weckkette (`_pause_recovery`, CP-Nachlauf
   `PAUSE_POST_CP_WAIT_S` 300 s), sonst `PAUSE_HOLD`; `Snapshot.below_target`; Engine
@@ -165,3 +162,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Energie über `_charge_battery_kwh` (erster/kleinster/letzter `charge_energy`); `status` →
   `summary` „Lädt unterwegs“; kein `DATA_CONFLICT` bei Kabel aus; HV-Aktivität inkl. Laden
   unterwegs; `CLIMATE_GAP` 10 s. Feld: Lidl 4,35 kWh Akku / 4,9 kWh bezahlt (89 %).
+- **2026-10-22 – v0.25.2 Eingefrorene Ladeleistung.** `ExternalChargeDetector`: Leistung nur
+  bei Änderung binnen `POWER_FRESH` (10 min) oder frischem Flag, nie bei Flag „aus“;
+  `_finish_live` verwirft ohne `charge_energy`-Anstieg und < `MIN_SOC_RISE_PCT` (2 %). Feld:
+  OVMS wiederholte 5,695 kW nach Lidl, Cockpit zeigte den ganzen 22.10. „Lädt unterwegs“.

@@ -420,3 +420,35 @@ def test_lidl_charge_with_a_charging_flag_sent_only_once():
     assert found[0].energy_kwh == pytest.approx(4.26 / 0.88, rel=0.01)
     assert "(ovms_live)" in found[0].note
     assert d.status is None
+
+
+def test_frozen_charge_power_after_the_charge_is_no_charge():
+    """Field 22.10.2026: after Lidl OVMS kept repeating 5.695 kW (charging "off");
+    the cockpit said "charging away" all day and would have booked a huge charge."""
+    d = detector()
+    t = local(2026, 10, 22, 4, 18)
+    off = Value(False, False, "ovms", t, Quality.LAST_KNOWN_VALID)
+    # A bogus live charge restored from the store, started at the HA restart.
+    d.restore({"live": {"started_at": t.isoformat(), "soc_start": 80, "kwh_vehicle": 0.0,
+                        "soc_end": 80, "charge_kwh": [4.35, 4.35, 4.35]}})
+    found = []
+    for minute in range(0, 6 * 60, 5):
+        now = t + timedelta(minutes=minute)
+        found += d.update(now, vehicle_charging=off, vehicle_power=v(5695.0, now),
+                          soc=v(80.0, now), halo_power=v(0.0, now), cable_connected=False,
+                          halo_total=v(22.36, now), charge_energy=v(4.35, now))
+        if minute >= 15:
+            assert d.status is None
+    assert found == []
+    assert d.live is None
+
+
+def test_fresh_power_without_the_flag_still_counts():
+    d = detector()
+    t = local(2026, 10, 21, 16, 1)
+    for minute in range(5):
+        now = t + timedelta(minutes=minute)
+        d.update(now, vehicle_charging=Value.unavailable("ovms"),
+                 vehicle_power=v(18000.0 - minute * 400, now), soc=v(66 + minute, now),
+                 halo_power=v(0.0, now), cable_connected=False, halo_total=v(22.36, now))
+    assert d.status is not None and d.status["power_w"] == 16400.0

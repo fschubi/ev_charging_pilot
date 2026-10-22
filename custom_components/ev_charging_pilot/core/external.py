@@ -25,6 +25,11 @@ from .model import Quality, Value
 from .statistics import ExternalCharge
 
 END_GRACE = timedelta(minutes=10)
+# A charge power that has not changed for this long is a frozen value, not a charge
+# (field 22.10.2026: 5.695 kW repeated for hours after the charge had ended).
+POWER_FRESH = timedelta(minutes=10)
+# A detected charge must show that energy flowed: the car's own count rose, or the SOC.
+MIN_SOC_RISE_PCT = 2.0
 HOME_SHARE_LIMIT = 0.5
 
 
@@ -78,6 +83,8 @@ class ExternalChargeDetector:
         self.live: _Live | None = None
         self.last_soc: tuple[datetime, float] | None = None
         self.last_home_kwh: float | None = None
+        # Last charge power reading and when it last changed.
+        self._power_seen: tuple[float, datetime] | None = None
 
     def update(
         self,
@@ -96,9 +103,18 @@ class ExternalChargeDetector:
         home_delivering = cable_connected is True and halo_w > self.threshold_w
         power_w = float(vehicle_power.normalized) if vehicle_power.quality is Quality.GOOD \
             and vehicle_power.normalized is not None else None
-        charging = (vehicle_charging.quality is Quality.GOOD
-                    and bool(vehicle_charging.normalized)) \
-            or (power_w is not None and power_w > self.threshold_w)
+        if power_w is not None and (self._power_seen is None or self._power_seen[0] != power_w):
+            self._power_seen = (power_w, now)
+        fresh_power = power_w is not None and self._power_seen is not None \
+            and now - self._power_seen[1] <= POWER_FRESH
+        # The flag alone may be sent only once (Lidl, 21.10.); the power alone may be a
+        # frozen leftover (22.10.). Power counts unless the car explicitly says "off".
+        flag_off = vehicle_charging.normalized is False \
+            and vehicle_charging.quality.usable_for_planning
+        flag_on = vehicle_charging.quality is Quality.GOOD and bool(vehicle_charging.normalized)
+        # While the car reports "charging" right now, a constant power is real too.
+        power_valid = power_w is not None and (fresh_power or flag_on)
+        charging = flag_on or (fresh_power and power_w > self.threshold_w and not flag_off)
         soc_now = soc.quality is Quality.GOOD and soc.normalized is not None
 
         # --- 1. live detection – only while the cable at home is known to be unplugged.
@@ -110,8 +126,9 @@ class ExternalChargeDetector:
                 self.live = _Live(started_at=now, soc_start=self.last_soc[1]
                                   if self.last_soc else _num(soc))
             self.live.not_charging_since = None
-            self.live.power_w = power_w
-            self._integrate(now, vehicle_power)
+            self.live.power_w = power_w if power_valid else None
+            if power_valid:
+                self._integrate(now, vehicle_power)
             kwh = _num(charge_energy)
             if kwh is not None:
                 seen = self.live.charge_kwh or (kwh, kwh, kwh)
@@ -169,8 +186,13 @@ class ExternalChargeDetector:
 
     def _finish_live(self, now: datetime) -> ExternalCharge | None:
         live, self.live = self.live, None
-        grid = None
         battery = _charge_battery_kwh(live.charge_kwh)
+        soc_rise = live.soc_end - live.soc_start \
+            if live.soc_start is not None and live.soc_end is not None else None
+        if battery is None and (soc_rise is None or soc_rise < MIN_SOC_RISE_PCT):
+            # No sign that energy flowed: a stale "charging" signal, not a charge.
+            return None
+        grid = None
         if battery is not None:
             grid = battery / self.efficiency
         elif live.kwh_vehicle > 0:

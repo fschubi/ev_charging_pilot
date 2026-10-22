@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.25.2 – 2026-10-22
+
+- **Kein falsches „Lädt unterwegs“ mehr:** Nach der Lidl-Ladung meldete OVMS stundenlang
+  dieselbe Ladeleistung von 5,7 kW, obwohl „lädt“ längst auf „aus“ stand. Seit v0.25.1
+  zeigte das Cockpit deshalb den ganzen 22.10. „Lädt unterwegs mit 5,7 kW“. Die Leistung
+  zählt jetzt nur, wenn sie sich in den letzten 10 Minuten geändert hat und das Auto nicht
+  ausdrücklich „lädt nicht“ meldet.
+- **Keine Schein-Fremdladung:** Eine erkannte Fremdladung wird nur gespeichert, wenn
+  wirklich Energie floss (OVMS „Energie dieser Ladung“ gestiegen oder SOC um mindestens
+  2 % höher). Der falsche laufende Eintrag vom 22.10. wird verworfen, nicht gebucht.
+
 ## 0.25.1 – 2026-10-21
 
 Fremdladen nach der ersten echten Ladung unterwegs (Lidl, 21.10., 16:01–16:27):

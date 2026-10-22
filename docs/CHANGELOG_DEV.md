@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-20 – v0.25.0 Verbrauch realistisch.** `period_summary`: Start-SOC = erster SOC im
+  Zeitraum, `grid_consumption` ohne Klima (+ `…_incl_climate`, `vehicle_consumption`), Kosten
+  fürs Fahren; `Inp.OVMS_CHARGE_ENERGY` (v.c.kwh) → `plausible_charge_energy` (geändert,
+  0,5–1,02 × Netz), `vehicle_energy_source`; `measured_sessions` bevorzugt echte Werte;
+  `async_backfill_charge_energy` (Recorder, 10 Tage) beim Start.
 - **2026-10-20 – v0.24.1 Klima-Blöcke.** `AFTER_DEPARTURE_MIN` = 5; Phasen sent→running→gap
   →(Neustart `executor.request_climate_restart`, `homelink 1`, nach `CLIMATE_GAP` 30 s, max.
   `MAX_RESTARTS` 3, nur wenn ≥ 2 min übrig)→finished; Wunsch hält bis `until` (nur „done“ =

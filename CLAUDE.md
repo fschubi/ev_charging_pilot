@@ -142,11 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-20 – v0.25.0 Verbrauch realistisch.** `period_summary`: Start-SOC = erster SOC im
-  Zeitraum, `grid_consumption` ohne Klima (+ `…_incl_climate`, `vehicle_consumption`), Kosten
-  fürs Fahren; `Inp.OVMS_CHARGE_ENERGY` (v.c.kwh) → `plausible_charge_energy` (geändert,
-  0,5–1,02 × Netz), `vehicle_energy_source`; `measured_sessions` bevorzugt echte Werte;
-  `async_backfill_charge_energy` (Recorder, 10 Tage) beim Start.
 - **2026-10-21 – v0.25.1 Fremdladen live.** `ExternalChargeDetector`: laden = OVMS-Flag GOOD
   oder OVMS-Ladeleistung GOOD > Schwelle; kein SOC-Sprung, solange „lädt“ (auch gealtert);
   Energie über `_charge_battery_kwh` (erster/kleinster/letzter `charge_energy`); `status` →
@@ -164,3 +159,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Mittel = score; Schwellen `STRONG_DRIVE_W` 25 kW + ≥ 10 km/h, `STEADY_MAX_DELTA_KMH` 5,
   `HARD_BRAKE_KMH` 40 je 15 s); `Trip.style` beim Schließen, `async_backfill_trip_style`,
   WS-Detail rechnet aus Recorder-Kurve; Gruppen `style_score` (km-gewichtet). Kein OVMS-Eco-Score.
+- **2026-10-22 – v0.27.1 Reichweiten-Regel 2.** Start = Max in `RANGE_START_WINDOW` (3 min),
+  Ende = letzter Wert bei Fahrzeug an (kein Nachlauf); `Trip.range_rule`, Backfill rechnet
+  Regel < `RANGE_RULE` neu. Grund: smart rechnet laufende Heizung ein (101/112 km beim Start,
+  Sprung 88→98 nach Aus). Panel `rangeVs()` „x % weiter/kürzer“.

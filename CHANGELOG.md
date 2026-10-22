@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.1 – 2026-10-22
+
+Reichweite gegen Anzeige – richtig gemessen und verständlich angezeigt:
+- **Falsche Werte wie „820 %“ behoben.** Der smart rechnet die laufende Heizung in die
+  Reichweitenanzeige ein: Beim Losfahren lief noch die Vorklimatisierung (101 statt 112 km),
+  und nach dem Abstellen springt die Anzeige hoch, weil die Heizung ausgeht (88 → 98 km).
+  Jetzt zählt beim Start der höchste Wert der ersten 3 Minuten und am Ende der letzte Wert,
+  solange das Auto noch an war. Am 21.10.: 112 → 88 km für 24,6 km statt 101 → 98.
+- **Alle bisherigen Fahrten** werden mit der neuen Regel aus der HA-Historie neu berechnet.
+- **Verständliche Anzeige** statt einer nackten Prozentzahl: „4 % weiter“ (du bist weiter
+  gekommen als angezeigt) bzw. „12 % kürzer“ (die Anzeige war zu optimistisch); in den
+  Details „24,6 km für 24 km Anzeige → 3 % weiter als angezeigt“.
+
 ## 0.27.0 – 2026-10-22
 
 Eigener Fahrstil-Wert je Fahrt (Reiter „Drive & Energy“):

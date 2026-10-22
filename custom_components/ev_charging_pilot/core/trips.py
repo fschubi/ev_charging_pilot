@@ -25,6 +25,12 @@ TRACE_MAX = 1440
 MIN_CONSUMPTION_KM = 1.0
 
 
+# Range estimate at the start: the highest value in the first minutes. While the
+# pre-climatisation still runs the car shows less (21.10.2026: 101 instead of 112 km).
+RANGE_START_WINDOW = timedelta(minutes=3)
+# Version of the range rule; older trips are recomputed from the recorder.
+RANGE_RULE = 2
+
 # Driving style from the 15-s drive curve – the pilot's own measure, not the car's
 # eco display (OVMS does not provide that one).
 STYLE_MIN_SAMPLES = 20
@@ -116,6 +122,7 @@ class Trip:
     # The car's estimated range at start and end (OVMS): how far the estimate fits.
     range_start_km: float | None = None
     range_end_km: float | None = None
+    range_rule: int = 0
     # driving_style(): score and its parts (gentle, steady, anticipating), 0–100.
     style: dict[str, float] | None = None
 
@@ -213,16 +220,16 @@ class TripTracker:
             self._trace(now, speed, battery_power, soc)
             reach = _num(range_km)
             if reach is not None:
-                self.open.setdefault("range_start", reach)
+                # Start: the highest value at the beginning; end: the last one while on
+                # (after switching off the display jumps up – 98 instead of 88 km).
+                if now - self.open["started_at"] <= RANGE_START_WINDOW:
+                    self.open["range_start"] = max(reach, self.open.get("range_start") or reach)
+                elif self.open.get("range_start") is None:
+                    self.open["range_start"] = reach
                 self.open["range_end"] = reach
         elif self.open is not None:
             if self.open["off_since"] is None:
                 self.open["off_since"] = now
-            reach = _num(range_km)
-            if reach is not None and self.open.get("range_start") is not None \
-                    and now - self.open["off_since"] <= timedelta(minutes=2):
-                # The final estimate arrives just after switching off.
-                self.open["range_end"] = reach
             if km is not None and (self.open["odometer_end"] is None
                                    or km > self.open["odometer_end"]):
                 # The last metres after switching off – or everything driven while HA
@@ -356,6 +363,7 @@ class TripTracker:
             trace=t.get("trace") or [],
             range_start_km=t.get("range_start"),
             range_end_km=t.get("range_end"),
+            range_rule=RANGE_RULE,
             style=driving_style(t.get("trace") or [])
             if distance and distance >= MIN_CONSUMPTION_KM else None,
         )

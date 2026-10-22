@@ -477,3 +477,24 @@ def test_style_score_per_group_is_weighted_by_distance():
     long.style = {"score": 80, "gentle": 80, "steady": 80, "anticipating": 80}
     stats = temperature_statistics([short, long], loss_pct=14, price_eur_kwh=0.4)
     assert stats["bands"]["5-10"]["style_score"] == round((50 * 5 + 80 * 25) / 30)
+
+
+def test_range_ignores_the_climate_dip_at_the_start_and_the_jump_after_switching_off():
+    """Field 21.10.2026: 101 km at the start (climate still running, 112 without), 88 km
+    while driving, 98 km eight seconds after switching off – the trip read 820 %."""
+    tracker = TripTracker(10, TZ)
+    start = local(2026, 10, 21, 5, 31, 39)
+    readings = [101, 101, 111, 112] + [112 - i for i in range(1, 25)]  # … down to 88
+    for minute, reach in enumerate(readings):
+        now = start + timedelta(minutes=minute)
+        tracker.update(
+            now, vehicle_on=v(True, now), odometer=v(9200 + minute * 24.6 / 27, now),
+            energy_used=v(minute * 0.15, now), energy_recd=v(0, now), aux=v(0, now),
+            soc=v(100 - minute * 0.75, now), outside_temp=v(6, now), range_km=v(reach, now))
+    off = start + timedelta(minutes=len(readings))
+    tracker.update(off, vehicle_on=v(False, off), odometer=v(9224.6, off), energy_used=v(4, off),
+                   energy_recd=v(0, off), aux=v(0, off), soc=v(80, off), outside_temp=v(6, off),
+                   range_km=v(98, off))  # HVAC off → the display jumps up
+    trip = park(tracker, off, 11, 9224.6)[0]
+    assert (trip.range_start_km, trip.range_end_km) == (112, 88)
+    assert trip.range_accuracy_pct == pytest.approx(24.6 / 24 * 100, abs=0.5)

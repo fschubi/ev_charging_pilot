@@ -557,7 +557,13 @@ class ChargingCenter:
         return done
 
     async def async_backfill_trip_range(self) -> int:
-        """Older trips: the range estimate at start and end from the recorder (v0.26.0)."""
+        """Older trips: the range estimate at start and end from the recorder.
+
+        Rule 2 (v0.27.1): start = highest value in the first minutes (a running
+        pre-climatisation lowers the display), end = last value before switching off
+        (the display jumps up afterwards). Trips of rule 1 are recomputed.
+        """
+        from .core.trips import RANGE_RULE, RANGE_START_WINDOW
         entity_id = self.entity_ids.get(Inp.OVMS_RANGE)
         if entity_id is None or "recorder" not in self.hass.config.components:
             return 0
@@ -565,11 +571,11 @@ class ChargingCenter:
 
         oldest = dt_util.utcnow() - timedelta(days=10)
         todo = [t for t in self.monitor.data.trips
-                if t.range_start_km is None and t.ended_at >= oldest
+                if t.range_rule < RANGE_RULE and t.ended_at >= oldest
                 and t.distance_km and t.distance_km >= 1]
         done = 0
         for trip in todo:
-            start, end = trip.started_at, trip.ended_at + timedelta(minutes=2)
+            start, end = trip.started_at, trip.ended_at
 
             def load(start=start, end=end) -> dict[str, list]:
                 return history.get_significant_states(
@@ -581,14 +587,16 @@ class ChargingCenter:
             except Exception:  # noqa: BLE001 – a nicety, never a reason to fail
                 _LOGGER.debug("Reichweite aus dem Recorder nicht ladbar", exc_info=True)
                 return done
-            values = []
+            readings = []
             for state in states.get(entity_id, []):
                 value = to_value(Inp.OVMS_RANGE, RawState(
                     state.state, state.last_updated, state.last_updated, dict(state.attributes)))
                 if value.available and value.normalized is not None:
-                    values.append(float(value.normalized))
-            if len(values) >= 2 and values[0] > values[-1]:
-                trip.range_start_km, trip.range_end_km = values[0], values[-1]
+                    readings.append((max(state.last_updated, start), float(value.normalized)))
+            early = [r for at, r in readings if at - start <= RANGE_START_WINDOW]
+            if len(readings) >= 2 and early and max(early) > readings[-1][1]:
+                trip.range_start_km, trip.range_end_km = max(early), readings[-1][1]
+                trip.range_rule = RANGE_RULE
                 done += 1
         if done:
             _LOGGER.info("Reichweite für %d ältere Fahrten aus OVMS ergänzt", done)

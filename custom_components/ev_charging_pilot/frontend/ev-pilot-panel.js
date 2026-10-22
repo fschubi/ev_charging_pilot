@@ -320,6 +320,13 @@ function sessionSvg(d) {
     ${soc ? `<span class="dot" style="background:var(--success-color)"></span>SOC` : ""}</div>`;
 }
 
+/** Range accuracy 104 → "4 % weiter", 88 → "12 % kürzer", 100 → "genau". */
+const rangeVs = (pct) => {
+  if (pct === null || pct === undefined) return "–";
+  const diff = Math.round(pct - 100);
+  return diff === 0 ? "genau" : `${Math.abs(diff)} % ${diff > 0 ? "weiter" : "kürzer"}`;
+};
+
 /** Duration as "1 h 23 min". */
 const duration = (from, to) => {
   if (!from || !to) return "–";
@@ -1805,9 +1812,9 @@ class EvPilotPanel extends HTMLElement {
           ${row("Netto", num(net, 2, "kWh"))}${row("davon Nebenverbraucher", num(d.auxiliary_energy_kwh, 2, "kWh"))}</div>
         <div>${row("Verbrauch", num(d.consumption_kwh_100km, 1, "kWh/100 km"))}${row("SOC", `${num(d.soc_start_pct, 0, "%")} → ${num(d.soc_end_pct, 0, "%")}`)}
           ${row("Außentemperatur", num(d.outside_temp_avg_c, 1, "°C"))}
-          ${d.range_start_km !== null && d.range_start_km !== undefined ? row("Reichweitenanzeige", `${num(d.range_start_km, 0)} → ${num(d.range_end_km, 0, "km")} (−${num(d.range_used_km, 0, "km")})`) : ""}
+          ${d.range_start_km !== null && d.range_start_km !== undefined ? row("Reichweitenanzeige", `${num(d.range_start_km, 0)} → ${num(d.range_end_km, 0, "km")} (gesunken um ${num(d.range_used_km, 0, "km")})`) : ""}
           ${d.style ? row("Fahrstil", `<b>${num(d.style.score, 0)}</b> von 100 · sanft beschleunigt ${num(d.style.gentle, 0)} · gleichmäßig ${num(d.style.steady, 0)} · vorausschauend ${num(d.style.anticipating, 0)}`) : ""}
-          ${d.range_accuracy_pct ? row("Reichweite stimmt", `${num(d.range_accuracy_pct, 0, "%")} – ${d.range_accuracy_pct >= 100 ? "Anzeige war vorsichtig" : "Anzeige war zu optimistisch"}`) : ""}${row("Kosten zu Hause*", d.cost_eur !== null && d.cost_eur !== undefined ? `${num(d.cost_eur, 2, "€")} (${num(d.grid_energy_kwh, 2, "kWh")} Netz)` : "–")}</div>
+          ${d.range_accuracy_pct ? row("Gefahren gegen Anzeige", `${num(d.distance_km, 1, "km")} für ${num(d.range_used_km, 0, "km")} Anzeige → ${rangeVs(d.range_accuracy_pct) === "genau" ? "genau wie angezeigt" : `${rangeVs(d.range_accuracy_pct)} als angezeigt`}`) : ""}${row("Kosten zu Hause*", d.cost_eur !== null && d.cost_eur !== undefined ? `${num(d.cost_eur, 2, "€")} (${num(d.grid_energy_kwh, 2, "kWh")} Netz)` : "–")}</div>
       </div>
       ${chart ? `<h3>Fahrtkurve</h3>${chart}${source}` : `<p class="sub">Kein Verlauf vorhanden – weder in der Fahrt gespeichert noch in der HA-Historie.</p>`}
       ${d.style ? `<p class="hint">Fahrstil: eigener Wert aus dem 15-s-Verlauf (kräftig beschleunigt = hohe Antriebsleistung bei steigendem Tempo; gleichmäßig = Tempo über 30 km/h schwankt höchstens 5 km/h je 15 s; vorausschauend = selten mehr als 40 km/h weniger in 15 s). Nicht identisch mit der Anzeige im Auto.</p>` : ""}
@@ -1850,10 +1857,10 @@ class EvPilotPanel extends HTMLElement {
     const trips = (c.trips && c.trips.items) || [];
     const external = (c.external && c.external.items) || [];
     const group = (title, entries) => `<div class="card wide"><h2>${title}</h2><div class="scroll"><table>
-      <tr><th></th><th class="n">km</th><th class="n">Fahrzeug kWh/100</th><th class="n">Netz kWh/100*</th><th class="n">Rekup. %</th><th class="n">Neben kWh</th><th class="n" title="Gefahrene km je km, um die die Reichweitenanzeige sank">Reichweite stimmt</th><th class="n" title="Eigener Fahrstil-Wert 0–100, nach Strecke gewichtet">Fahrstil</th><th class="n">€*</th></tr>
+      <tr><th></th><th class="n">km</th><th class="n">Fahrzeug kWh/100</th><th class="n">Netz kWh/100*</th><th class="n">Rekup. %</th><th class="n">Neben kWh</th><th class="n" title="Wie weit du im Vergleich zur Reichweitenanzeige gekommen bist">gegen Anzeige</th><th class="n" title="Eigener Fahrstil-Wert 0–100, nach Strecke gewichtet">Fahrstil</th><th class="n">€*</th></tr>
       ${Object.entries(entries).map(([k, g]) => `<tr><td>${esc(SEASON_LABELS[k] || BAND_LABELS[k] || k)}</td><td class="n">${num(g.distance_km, 0)}</td><td class="n">${num(g.vehicle_kwh_100km, 1)}</td>
-        <td class="n">${num(g.grid_kwh_100km, 1)}</td><td class="n">${num(g.recuperation_share_pct, 0)}</td><td class="n">${num(g.auxiliary_kwh, 1)}</td><td class="n">${num(g.range_accuracy_pct, 0, "%")}</td><td class="n">${num(g.style_score, 0)}</td><td class="n">${num(g.cost_eur, 2)}</td></tr>`).join("")}
-      </table></div><p class="sub">Fahrzeugverbrauch netto (verbraucht minus Rekuperation), nur Fahrten ab 1 km mit Energiedaten. * Netz geschätzt mit dem gemessenen Ladeverlust, Kosten mit deinem tatsächlichen Heimstrompreis. „Reichweite stimmt“: gefahrene km je km, um den die Reichweitenanzeige sank – unter 100 % war das Auto zu optimistisch.</p></div>`;
+        <td class="n">${num(g.grid_kwh_100km, 1)}</td><td class="n">${num(g.recuperation_share_pct, 0)}</td><td class="n">${num(g.auxiliary_kwh, 1)}</td><td class="n">${rangeVs(g.range_accuracy_pct)}</td><td class="n">${num(g.style_score, 0)}</td><td class="n">${num(g.cost_eur, 2)}</td></tr>`).join("")}
+      </table></div><p class="sub">Fahrzeugverbrauch netto (verbraucht minus Rekuperation), nur Fahrten ab 1 km mit Energiedaten. * Netz geschätzt mit dem gemessenen Ladeverlust, Kosten mit deinem tatsächlichen Heimstrompreis. „gegen Anzeige“: gefahrene km verglichen mit dem, um wie viel die Reichweitenanzeige sank – „10 % weiter“ heißt, du bist weiter gekommen als angezeigt, „10 % kürzer“, die Anzeige war zu optimistisch. Die laufende Heizung senkt die Anzeige, daher schwankt der Wert.</p></div>`;
     return `<div class="grid">
       <div class="card"><h2>${this._year}: Strecke</h2><div class="big">${num(y.distance_km, 0, "km")}</div>
         <div class="sub">${y.trips ?? 0} Fahrten · Qualität ${esc(QUALITY_TEXT[y.quality] || y.quality || "–")}</div></div>
@@ -1868,11 +1875,11 @@ class EvPilotPanel extends HTMLElement {
       ${group("Temperaturgruppen", temps.bands)}
       ${group("Jahreszeiten", temps.seasons)}
       <div class="card wide"><h2>Fahrten</h2><div class="scroll"><table>
-        <tr><th>Start</th><th class="n">km</th><th class="n">min</th><th class="n">kWh/100</th><th class="n">°C</th><th class="n">SOC</th><th class="n" title="Reichweitenanzeige Start → Ende (gefahrene km je angezeigtem km)">Reichweite</th><th class="n" title="Eigener Fahrstil-Wert 0–100 (sanft beschleunigt, gleichmäßig, vorausschauend)">Fahrstil</th><th>Qualität</th></tr>
+        <tr><th>Start</th><th class="n">km</th><th class="n">min</th><th class="n">kWh/100</th><th class="n">°C</th><th class="n">SOC</th><th class="n" title="Reichweitenanzeige Start → Ende, und wie weit du im Vergleich gekommen bist">Reichweite</th><th class="n" title="Eigener Fahrstil-Wert 0–100 (sanft beschleunigt, gleichmäßig, vorausschauend)">Fahrstil</th><th>Qualität</th></tr>
         ${trips.slice(0, 50).map((t) => `<tr class="sess-row${this._tripOpen === t.trip_id ? " open" : ""}" data-trip="${esc(t.trip_id)}" title="Details anzeigen"><td>${dateTime(t.started_at)}</td><td class="n">${num(t.distance_km, 1)}</td><td class="n">${num(t.duration_min, 0)}</td>
           <td class="n">${num(t.consumption_kwh_100km, 1)}</td><td class="n">${num(t.outside_temp_avg_c, 0)}</td>
           <td class="n">${num(t.soc_start_pct, 0)}→${num(t.soc_end_pct, 0)}</td>
-          <td class="n">${t.range_start_km !== null && t.range_start_km !== undefined ? `${num(t.range_start_km, 0)}→${num(t.range_end_km, 0)}${t.range_accuracy_pct ? ` (${num(t.range_accuracy_pct, 0, "%")})` : ""}` : "–"}</td>
+          <td class="n">${t.range_start_km !== null && t.range_start_km !== undefined ? `${num(t.range_start_km, 0)}→${num(t.range_end_km, 0)}${t.range_accuracy_pct ? ` · ${rangeVs(t.range_accuracy_pct)}` : ""}` : "–"}</td>
           <td class="n">${t.style ? num(t.style.score, 0) : "–"}</td><td><span class="pill ${t.quality === "GOOD" ? "ok" : "warn"}">${esc(QUALITY_TEXT[t.quality] || t.quality)}</span></td></tr>
           ${this._tripOpen === t.trip_id ? `<tr class="sess-open"><td colspan="9">${this._tripDetailHtml(t)}</td></tr>` : ""}`).join("") || `<tr><td colspan="9" class="sub">Noch keine Fahrten.</td></tr>`}
       </table></div></div>

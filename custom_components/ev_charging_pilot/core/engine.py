@@ -1148,6 +1148,11 @@ class Engine:
                 out.append(Notification("start_failed", "high", "Vorklimatisierung ausgefallen",
                                         f"{event.message}. Das Auto wurde nicht geweckt; "
                                         "bitte Wallbox prüfen."))
+            elif event.code == "BLOCK_NOT_STARTED" and n.start_failed:
+                out.append(Notification("start_failed", "high", "Ladeblock nicht gestartet",
+                                        f"{event.message}. Ladestand {self._soc_text()} – "
+                                        "das Ziel wird evtl. nicht erreicht.",
+                                        actions=("retry",)))
             elif event.code == "PAUSE_HOLD" and n.start_failed:
                 self._pause_pushed = True
                 out.append(Notification("start_failed", "high", "Ladepause",

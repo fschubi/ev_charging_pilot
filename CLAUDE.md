@@ -142,8 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.14 Klima ohne Kabel.** `summary._describe`: Zweig „Vorklimatisierung
-  läuft“ vor `DISCONNECTED` (sonst `_climate_source` „aus dem Akku“ nie erreicht). Prüfbericht M10.
 - **2026-10-25 – v0.27.15 Panel-Details.** `_call` behält `check`, `tempHistory/tempAt`,
   `sessionDetail`, `tripDetail` im Cache; neues `_resetCache()` (Reiter, Monat, Rückkehr)
   schließt `_sessionOpen/_tripOpen/_tempOpen` mit. Prüfbericht M11.
@@ -157,3 +155,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.18 Pause gespeichert.** Engine `pause_hold` (Ziel + Desired ohne Klima,
   `held_key`) und Executor `pause_since`/`pause_woken` im Store; `_initial_state`: Halo an +
   Pause → PAUSED (bei Leistung CHARGING + `_clear_pause`). Prüfbericht M5.
+- **2026-10-25 – v0.27.19 Zweiter Preisblock.** `WindowAttempts.charged` (gespeichert) bei
+  `_charging_started`; `_escalate` ohne Versuche + `charged` → `_later_block_not_started`
+  (Event `BLOCK_NOT_STARTED` WARNING, IDLE, kein Fehlstart-Zähler), Push „Ladeblock nicht
+  gestartet“ mit `retry`. Prüfbericht M6.

@@ -148,6 +148,8 @@ class WindowAttempts:
     ovms: int = 0
     cp: int = 0
     restart_used: bool = False
+    # The car charged in this window already (e.g. in the first of two price blocks).
+    charged: bool = False
 
 
 def _flag(value: Value | None) -> bool | None:
@@ -333,7 +335,8 @@ class Executor:
         """What must survive a restart (§6.5). The state itself is re-derived."""
         return {
             "attempts": {
-                k: {"ovms": a.ovms, "cp": a.cp, "restart_used": a.restart_used}
+                k: {"ovms": a.ovms, "cp": a.cp, "restart_used": a.restart_used,
+                    "charged": a.charged}
                 for k, a in self._attempts.items()
             },
             "failed_window": self._failed_window,
@@ -352,7 +355,8 @@ class Executor:
 
     def restore(self, data: dict[str, Any]) -> None:
         self._attempts = {
-            k: WindowAttempts(v.get("ovms", 0), v.get("cp", 0), v.get("restart_used", False))
+            k: WindowAttempts(v.get("ovms", 0), v.get("cp", 0), v.get("restart_used", False),
+                              v.get("charged", False))
             for k, v in (data.get("attempts") or {}).items()
         }
         self._failed_window = data.get("failed_window")
@@ -530,6 +534,18 @@ class Executor:
         self._go(ExecState.START_FAILED, snap.now, code, message, Category.CHARGING,
                  Severity.ERROR)
 
+    def _later_block_not_started(self, snap: Snapshot) -> None:
+        """A later price block of a window that already charged: the wakeups of this
+        window are spent (rule 3), so it is no failed start – no failure count and no
+        "Ladestart fehlgeschlagen", but a warning that the target may be missed."""
+        self._failed_window = snap.desired.window_key
+        self._event(snap.now, Category.CHARGING, Severity.WARNING, "BLOCK_NOT_STARTED",
+                    "Weiterer Ladeblock nicht gestartet – das Auto schläft, und die Weckversuche "
+                    "dieses Ladefensters sind verbraucht")
+        if _flag(snap.charger_on) is True:
+            self._switch(snap, False, retry=True)
+        self._go(ExecState.IDLE, snap.now)
+
     def _topup_not_started(self, snap: Snapshot) -> None:
         """Topping up after the target needs no wakeup: give up quietly for this window."""
         self._failed_window = snap.desired.window_key
@@ -638,6 +654,9 @@ class Executor:
         if self._pause_recovery:
             self._hold_pause(snap)
             return
+        if attempts.charged:
+            self._later_block_not_started(snap)
+            return
         if attempts.restart_used:
             self._fail(snap, "CHARGE_INTERRUPTED", "Ladung abgebrochen, Neustart erfolglos")
         else:
@@ -718,6 +737,7 @@ class Executor:
 
     def _charging_started(self, snap: Snapshot) -> None:
         now = snap.now
+        self.attempts_for(snap.desired).charged = True
         if self._pause_recovery:
             self._event(now, Category.CHARGING, Severity.INFO, "PAUSE_RESUMED",
                         "Lädt wieder nach der Ladepause (nach dem Wecken)")

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.19 – 2026-10-25
+
+Zwei Preisblöcke: der zweite Block ist kein Fehlstart mehr:
+- **Klare Meldung statt „Ladestart fehlgeschlagen“.** Bei der Option „2 Ladeblöcke“ teilen
+  sich beide Blöcke die Weckversuche ihres Ladefensters (höchstens einmal OVMS und einmal
+  CP pro Nacht). Schlief das Auto in der Lücke wieder ein und waren die Weckversuche im
+  ersten Block schon verbraucht, endete der zweite Block als „Ladestart fehlgeschlagen“ –
+  und zählte für die Fehlstart-Sperre mit. Jetzt heißt es „Ladeblock nicht gestartet“
+  (Push mit Ladestand und Hinweis, dass das Ziel evtl. nicht erreicht wird, inkl.
+  „Erneut versuchen“), ohne als Fehlstart zu zählen.
+- Weiterhin gilt: Standard ist ein Block pro Nacht – genau um das Auto nicht zweimal
+  wecken zu müssen.
+
 ## 0.27.18 – 2026-10-25
 
 Ladepause übersteht einen HA-Neustart:

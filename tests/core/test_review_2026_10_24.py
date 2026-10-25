@@ -350,3 +350,41 @@ def test_m5_paused_charge_keeps_its_wallbox_across_a_restart():
     world.run(30 * 60)
     assert world.states[Inp.CHARGER_ENABLE][0] == "on"
     assert not {CommandKind.DISABLE_CHARGER, *WAKEUPS} & set(world.commands)
+
+
+class NappingCar(SleepyCar):
+    """Falls asleep as soon as the wallbox is off (gap between two price blocks)."""
+
+    def tick(self, seconds=5):
+        if self.states[Inp.CHARGER_ENABLE][0] == "off":
+            self.awake = False
+        return super().tick(seconds)
+
+
+def test_m6_second_price_block_without_wakeups_left_is_no_failed_start():
+    """Two blocks share one window and its wakeups (rule 3): the car slept again in the
+    gap, the second block ended as "Ladestart fehlgeschlagen" and counted as a failure."""
+    from datetime import timedelta
+
+    from custom_components.ev_charging_pilot.core.prices import PriceSlot
+
+    start = datetime(2026, 10, 19, 21, 0, tzinfo=TZ)
+    world = NappingCar(start, configured=WITH_OVMS, cp_pulse=True, ovms_port=True,
+                       ovms_enabled=True, cp_failsafe_verified=True, price_source="tibber",
+                       price_optimization=True, price_blocks=2)
+    cheap = {23: 0.10, 3: 0.11}
+    world.engine.set_prices([PriceSlot(
+        start + timedelta(hours=h), start + timedelta(hours=h + 1),
+        cheap.get((start + timedelta(hours=h)).hour, 0.40)) for h in range(12)])
+    world.engine.set_plans(start, [WeeklySchedule(
+        id="p", weekdays=frozenset(WEEKDAYS), departure_time=time(6, 0), ready_buffer_min=30,
+        preferred_departure_soc_pct=80)])
+    world.tick()
+    assert len(world.engine.next_window.blocks) == 2
+    world.run(9 * 3600)
+    assert world.events.count("CHARGE_STABLE") == 1
+    assert "BLOCK_NOT_STARTED" in world.events
+    assert "CHARGE_START_FAILED" not in world.events
+    assert world.engine.executor.consecutive_start_failures == 0
+    assert world.commands.count(CommandKind.OVMS_WAKEUP) == 1
+    assert world.commands.count(CommandKind.CP_PULSE) == 1

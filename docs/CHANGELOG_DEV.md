@@ -1,5 +1,7 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.14 Klima ohne Kabel.** `summary._describe`: Zweig „Vorklimatisierung
+  läuft“ vor `DISCONNECTED` (sonst `_climate_source` „aus dem Akku“ nie erreicht). Prüfbericht M10.
 - **2026-10-25 – v0.27.13 Nicht endliche Werte.** `inputs._float` → None bei inf/nan/Overflow;
   `to_value` → INVALID, wenn die Umrechnung (kW→W) überläuft. Vorher `round(inf)` in
   `sessions._sample`/`trips._trace` → Tick-Exception. Prüfbericht M7.

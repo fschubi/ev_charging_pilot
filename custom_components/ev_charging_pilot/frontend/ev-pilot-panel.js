@@ -46,7 +46,9 @@ const time = (iso) =>
   iso ? new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: HA_TZ }) : "–";
 const dateTime = (iso) =>
   iso ? new Date(iso).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: HA_TZ }) : "–";
-const hourOf = (t) => Number(new Date(t).toLocaleString("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: HA_TZ }));
+// formatToParts: "de-DE" writes "10 Uhr", which is no number (axis showed "NaN").
+const hourOf = (t) => Number(new Intl.DateTimeFormat("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: HA_TZ })
+  .formatToParts(new Date(t)).find((part) => part.type === "hour").value);
 // W → kW without turning a missing value into "0,0".
 const toKw = (watts) => (watts === null || watts === undefined ? null : watts / 1000);
 const SOURCE_TEXT = { public: "Öffentlich", workplace: "Arbeitgeber", other_home: "Andere Wallbox" };

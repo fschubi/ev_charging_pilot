@@ -202,6 +202,10 @@ def _repair_sessions(sessions: list[ChargeSession]) -> None:
         if session.session_id in seen:
             session.session_id = f"{session.session_id}-{session.started_at:%H%M%S}"
         seen.add(session.session_id)
+        if session.average_power_w and session.max_power_w \
+                and session.average_power_w > session.max_power_w:
+            # Before v0.27.24 the average ran from the stable start (field: Ø 10.6 / max 10.4).
+            session.average_power_w = session.max_power_w
         if session.climate_energy_kwh is not None \
                 and session.climate_energy_kwh > session.grid_energy_kwh:
             ratio = session.grid_energy_kwh / session.climate_energy_kwh \

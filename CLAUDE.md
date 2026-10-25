@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.23 Texte/Werte.** `summary` CHARGE_ENDED: „voll“ nur bei SOC GOOD ≥ 99,
-  sonst „bei x %“; WS Fahrtdetail `net` 0 gültig, < 0 → 0; `period_summary` ESTIMATED bei
-  Fremdladung ohne Kosten und Preis. Prüfbericht Niedrig.
 - **2026-10-25 – v0.27.24 Ausschalten.** `Executor._off_unconfirmed` (DISCONNECTED,
   START_FAILED): max. `max_confirm_attempts + 1` Versuche, dann `OFF_RETRY_AFTER`; Event
   `CHARGER_OFF_REFUSED` (WARNING, eigener Push) statt `CHARGER_NOT_CONFIRMED` (war Fehlstart →
@@ -160,3 +157,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.27 Abschluss Prüfbericht.** Replay tickt in UTC; `driving_style`
   überspringt Schritte > `STYLE_MAX_GAP_S` (45 s); `to_value` mi/mph → km(/h), °F → °C,
   MWh → kWh; Klima-Monat nach `ended_at`. Bericht: Niedrig behoben, „Bewusst nicht geändert“.
+- **2026-10-25 – v0.27.28 Achse.** Panel `hourOf` über `Intl.DateTimeFormat.formatToParts`
+  (vorher `Number("10 Uhr")` = NaN, live nach v0.27.27 gesehen); `_repair_sessions` deckelt
+  gespeicherte `average_power_w` auf `max_power_w`.

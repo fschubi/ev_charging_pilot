@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.28 – 2026-10-25
+
+Zeitachse im Cockpit wieder lesbar:
+- **„NaN“ statt Uhrzeiten unter der Ladeplan-Grafik behoben.** Seit v0.27.22 zeigte die
+  Zeitachse in Cockpit und Ladeplan „NaN“: Die neue Zeitzonen-Logik las „10 Uhr“ und
+  konnte daraus keine Zahl machen. Jetzt stehen dort wieder die Stunden.
+- **Alte Ladungen:** Auch bereits gespeicherte Sessions zeigen die Ø-Leistung nicht mehr
+  über dem Maximum (z. B. 24.10. „Ø 10,6 / max 10,4 kW“).
+
 ## 0.27.27 – 2026-10-25
 
 Letzte Kleinigkeiten aus dem Prüfbericht:

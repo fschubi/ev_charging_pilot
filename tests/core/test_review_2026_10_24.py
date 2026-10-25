@@ -631,3 +631,16 @@ def test_low_climate_belongs_to_the_month_the_session_ended_in():
 
     assert month(10)["climate_energy_kwh"] is None
     assert month(11)["climate_energy_kwh"] == 0.5
+
+
+def test_low_stored_sessions_get_their_average_power_capped():
+    """Sessions stored before v0.27.24 kept "Ø 10,6 / max 10,4 kW" in the panel."""
+    from custom_components.ev_charging_pilot.core.monitor import Monitor
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+
+    old = ChargeSession(session_id="s", reason="override",
+                        started_at=datetime(2026, 10, 24, 13, 35, tzinfo=TZ), grid_energy_kwh=4.4,
+                        max_power_w=10400.0, average_power_w=10560.0)
+    monitor = Monitor(TZ)
+    monitor.restore({"sessions": [old.as_dict()]})
+    assert monitor.data.sessions[0].average_power_w == 10400.0

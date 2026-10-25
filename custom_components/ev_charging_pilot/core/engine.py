@@ -850,6 +850,11 @@ class Engine:
                     Reason.SCHEDULE, Reason.ONE_SHOT, Reason.CLIMATE):
             # Topping up after the target: the car is awake anyway or it is not worth a wakeup.
             desired = replace(desired, wake_allowed=False)
+        if desired.charger_enabled and desired.wake_allowed and desired.reason in (
+                Reason.SCHEDULE, Reason.ONE_SHOT) and self._target_known_reached():
+            # The last known SOC already meets the target: the wallbox may offer power,
+            # but waking the car only to learn its SOC is forbidden (§1.1 rule 2).
+            desired = replace(desired, wake_allowed=False)
         hold = self._pause_hold
         if hold is not None and plugged_in and desired.reason is Reason.DEFAULT_OFF:
             # A charge paused below its target keeps its wallbox until the cable is
@@ -861,6 +866,19 @@ class Engine:
         soc = self.soc
         return f"{float(soc.normalized):.0f} %" if soc.available and soc.normalized is not None \
             else "unbekanntem Ladestand"
+
+    def _target_known_reached(self) -> bool:
+        """Does a SOC that is not fresh (sleeping car) already meet the window's target?
+
+        A GOOD SOC is handled by the target shutdown itself; an older value may not
+        switch off (rule 6), but it is reason enough not to wake the car.
+        """
+        window = self.active_window
+        soc = self.soc
+        if window is None or soc.normalized is None or soc.quality is Quality.GOOD \
+                or not soc.quality.usable_for_planning:
+            return False
+        return float(soc.normalized) >= min(window.preferred_soc_pct, FULL_SOC_PCT)
 
     def _below_target(self) -> bool | None:
         """Is a GOOD SOC clearly below the target of the running charge?"""

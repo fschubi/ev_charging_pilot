@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.3 – 2026-10-25
+
+Ein volles Auto wird nicht mehr geweckt:
+- **Kein Wecken, wenn der zuletzt bekannte Ladestand das Ziel schon erreicht.** Schlief das
+  Auto mit z. B. 92 % bei Ziel 90 %, öffnete der Plan trotzdem sein Ladefenster, es floss
+  nichts, und die Weckkette (OVMS, danach CP-Puls) weckte das volle Auto – jede Nacht ein
+  unnötiger HV-Schaltzyklus. Jetzt gibt die Wallbox nur frei; nimmt das Auto keinen Strom,
+  endet das Fenster still („Nachladen nicht gestartet“), ohne Fehlstart-Meldung.
+- Abgeschaltet wird wie bisher nur mit frischem Ladestand – im Zweifel darf das Auto laden.
+
 ## 0.27.2 – 2026-10-25
 
 Gespeicherte Historie ist beim Zurückgehen auf eine ältere Version sicher:

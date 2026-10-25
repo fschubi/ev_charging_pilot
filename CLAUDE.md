@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-22 – v0.25.2 Eingefrorene Ladeleistung.** `ExternalChargeDetector`: Leistung nur
-  bei Änderung binnen `POWER_FRESH` (10 min) oder frischem Flag, nie bei Flag „aus“;
-  `_finish_live` verwirft ohne `charge_energy`-Anstieg und < `MIN_SOC_RISE_PCT` (2 %). Feld:
-  OVMS wiederholte 5,695 kW nach Lidl, Cockpit zeigte den ganzen 22.10. „Lädt unterwegs“.
 - **2026-10-22 – v0.26.0 Reichweite je Fahrt.** `Trip.range_start_km/range_end_km` (OVMS_RANGE,
   Ende bis 2 min nach Aus), Properties `range_used_km`, `range_accuracy_pct` (km ÷ Anzeige-km);
   `temperature_statistics` → `range_accuracy_pct` je Gruppe; `async_backfill_trip_range`
@@ -162,3 +158,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Dataclass-Felder; `Monitor.restore` überspringt kaputte Datensätze (`skipped_records`, Log);
   Coordinator speichert erst nach erfolgreichem `async_setup`-Restore (`_restored`), auch nicht
   im Shutdown nach Fehler. Prüfbericht 24.10.: Downgrade löschte die Historie.
+- **2026-10-25 – v0.27.3 Volles Auto schläft.** `Engine._target_known_reached`: SOC nicht GOOD,
+  aber planbar (LKV/ESTIMATED) ≥ min(Ziel, 99) → `wake_allowed=False` für SCHEDULE/ONE_SHOT
+  → `TOPUP_SKIPPED` statt Weckkette. Prüfbericht 24.10. K2 (`docs/pruefbericht-2026-10-24.md`).

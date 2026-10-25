@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-22 – v0.25.2 Eingefrorene Ladeleistung.** `ExternalChargeDetector`: Leistung nur
+  bei Änderung binnen `POWER_FRESH` (10 min) oder frischem Flag, nie bei Flag „aus“;
+  `_finish_live` verwirft ohne `charge_energy`-Anstieg und < `MIN_SOC_RISE_PCT` (2 %). Feld:
+  OVMS wiederholte 5,695 kW nach Lidl, Cockpit zeigte den ganzen 22.10. „Lädt unterwegs“.
 - **2026-10-21 – v0.25.1 Fremdladen live.** `ExternalChargeDetector`: laden = OVMS-Flag GOOD
   oder OVMS-Ladeleistung GOOD > Schwelle; kein SOC-Sprung, solange „lädt“ (auch gealtert);
   Energie über `_charge_battery_kwh` (erster/kleinster/letzter `charge_energy`); `status` →

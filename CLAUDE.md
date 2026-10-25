@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.19 Zweiter Preisblock.** `WindowAttempts.charged` (gespeichert) bei
-  `_charging_started`; `_escalate` ohne Versuche + `charged` → `_later_block_not_started`
-  (Event `BLOCK_NOT_STARTED` WARNING, IDLE, kein Fehlstart-Zähler), Push „Ladeblock nicht
-  gestartet“ mit `retry`. Prüfbericht M6.
 - **2026-10-25 – v0.27.20 Rechte.** `ChargingEntity.async_require_admin` (Kontext-User, ohne
   User = Automation erlaubt): `DryRunSwitch.turn_off`, Button `reset_error` (`admin=True`);
   Dienst `reset_error` in `ADMIN_SERVICES`. `Notifier._offered` (Aktion → gültig bis, Push-ID,
@@ -161,3 +157,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.23 Texte/Werte.** `summary` CHARGE_ENDED: „voll“ nur bei SOC GOOD ≥ 99,
   sonst „bei x %“; WS Fahrtdetail `net` 0 gültig, < 0 → 0; `period_summary` ESTIMATED bei
   Fremdladung ohne Kosten und Preis. Prüfbericht Niedrig.
+- **2026-10-25 – v0.27.24 Ausschalten.** `Executor._off_unconfirmed` (DISCONNECTED,
+  START_FAILED): max. `max_confirm_attempts + 1` Versuche, dann `OFF_RETRY_AFTER`; Event
+  `CHARGER_OFF_REFUSED` (WARNING, eigener Push) statt `CHARGER_NOT_CONFIRMED` (war Fehlstart →
+  Session/Push). `sessions._energy_from` (gespeichert) für `average_power_w`, gedeckelt auf Max.

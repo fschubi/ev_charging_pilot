@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.24 – 2026-10-25
+
+Wallbox lässt sich nicht ausschalten – sauber behandelt:
+- **Kein Ausschaltbefehl mehr alle 2 Minuten ohne Ende.** Blieb die Wallbox nach einem
+  Fehlstart oder bei abgestecktem Auto an, schickte der Pilot unbegrenzt alle 120 s einen
+  Ausschaltbefehl. Jetzt folgen nach wenigen Versuchen 30 Minuten Pause, dann ein neuer
+  Anlauf – wie schon beim bestätigten Ausschalten.
+- **Eigene Meldung „Wallbox bleibt an“.** Die Weigerung der Wallbox lief bisher unter dem
+  Fehlstart-Code: Es kam ein Push „Ladestart fehlgeschlagen“, und in der Statistik stand
+  eine fehlgeschlagene Ladung. Jetzt eigener Push, keine falsche Session.
+- **Ø-Leistung einer Ladung** zählt die Zeit ab dem Einschalten (wie die Energie) und liegt
+  nie über der Spitzenleistung (vorher z. B. „Ø 10,6 / max 10,4 kW“).
+
 ## 0.27.23 – 2026-10-25
 
 Ehrlichere Texte und Werte:

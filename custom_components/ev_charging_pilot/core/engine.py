@@ -1148,6 +1148,9 @@ class Engine:
                 out.append(Notification("start_failed", "high", "Vorklimatisierung ausgefallen",
                                         f"{event.message}. Das Auto wurde nicht geweckt; "
                                         "bitte Wallbox prüfen."))
+            elif event.code == "CHARGER_OFF_REFUSED" and n.start_failed:
+                out.append(Notification("start_failed", "high", "Wallbox bleibt an",
+                                        f"{event.message}. Bitte Wallbox prüfen (Halo-App)."))
             elif event.code == "BLOCK_NOT_STARTED" and n.start_failed:
                 out.append(Notification("start_failed", "high", "Ladeblock nicht gestartet",
                                         f"{event.message}. Ladestand {self._soc_text()} – "

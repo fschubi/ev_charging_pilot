@@ -110,6 +110,7 @@ class SessionTracker:
         self._climate_kwh: dict[str, list[float]] = {}
         self._climate_at: datetime | None = None
         self._climate_counter: float | None = None
+        self._energy_from: datetime | None = None
         self._climate_counter_at: datetime | None = None
         self._climate_tail: datetime | None = None
         self._efficiency = 0.88
@@ -163,6 +164,7 @@ class SessionTracker:
             "open": self.open.as_dict() if self.open else None,
             "intervals": _intervals_to_dicts(self._acc.intervals),
             "last_kwh": self._acc.last_kwh,
+            "energy_from": self._energy_from.isoformat() if self._energy_from else None,
             "last_at": self._acc.last_at.isoformat() if self._acc.last_at else None,
             "pending_ovms": self._pending_ovms,
             "pending_cp": self._pending_cp,
@@ -178,6 +180,8 @@ class SessionTracker:
         self._acc = IntervalAccumulator(self.interval_min)
         self._acc.intervals = _intervals_from_dicts(data.get("intervals") or [])
         self._acc.last_kwh = data.get("last_kwh")
+        energy_from = data.get("energy_from")
+        self._energy_from = datetime.fromisoformat(energy_from) if energy_from else None
         last_at = data.get("last_at")
         self._acc.last_at = datetime.fromisoformat(last_at) if last_at else None
         self._pending_ovms = bool(data.get("pending_ovms"))
@@ -269,6 +273,8 @@ class SessionTracker:
         )
         self._pending_ovms = self._pending_cp = False
         self._acc = IntervalAccumulator(self.interval_min)
+        # The energy counts from the enable on, so must the time of the average power.
+        self._energy_from = baseline[0] if baseline else now
         if start_kwh is not None:
             self._acc.add(baseline[0] if baseline else now, start_kwh)
         if baseline is not None:
@@ -395,9 +401,15 @@ class SessionTracker:
                 max(0.0, session.end_total_energy_kwh - session.start_total_energy_kwh), 4)
         else:
             session.grid_energy_kwh = self._acc.total_kwh
-        hours = (session.ended_at - session.started_at).total_seconds() / 3600
+        since = self._energy_from or session.started_at
+        hours = (session.ended_at - since).total_seconds() / 3600
         if hours > 0:
-            session.average_power_w = round(session.grid_energy_kwh / hours * 1000, 1)
+            average = session.grid_energy_kwh / hours * 1000
+            # Late cloud counter readings after the end must not lift it above the peak
+            # (field 24.10.2026: Ø 10.6 / max 10.4 kW).
+            if session.max_power_w > 0:
+                average = min(average, session.max_power_w)
+            session.average_power_w = round(average, 1)
         # Each interval keeps the price it was charged at: a dynamic tariff
         # (Tibber) is exact, a fixed price comes from the validity history.
         items = _intervals_to_dicts(self._acc.intervals)

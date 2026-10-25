@@ -173,6 +173,7 @@ class Executor:
         self._ended_window: str | None = None
         # The wallbox refused to switch off – wait before the next attempt.
         self._off_given_up_at: datetime | None = None
+        self._loose_off_tries = 0
         self._last_switch_at: datetime | None = None
         self._last_wakeup_at: datetime | None = None
         self._mask_until: datetime | None = None
@@ -756,8 +757,27 @@ class Executor:
     def _in_disconnected(self, snap: Snapshot) -> None:
         # Without a vehicle there is nothing to confirm; a Halo left on is
         # switched off fire-and-forget and re-checked on later steps.
-        if snap.desired.charger_enabled is False and _flag(snap.charger_on) is True:
-            self._switch(snap, False)
+        self._off_unconfirmed(snap)
+
+    def _off_unconfirmed(self, snap: Snapshot) -> None:
+        """Switch a Halo left on off – but not every 120 s for ever: after a few
+        refused attempts wait ``OFF_RETRY_AFTER`` like a refused confirmed switch-off."""
+        if snap.desired.charger_enabled is not False or _flag(snap.charger_on) is not True:
+            self._loose_off_tries = 0
+            return
+        if self._off_given_up_at is not None and \
+                snap.now - self._off_given_up_at < OFF_RETRY_AFTER:
+            return
+        if self._loose_off_tries >= self.config.max_confirm_attempts + 1:
+            self._loose_off_tries = 0
+            self._off_given_up_at = snap.now
+            # Its own code: CHARGER_NOT_CONFIRMED is a failed *start* (push, failed session).
+            self._event(snap.now, Category.CHARGING, Severity.WARNING, "CHARGER_OFF_REFUSED",
+                        "Wallbox lässt sich nicht ausschalten – neuer Versuch in "
+                        f"{int(OFF_RETRY_AFTER.total_seconds() // 60)} min")
+            return
+        if self._switch(snap, False):
+            self._loose_off_tries += 1
 
     def _in_idle(self, snap: Snapshot) -> None:
         if snap.desired.charger_enabled is True:
@@ -961,7 +981,7 @@ class Executor:
             return
         if self._elapsed(snap.now) >= self.config.confirm_timeout_s:
             if self._confirm_attempts >= self.config.max_confirm_attempts:
-                self._event(snap.now, Category.CHARGING, Severity.ERROR, "CHARGER_NOT_CONFIRMED",
+                self._event(snap.now, Category.CHARGING, Severity.WARNING, "CHARGER_OFF_REFUSED",
                             "Wallbox bestätigt die Abschaltung nicht – neuer Versuch in "
                             f"{int(OFF_RETRY_AFTER.total_seconds() // 60)} min")
                 self._off_given_up_at = snap.now
@@ -984,5 +1004,4 @@ class Executor:
             self._go(ExecState.IDLE, snap.now, "NEW_WINDOW", "Neues Ladefenster")
             self._in_idle(snap)
             return
-        if snap.desired.charger_enabled is False and _flag(snap.charger_on) is True:
-            self._switch(snap, False)
+        self._off_unconfirmed(snap)

@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.19 Zweiter Preisblock.** `WindowAttempts.charged` (gespeichert) bei
+  `_charging_started`; `_escalate` ohne Versuche + `charged` → `_later_block_not_started`
+  (Event `BLOCK_NOT_STARTED` WARNING, IDLE, kein Fehlstart-Zähler), Push „Ladeblock nicht
+  gestartet“ mit `retry`. Prüfbericht M6.
 - **2026-10-25 – v0.27.18 Pause gespeichert.** Engine `pause_hold` (Ziel + Desired ohne Klima,
   `held_key`) und Executor `pause_since`/`pause_woken` im Store; `_initial_state`: Halo an +
   Pause → PAUSED (bei Leistung CHARGING + `_clear_pause`). Prüfbericht M5.

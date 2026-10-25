@@ -513,3 +513,35 @@ def test_low_external_charge_without_any_price_marks_the_month_estimated():
                            prices=FixedPriceHistory([PricePoint(date(2026, 1, 1), 0.3)], TZ),
                            capacity_kwh=16.7, efficiency=0.88, odometer_source="manual")
     assert month["quality"] == "ESTIMATED"
+
+
+def test_low_halo_refusing_to_switch_off_is_not_retried_for_ever():
+    """Unplugged with the Halo stuck on: an off command every 120 s, endlessly."""
+    from datetime import timedelta
+
+    world = World(datetime(2026, 10, 20, 12, 0, tzinfo=TZ), configured=HALO)
+    world.engine.set_plans(world.now, [])
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.run(60)
+    world.set(Inp.CHARGER_ENABLE, "on")
+    offs = 0
+    for _ in range(int(3600 / 5)):
+        result = world.engine.tick(world.now, world.raw())
+        world.now += timedelta(seconds=5)
+        offs += sum(c.kind is CommandKind.DISABLE_CHARGER for c in result.commands)
+        world.events += [e.code for e in result.events]
+        world.notifications += [n.category for n in result.notifications]
+    # A few tries per half hour instead of one every 120 s (30 per hour before).
+    assert offs <= 2 * (world.engine.executor.config.max_confirm_attempts + 1)
+    assert "CHARGER_OFF_REFUSED" in world.events
+    assert "CHARGER_NOT_CONFIRMED" not in world.events
+
+
+def test_low_average_power_counts_from_the_enable_and_stays_below_the_peak():
+    """Field 24.10.2026: "Leistung Ø / max 10,6 / 10,4 kW"."""
+    world = FillingCar(datetime(2026, 10, 20, 2, 55, tzinfo=TZ), soc=50.0, configured=WITH_OVMS)
+    world.charging_power = 4600.0
+    _fixed_night_plan(world)
+    world.run(3 * 3600)
+    session = next(s for r in world.results for s in r.sessions)
+    assert session.average_power_w <= session.max_power_w

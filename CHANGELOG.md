@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.12 – 2026-10-25
+
+Diagnose zeigt Werte mit der richtigen Einheit:
+- **„9139.369999999999 kW“ behoben.** Werte in kW (z. B. Akkuleistung, Ladeleistung aus
+  OVMS) rechnet der Pilot intern in Watt um, zeigte in „Datenqualität je Wert“ und im
+  Systemtest aber die ursprüngliche Einheit kW dazu. Jetzt passt die Einheit immer zur Zahl
+  (9139,37 W), Zahlen werden auf höchstens drei Nachkommastellen gekürzt.
+- Fehlt ein Wert oder sein Alter, steht dort „–“ statt „– s“.
+
 ## 0.27.11 – 2026-10-25
 
 HV-Kontaktorzyklen ohne falsche Statistik:

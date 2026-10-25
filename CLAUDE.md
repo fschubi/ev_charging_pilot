@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.7 Dry-Run → Live.** `Executor.set_shadow`: beim Wechsel in den
-  Probebetrieb Live-Stand (`_attempts`, `_failed_window`, `_ended_window`, `failure_code`) in
-  `_live_windows` sichern, Probebetrieb arbeitet auf Kopie; zurück zu Live → gesicherter Stand,
-  Pause gelöscht, `state=None`. `Engine.set_shadow` delegiert. Prüfbericht H4.
 - **2026-10-25 – v0.27.8 Halo eingefroren.** `Executor._vehicle_charging(snap)` (OVMS-Flag
   GOOD): in `_in_charging` gilt Leistung als fließend, wenn `_halo_power_frozen` (LKV/STALE/
   unavailable in `_ingest_power`) und Auto lädt; `_escalate` weckt nie bei Auto lädt.
@@ -160,3 +156,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.11 HV-Zyklen MEASUREMENT.** `sensor.hv_contactor_cycles` state_class
   TOTAL_INCREASING → MEASUREMENT (Franks Quelle: `…_hv_contactor_cycles_remaining`, fallend).
   Prüfbericht Mittel M1; Tests HA-Seite in `tests/integration/test_review_2026_10_24.py`.
+- **2026-10-25 – v0.27.12 Einheit normalisiert.** `inputs.to_value`: nach kW→W bzw. Wh→kWh
+  trägt `Value.unit` die normalisierte Einheit (WS `_value`, Systemtest); Panel-Diagnose
+  rundet Zahlen auf 3 Stellen, „–“ ohne „ s“. Prüfbericht M2 (live 24.10.: 9139.37 „kW“).

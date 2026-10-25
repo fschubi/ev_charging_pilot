@@ -198,6 +198,8 @@ def to_value(key: Inp, raw: RawState | None) -> Value:
         return Value(raw.state, None, source, stamp, Quality.INVALID, unit)
     if kind is Kind.POWER_W and unit == "kW":
         number *= 1000
+        unit = "W"  # the unit always belongs to the normalized number
     elif kind is Kind.ENERGY_KWH and unit == "Wh":
         number /= 1000
+        unit = "kWh"
     return Value(raw.state, number, source, stamp, unit=unit)

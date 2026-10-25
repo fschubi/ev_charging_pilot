@@ -1985,7 +1985,7 @@ class EvPilotPanel extends HTMLElement {
     const replay = c.replay || {};
     const last = replay.last;
     const values = Object.entries(s.values).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(s.entities[k] || "")}</td>
-      <td class="n">${esc(v.value ?? "–")} ${esc(v.unit || "")}</td><td class="n">${v.age_s ?? "–"} s</td>
+      <td class="n">${v.value == null ? "–" : `${esc(typeof v.value === "number" ? +v.value.toFixed(3) : v.value)} ${esc(v.unit || "")}`}</td><td class="n">${v.age_s == null ? "–" : `${v.age_s} s`}</td>
       <td><span class="pill ${QUALITY_CLASS[v.quality]}">${esc(v.quality)}</span></td></tr>`).join("");
     const sevClass = { critical: "bad", error: "bad", warning: "warn", info: "info", debug: "muted" };
     const check = c.check;

@@ -239,3 +239,15 @@ def test_h5_frozen_halo_power_does_not_wake_a_charging_car():
     world.run(40 * 60)
     assert "CHARGE_PAUSED" not in world.events
     assert not set(WAKEUPS) & set(world.commands)
+
+
+def test_m2_normalized_value_carries_its_own_unit():
+    """Diagnosis showed "9139.369999999999 kW": watts with the source's kW label."""
+    from custom_components.ev_charging_pilot.core.inputs import RawState, to_value
+
+    at = datetime(2026, 10, 24, 23, 0, tzinfo=TZ)
+    power = to_value(Inp.OVMS_BATTERY_POWER,
+                     RawState("9.13937", at, at, {"unit_of_measurement": "kW"}))
+    assert (round(power.normalized, 2), power.unit) == (9139.37, "W")
+    energy = to_value(Inp.TOTAL_ENERGY, RawState("41220", at, at, {"unit_of_measurement": "Wh"}))
+    assert (energy.normalized, energy.unit) == (41.22, "kWh")

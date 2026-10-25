@@ -12,7 +12,7 @@ from typing import Any
 from .engine import FAILURE_HINTS, Engine
 from .executor import ExecState
 from .inputs import Inp
-from .model import Value
+from .model import Quality, Value
 from .planner import OverrideMode
 from .settings import ClimateAfterTarget
 
@@ -163,7 +163,15 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
     if state in (ExecState.ENABLING, ExecState.WAITING_FOR_CHARGE):
         return "Ladestart läuft", "Die Wallbox ist freigegeben, das Auto beginnt gleich.", "info"
     if state is ExecState.CHARGE_ENDED:
-        return "Ladung beendet", "Das Auto hat selbst aufgehört – der Akku ist voll.", "ok"
+        # Also a falling power or the wallbox status end it – "full" only with the SOC.
+        soc = engine.soc
+        level = float(soc.normalized) if soc.quality is Quality.GOOD \
+            and soc.normalized is not None else None
+        if level is not None and level >= 99:
+            return "Ladung beendet", "Das Auto hat selbst aufgehört – der Akku ist voll.", "ok"
+        if level is not None:
+            return "Ladung beendet", f"Das Auto hat bei {level:.0f} % selbst aufgehört.", "ok"
+        return "Ladung beendet", "Das Auto hat selbst aufgehört.", "ok"
     if engine.target_held and window is not None:
         return _with_climate(engine, now, at, (
             f"Ziel {window.preferred_soc_pct} % erreicht",

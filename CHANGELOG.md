@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.23 – 2026-10-25
+
+Ehrlichere Texte und Werte:
+- **„Akku voll“ nur bei vollem Akku.** Endete eine Ladung, weil die Leistung absank oder die
+  Wallbox „fertig“ meldete, hieß es immer „der Akku ist voll“ – auch bei 80 %. Jetzt:
+  „Das Auto hat bei 80 % selbst aufgehört.“
+- **Fahrt-Details:** Eine Fahrt mit 0 kWh netto zeigt 0 € statt „–“, und eine Bergab-Fahrt
+  mit mehr Rekuperation als Verbrauch kostet 0 € statt eines negativen Betrags.
+- **Fremdladung ohne Preis:** Der Monat gilt dann als „geschätzt“, weil diese Ladung mit
+  0 € in die Kosten eingeht.
+
 ## 0.27.22 – 2026-10-25
 
 Panel: kleine Anzeigefehler behoben:

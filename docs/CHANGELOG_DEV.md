@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.18 Pause gespeichert.** Engine `pause_hold` (Ziel + Desired ohne Klima,
+  `held_key`) und Executor `pause_since`/`pause_woken` im Store; `_initial_state`: Halo an +
+  Pause → PAUSED (bei Leistung CHARGING + `_clear_pause`). Prüfbericht M5.
 - **2026-10-25 – v0.27.17 enforce_target.** `_arbitrate`: `enforce` (Klima läuft +
   ENFORCE_TARGET) überspringt den Ziel-Hold-Zweig („held“); abgeschaltet wird nur über
   `target_soc_wish` bei Ziel + `ENFORCE_TARGET_MARGIN_PCT`. Prüfbericht M4.

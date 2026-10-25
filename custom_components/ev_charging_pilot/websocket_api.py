@@ -349,8 +349,10 @@ async def ws_trip_detail(hass, connection, msg) -> None:
         if trip.vehicle_energy_used_kwh is not None else None
     price = center.monitor.home_price(s)
     data["home_price_eur_kwh"] = round(price, 4)
-    data["grid_energy_kwh"] = round(net / s.charge_efficiency, 3) if net else None
-    data["cost_eur"] = round(net / s.charge_efficiency * price, 2) if net else None
+    # 0 kWh is a value; more recuperation than use (downhill) costs nothing, not less.
+    net = max(0.0, net) if net is not None else None
+    data["grid_energy_kwh"] = round(net / s.charge_efficiency, 3) if net is not None else None
+    data["cost_eur"] = round(net / s.charge_efficiency * price, 2) if net is not None else None
     _send(connection, msg, data)
 
 

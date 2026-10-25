@@ -470,3 +470,46 @@ def test_m9_climate_without_battery_power_is_not_all_climate():
     tick(3600, 104.6, ["SESSION_END"])
     session = tick(3600 + TAIL_S, 104.6)[0]
     assert not session.climate_energy_kwh
+
+
+def test_low_charge_ended_says_full_only_with_a_full_soc():
+    """CHARGE_ENDED also comes from a falling power: "der Akku ist voll" at 80 % was wrong."""
+    from custom_components.ev_charging_pilot.core.executor import ExecState
+    from custom_components.ev_charging_pilot.core.summary import summary
+
+    world = FillingCar(datetime(2026, 10, 20, 2, 55, tzinfo=TZ), soc=80.0, configured=WITH_OVMS)
+    world.tick()
+    world.engine.executor.state = ExecState.CHARGE_ENDED
+    assert summary(world.engine, world.now, True)["detail"] == \
+        "Das Auto hat bei 80 % selbst aufgehört."
+    world.set(Inp.OVMS_SOC, "100")
+    world.tick()
+    world.engine.executor.state = ExecState.CHARGE_ENDED
+    assert "der Akku ist voll" in summary(world.engine, world.now, True)["detail"]
+
+
+def test_low_external_charge_without_any_price_marks_the_month_estimated():
+    from datetime import date
+
+    from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory, PricePoint
+    from custom_components.ev_charging_pilot.core.statistics import (
+        ExternalCharge,
+        MonitorData,
+        Reading,
+        period_summary,
+    )
+
+    edges = (datetime(2026, 10, 1, tzinfo=TZ), datetime(2026, 11, 1, tzinfo=TZ))
+    readings = [Reading(edges[0], 9000.0), Reading(edges[1], 9500.0)]
+    socs = [Reading(edges[0], 60.0), Reading(edges[1], 60.0)]
+    priced = MonitorData([], [], [ExternalCharge("e", date(2026, 10, 2), "public", 7.0,
+                                                 price_eur_kwh=0.49)], readings, socs, set())
+    data = MonitorData([], [], [ExternalCharge("e", date(2026, 10, 2), "public", 7.0)],
+                       readings, socs, set())
+    assert period_summary(priced, *edges, prices=FixedPriceHistory(
+        [PricePoint(date(2026, 1, 1), 0.3)], TZ), capacity_kwh=16.7, efficiency=0.88,
+        odometer_source="manual")["quality"] == "GOOD"
+    month = period_summary(data, datetime(2026, 10, 1, tzinfo=TZ), datetime(2026, 11, 1, tzinfo=TZ),
+                           prices=FixedPriceHistory([PricePoint(date(2026, 1, 1), 0.3)], TZ),
+                           capacity_kwh=16.7, efficiency=0.88, odometer_source="manual")
+    assert month["quality"] == "ESTIMATED"

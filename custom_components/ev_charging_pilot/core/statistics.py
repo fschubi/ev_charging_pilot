@@ -258,7 +258,9 @@ def period_summary(
     complete = bool(days) and all(d in data.days_seen for d in days)
 
     # Detected external charges carry estimated energy and an assumed price.
-    estimated = delta_soc is None or not distance_exact or any(e.detected for e in external)
+    # An external charge without cost or price counts 0 € – the costs are then a guess.
+    estimated = delta_soc is None or not distance_exact or any(
+        e.detected or (e.cost_eur is None and e.price_eur_kwh is None) for e in external)
     return {
         "start": start.isoformat(),
         "end": end.isoformat(),

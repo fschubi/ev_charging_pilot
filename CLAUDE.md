@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.18 Pause gespeichert.** Engine `pause_hold` (Ziel + Desired ohne Klima,
-  `held_key`) und Executor `pause_since`/`pause_woken` im Store; `_initial_state`: Halo an +
-  Pause → PAUSED (bei Leistung CHARGING + `_clear_pause`). Prüfbericht M5.
 - **2026-10-25 – v0.27.19 Zweiter Preisblock.** `WindowAttempts.charged` (gespeichert) bei
   `_charging_started`; `_escalate` ohne Versuche + `charged` → `_later_block_not_started`
   (Event `BLOCK_NOT_STARTED` WARNING, IDLE, kein Fehlstart-Zähler), Push „Ladeblock nicht
@@ -161,3 +158,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `QUALITY_TEXT` für SOC, Vorzeichen Reichweite, leere Zeit → alter Wert, `_savePlans`-Fehler
   lädt Pläne neu, `_refresh` serialisiert (`_refreshOnce`), `HA_TZ` aus `hass.locale.time_zone`,
   WS `health.blocks_automation` → Hinweis „CP-Wakeup gesperrt“. Prüfbericht Niedrig (Panel).
+- **2026-10-25 – v0.27.23 Texte/Werte.** `summary` CHARGE_ENDED: „voll“ nur bei SOC GOOD ≥ 99,
+  sonst „bei x %“; WS Fahrtdetail `net` 0 gültig, < 0 → 0; `period_summary` ESTIMATED bei
+  Fremdladung ohne Kosten und Preis. Prüfbericht Niedrig.

@@ -449,6 +449,8 @@ class Executor:
         self._clear_pause()
         self.session_id = None
         self.failure_code = None
+        # §8.1: unplugging is the automatic way out of failed starts, repeated ones too
+        self.consecutive_start_failures = 0
         self._failed_window = None
         self._ended_window = None
         self._resume = None

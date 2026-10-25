@@ -28,6 +28,7 @@ from .costs import FixedPriceHistory
 from .executor import ExecState, Executor, ExecutorConfig, Snapshot, StepResult
 from .external import ExternalChargeDetector
 from .health import (
+    REPEATED_START_FAILURES,
     STATUS_TEXT,
     Health,
     HealthInputs,
@@ -261,6 +262,9 @@ class Engine:
         self._was_conflict = False
         self._conflict_since: datetime | None = None
         self._target_hold: str | None = None
+        # The window in which the repeated start failures happened: the next one is a
+        # fresh start (§8.1), otherwise health ERROR would block every later night.
+        self._failure_window: str | None = None
         self.learned = LearnedCharging()
         self._learned_key: tuple[int, str | None] | None = None
         self.plug_offer_at: datetime | None = None
@@ -328,6 +332,7 @@ class Engine:
         result.events += self._pending_events
         self._pending_events.clear()
 
+        self._release_repeated_failures(now, result)
         self.health = evaluate(self._health_inputs(now))
         self._climate(now)
         self.desired = self._arbitrate(now, cable_flag is True)
@@ -867,6 +872,23 @@ class Engine:
         return f"{float(soc.normalized):.0f} %" if soc.available and soc.normalized is not None \
             else "unbekanntem Ladestand"
 
+    def _release_repeated_failures(self, now: datetime, result: TickResult) -> None:
+        """Repeated failed starts lock the automation for the rest of that window only."""
+        executor = self.executor
+        window = self.active_window
+        if executor.consecutive_start_failures < REPEATED_START_FAILURES:
+            self._failure_window = None
+            return
+        if self._failure_window is None:
+            self._failure_window = window.key if window else "-"
+            return
+        if window is not None and window.key != self._failure_window:
+            executor.consecutive_start_failures = 0
+            self._failure_window = None
+            result.events.append(Event(
+                now, Category.HEALTH, Severity.INFO, "START_FAILURES_RELEASED",
+                "Neues Ladefenster – nach den Fehlstarts wird wieder normal geladen"))
+
     def _target_known_reached(self) -> bool:
         """Does a SOC that is not fresh (sleeping car) already meet the window's target?
 
@@ -1340,6 +1362,7 @@ class Engine:
             "last_result": self.last_result,
             "reminder_day": self._reminder_day.isoformat() if self._reminder_day else None,
             "target_hold": self._target_hold,
+            "failure_window": self._failure_window,
             "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
             "last_unplug_at": self.last_unplug_at.isoformat() if self.last_unplug_at else None,
             "changed": {k.value: [state, at.isoformat()]
@@ -1374,6 +1397,7 @@ class Engine:
         day = data.get("reminder_day")
         self._reminder_day = date.fromisoformat(day) if day else None
         self._target_hold = data.get("target_hold")
+        self._failure_window = data.get("failure_window")
         offer, unplug = data.get("plug_offer_at"), data.get("last_unplug_at")
         self.plug_offer_at = datetime.fromisoformat(offer) if offer else None
         self.last_unplug_at = datetime.fromisoformat(unplug) if unplug else None

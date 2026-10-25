@@ -13,7 +13,7 @@ from custom_components.ev_charging_pilot.core.planner import (
 )
 from custom_components.ev_charging_pilot.core.ports import CommandKind
 
-from .world import TZ, WITH_OVMS, World
+from .world import HALO, TZ, WITH_OVMS, World
 
 EVENING = datetime(2026, 10, 20, 0, 0, tzinfo=TZ)
 WAKEUPS = (CommandKind.OVMS_WAKEUP, CommandKind.CP_PULSE)
@@ -138,3 +138,35 @@ def test_h2_unreachable_shelly_still_stops_at_the_target():
     assert world.soc < 92
     assert world.states[Inp.CHARGER_ENABLE][0] == "off"
     assert CommandKind.CP_PULSE not in world.commands
+
+
+def _fixed_night_plan(world: World) -> None:
+    world.engine.set_plans(world.now, [WeeklySchedule(
+        id="p", weekdays=frozenset(WEEKDAYS), mode=ScheduleMode.FIXED_START,
+        charge_start_time=time(3, 0), departure_time=time(5, 30), ready_buffer_min=0)])
+
+
+def test_h3_repeated_start_failures_lock_only_until_the_next_window():
+    """H3: after two failed nights health stayed ERROR forever – nothing reset the counter
+    without a charge, so the third night (car accepting power) was never even tried."""
+    world = World(datetime(2026, 10, 20, 2, 55, tzinfo=TZ), configured=HALO)
+    _fixed_night_plan(world)
+    world.car_charges_when_enabled = False
+    world.run(2 * 86400, step=10)
+    assert world.engine.health.reasons == ("REPEATED_START_FAILURE",)
+    world.car_charges_when_enabled = True
+    world.run(86400, step=10)
+    assert "START_FAILURES_RELEASED" in world.events
+    assert "CHARGE_STABLE" in world.events
+
+
+def test_h3_unplugging_clears_the_start_failures():
+    world = World(datetime(2026, 10, 20, 2, 55, tzinfo=TZ), configured=HALO)
+    _fixed_night_plan(world)
+    world.car_charges_when_enabled = False
+    world.run(2 * 86400, step=10)
+    assert world.engine.executor.consecutive_start_failures == 2
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.run(60)
+    assert world.engine.executor.consecutive_start_failures == 0
+    assert world.engine.health.status.value != "ERROR"

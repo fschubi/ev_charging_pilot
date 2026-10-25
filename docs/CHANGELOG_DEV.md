@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-22 – v0.27.1 Reichweiten-Regel 2.** Start = Max in `RANGE_START_WINDOW` (3 min),
+  Ende = letzter Wert bei Fahrzeug an (kein Nachlauf); `Trip.range_rule`, Backfill rechnet
+  Regel < `RANGE_RULE` neu. Grund: smart rechnet laufende Heizung ein (101/112 km beim Start,
+  Sprung 88→98 nach Aus). Panel `rangeVs()` „x % weiter/kürzer“.
 - **2026-10-22 – v0.27.0 Fahrstil.** `trips.driving_style(trace)` (gentle/steady/anticipating,
   Mittel = score; Schwellen `STRONG_DRIVE_W` 25 kW + ≥ 10 km/h, `STEADY_MAX_DELTA_KMH` 5,
   `HARD_BRAKE_KMH` 40 je 15 s); `Trip.style` beim Schließen, `async_backfill_trip_style`,

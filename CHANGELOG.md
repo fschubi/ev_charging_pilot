@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.6 – 2026-10-25
+
+Nach Fehlstarts geht es von selbst weiter:
+- **Die Sperre nach zwei Fehlstarts löst sich wieder.** Schlug der Ladestart zweimal
+  hintereinander fehl, meldete das System „Fehler“ und sperrte die Automatik – dauerhaft,
+  denn nur eine erfolgreiche Ladung hätte den Zähler zurückgesetzt, und die war gesperrt.
+  Ab der dritten Nacht wurde gar nicht mehr geladen. Jetzt gilt die Sperre nur noch bis
+  zum nächsten Ladefenster („Neues Ladefenster – nach den Fehlstarts wird wieder normal
+  geladen“) oder bis das Kabel gezogen wird.
+- Die Push-Meldung zu den Fehlstarts kommt weiterhin.
+
 ## 0.27.5 – 2026-10-25
 
 Shelly nicht erreichbar – Laden geht weiter, Ziel-SOC gilt:

@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-22 – v0.27.1 Reichweiten-Regel 2.** Start = Max in `RANGE_START_WINDOW` (3 min),
-  Ende = letzter Wert bei Fahrzeug an (kein Nachlauf); `Trip.range_rule`, Backfill rechnet
-  Regel < `RANGE_RULE` neu. Grund: smart rechnet laufende Heizung ein (101/112 km beim Start,
-  Sprung 88→98 nach Aus). Panel `rangeVs()` „x % weiter/kürzer“.
 - **2026-10-25 – v0.27.2 Store sicher.** `ChargeSession/Trip.from_dict` filtern auf
   Dataclass-Felder; `Monitor.restore` überspringt kaputte Datensätze (`skipped_records`, Log);
   Coordinator speichert erst nach erfolgreichem `async_setup`-Restore (`_restored`), auch nicht
@@ -160,3 +156,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `blocks_automation`/`blocks_soc_functions` ignorieren ihn; Executor-Safety-Hold über
   `blocks_automation`, Klima-Sperre über `blocks_soc_functions`, Summary „Automatik gesperrt“
   nur bei `blocks_automation`. CP-Puls bleibt bei ERROR gesperrt. Prüfbericht H2.
+- **2026-10-25 – v0.27.6 Fehlstart-Sperre.** `Engine._release_repeated_failures`: merkt das
+  Fenster beim Erreichen von `REPEATED_START_FAILURES` (`_failure_window`, gespeichert), neues
+  `active_window` → Zähler 0 + Event `START_FAILURES_RELEASED`; `executor._on_unplugged`
+  setzt `consecutive_start_failures` zurück (§8.1). Prüfbericht H3.

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.8 – 2026-10-25
+
+Hängende Wallbox-Cloud unterbricht keine Ladung mehr:
+- **Kein Wecken und kein CP-Puls, während das Auto selbst „lädt“ meldet.** Lieferte die
+  Halo-Cloud eine Zeit lang keine neuen Leistungswerte, hielt der Pilot die laufende Ladung
+  für pausiert, weckte das Auto und unterbrach mit dem CP-Puls ausgerechnet die Ladung, die
+  gerade lief. Jetzt zählt in dieser Lage die frische Meldung des Autos (OVMS „lädt“).
+- Meldet die Halo dagegen frisch 0 W, gilt das weiterhin – auch wenn OVMS noch kurz
+  „lädt“ zeigt.
+
 ## 0.27.7 – 2026-10-25
 
 Umschalten vom Probebetrieb auf Live lädt sofort:

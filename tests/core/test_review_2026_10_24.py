@@ -212,3 +212,30 @@ def test_h4_live_wakeup_budget_survives_a_dry_run_detour():
     world.engine.set_shadow(True)
     world.engine.set_shadow(False)
     assert {key: (a.ovms, a.cp) for key, a in executor._attempts.items()} == spent
+
+
+class FrozenHaloCar(FillingCar):
+    """The Halo cloud stops reporting while the car keeps charging and says so."""
+
+    halo_frozen = False
+
+    def set(self, key, state, **attributes):
+        if self.halo_frozen and key in (Inp.CHARGE_POWER, Inp.TOTAL_ENERGY):
+            return
+        super().set(key, state, **attributes)
+
+
+def test_h5_frozen_halo_power_does_not_wake_a_charging_car():
+    """H5: the Halo reported nothing for 30 min while OVMS said "charging" (GOOD) –
+    the executor saw a pause, woke the car and its CP pulse cut the running charge."""
+    start = datetime(2026, 10, 20, 2, 55, tzinfo=TZ)
+    world = FrozenHaloCar(start, soc=50.0, configured=WITH_OVMS, cp_pulse=True,
+                          ovms_port=True, ovms_enabled=True, cp_failsafe_verified=True)
+    world.charging_power = 4600.0
+    _fixed_night_plan(world)
+    world.run(30 * 60)
+    assert "CHARGE_STABLE" in world.events
+    world.halo_frozen = True
+    world.run(40 * 60)
+    assert "CHARGE_PAUSED" not in world.events
+    assert not set(WAKEUPS) & set(world.commands)

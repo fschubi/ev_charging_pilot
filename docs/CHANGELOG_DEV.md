@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.3 Volles Auto schläft.** `Engine._target_known_reached`: SOC nicht GOOD,
+  aber planbar (LKV/ESTIMATED) ≥ min(Ziel, 99) → `wake_allowed=False` für SCHEDULE/ONE_SHOT
+  → `TOPUP_SKIPPED` statt Weckkette. Prüfbericht 24.10. K2 (`docs/pruefbericht-2026-10-24.md`).
 - **2026-10-25 – v0.27.2 Store sicher.** `ChargeSession/Trip.from_dict` filtern auf
   Dataclass-Felder; `Monitor.restore` überspringt kaputte Datensätze (`skipped_records`, Log);
   Coordinator speichert erst nach erfolgreichem `async_setup`-Restore (`_restored`), auch nicht

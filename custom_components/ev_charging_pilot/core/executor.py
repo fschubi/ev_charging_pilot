@@ -195,6 +195,7 @@ class Executor:
         self._climate_wait: tuple[str, datetime] | None = None
         self._peak_w: float = 0.0
         self._last_flow_w: float | None = None
+        self._halo_power_frozen = False
         # Dry-run/replay: decisions are only logged, so a missing reaction of the
         # hardware is no failure (no push, no failed session, no health penalty).
         self.shadow = False
@@ -243,12 +244,18 @@ class Executor:
         """During a CP pulse the Halo briefly sees "no vehicle" – ignore that (§3.4)."""
         return self._mask_until is not None and now < self._mask_until
 
+    @staticmethod
+    def _vehicle_charging(snap: Snapshot) -> bool:
+        """The car itself reports a running charge with a fresh value."""
+        return _flag(snap.vehicle_charging) is True \
+            and snap.vehicle_charging.quality is Quality.GOOD
+
     def stable(self, snap: Snapshot) -> bool:
         """Charging counts as started only once it is stable (§6.2)."""
         cfg = self.config
         if self._run_count == 0 or self._run_start is None:
             return False
-        if _flag(snap.vehicle_charging) is True and snap.vehicle_charging.quality is Quality.GOOD:
+        if self._vehicle_charging(snap):
             return True
         return (
             self._run_count >= cfg.stable_samples
@@ -394,8 +401,9 @@ class Executor:
         Stability is measured in samples, not seconds, because the Halo is
         polled from the cloud (§6.2). A sample is identified by its timestamp.
         """
-        if not power.available or power.updated_at is None or power.quality in (
-                Quality.STALE, Quality.LAST_KNOWN_VALID):
+        self._halo_power_frozen = not power.available or power.updated_at is None \
+            or power.quality in (Quality.STALE, Quality.LAST_KNOWN_VALID)
+        if self._halo_power_frozen:
             # A frozen power value (entity available, but no new report for longer than
             # max_age halo_power) must not keep "power flowing" – that hid charge loss.
             self._run_count = 0
@@ -578,6 +586,11 @@ class Executor:
                 self._hold_pause(snap)
                 return
             self._topup_not_started(snap)
+            return
+        if self._vehicle_charging(snap):
+            # The car reports charging: there is nothing to wake (rule 2) – only the
+            # Halo's power has not arrived (yet).
+            self.state_since = now
             return
         if _flag(snap.cable_connected) is not True:
             # Cable unknown (e.g. right after a restart): never wake a car that may not
@@ -777,7 +790,10 @@ class Executor:
                 # follows from IDLE) instead of ending the session again every tick.
                 self._go(ExecState.COOLDOWN, now)
             return
-        if self._power_flowing():
+        if self._power_flowing() or (self._halo_power_frozen and self._vehicle_charging(snap)):
+            # The car's own "charging" outweighs a Halo power that froze in the cloud
+            # (review 24.10.2026: that "pause" ended in a CP pulse cutting the charge);
+            # a fresh 0 W from the Halo still wins over an OVMS flag that lags behind.
             self._below_since = None
             return
         if self._below_since is None:

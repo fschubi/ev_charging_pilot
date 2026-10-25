@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -166,10 +166,12 @@ def run_replay(
     cursors = {key: _Cursor(states, poll) for key, states in dataset.inputs.items()}
     last_desired: bool | None = None
     result = ReplayResult(dataset.name)
-    now = dataset.start
+    # Count in UTC: local wall-clock steps skipped the extra hour of the DST change.
+    now = dataset.start.astimezone(UTC)
+    end = dataset.end.astimezone(UTC)
     last_state = None
     step = timedelta(seconds=tick_s)
-    while now <= dataset.end:
+    while now <= end:
         tick = engine.tick(now, {key: cursor.at(now) for key, cursor in cursors.items()})
         result.ticks += 1
         for command in tick.commands:

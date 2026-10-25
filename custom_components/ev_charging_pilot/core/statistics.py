@@ -185,8 +185,10 @@ def period_summary(
 ) -> dict[str, Any]:
     """Balance of one period with SOC correction (§10.6)."""
     home_kwh, home_cost = _home_energy(data.sessions, start, end, prices)
-    # Part of the home energy that went into pre-climatisation (sessions by start).
-    climate = [s for s in data.sessions if start <= s.started_at < end
+    # Part of the home energy that went into pre-climatisation. It runs at the end of a
+    # session (before the departure), so it belongs to the month the session ended in –
+    # a night across the month change heats on the 1st (review 24.10.2026).
+    climate = [s for s in data.sessions if start <= (s.ended_at or s.started_at) < end
                and s.climate_energy_kwh is not None]
     climate_kwh = round(sum(s.climate_energy_kwh for s in climate), 3) if climate else None
     climate_cost = round(sum(s.climate_cost_eur or 0.0 for s in climate), 2) if climate else None

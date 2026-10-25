@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.22 Panel-Kleinigkeiten.** `toKw()` null-sicher, `SOURCE_TEXT`,
-  `QUALITY_TEXT` für SOC, Vorzeichen Reichweite, leere Zeit → alter Wert, `_savePlans`-Fehler
-  lädt Pläne neu, `_refresh` serialisiert (`_refreshOnce`), `HA_TZ` aus `hass.locale.time_zone`,
-  WS `health.blocks_automation` → Hinweis „CP-Wakeup gesperrt“. Prüfbericht Niedrig (Panel).
 - **2026-10-25 – v0.27.23 Texte/Werte.** `summary` CHARGE_ENDED: „voll“ nur bei SOC GOOD ≥ 99,
   sonst „bei x %“; WS Fahrtdetail `net` 0 gültig, < 0 → 0; `period_summary` ESTIMATED bei
   Fremdladung ohne Kosten und Preis. Prüfbericht Niedrig.
@@ -161,3 +157,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   WS `create_report` Jahr 2020–2100; `run_system_check` mit Test-Push nur Admin; `set_plans`
   + Dienste fangen TypeError/KeyError → Validierungsfehler; `async_setup_entry` beendet das
   Center, wenn `async_forward_entry_setups` scheitert. Prüfbericht Niedrig (HA-Schicht).
+- **2026-10-25 – v0.27.27 Abschluss Prüfbericht.** Replay tickt in UTC; `driving_style`
+  überspringt Schritte > `STYLE_MAX_GAP_S` (45 s); `to_value` mi/mph → km(/h), °F → °C,
+  MWh → kWh; Klima-Monat nach `ended_at`. Bericht: Niedrig behoben, „Bewusst nicht geändert“.

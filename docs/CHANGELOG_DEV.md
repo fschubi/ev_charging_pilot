@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.22 Panel-Kleinigkeiten.** `toKw()` null-sicher, `SOURCE_TEXT`,
+  `QUALITY_TEXT` für SOC, Vorzeichen Reichweite, leere Zeit → alter Wert, `_savePlans`-Fehler
+  lädt Pläne neu, `_refresh` serialisiert (`_refreshOnce`), `HA_TZ` aus `hass.locale.time_zone`,
+  WS `health.blocks_automation` → Hinweis „CP-Wakeup gesperrt“. Prüfbericht Niedrig (Panel).
 - **2026-10-25 – v0.27.21 Statistik.** `period_summary`: `vehicle_consumption` = Σ(used−recd)
   ÷ Σkm nur Fahrten mit Energie (auch ohne Distanz); `learn`: (Netz − Klima) ÷ ΔSOC;
   `external._charge_battery_kwh`: Anstieg ohne Abfall → `last`; Klima-Slots `[netz, akku, seen]`,

@@ -569,3 +569,65 @@ def test_low_mixed_hourly_and_quarter_hour_prices_keep_their_length():
     slots = _close(hourly + quarter)
     assert [s.end - s.start for s in slots[:3]] == [timedelta(hours=1)] * 3
     assert slots[-1].end - slots[-1].start == timedelta(minutes=15)
+
+
+def test_low_replay_ticks_through_the_extra_hour_of_the_dst_change():
+    """24.10. 23:00 → 25.10. 05:00 is 7 real hours; local wall-clock steps made it 6."""
+    from custom_components.ev_charging_pilot.core.inputs import RawState
+    from custom_components.ev_charging_pilot.core.replay import ReplayDataset, run_replay
+
+    start = datetime(2026, 10, 24, 23, 0, tzinfo=TZ)
+    end = datetime(2026, 10, 25, 5, 0, tzinfo=TZ)
+    cable = [RawState("on", start, start, {})]
+    result = run_replay(ReplayDataset("dst", "Europe/Berlin", start, end,
+                                      {Inp.CABLE_CONNECTED: cable}), tick_s=60)
+    assert result.ticks == 7 * 60 + 1
+
+
+def test_low_gap_in_the_speed_curve_is_no_hard_braking():
+    from custom_components.ev_charging_pilot.core.trips import driving_style
+
+    steady = [[i * 15, 70.0, -8000.0, 80] for i in range(30)]
+    after_gap = [[30 * 15 + 120 + i * 15, 0.0 if i == 0 else 70.0, -8000.0, 80]
+                 for i in range(30)]
+    style = driving_style(steady + after_gap)
+    assert style["anticipating"] == 100
+
+
+def test_low_imperial_units_are_converted():
+    from custom_components.ev_charging_pilot.core.inputs import RawState, to_value
+
+    at = datetime(2026, 10, 24, 12, 0, tzinfo=TZ)
+
+    def value(key, state, unit):
+        return to_value(key, RawState(state, at, at, {"unit_of_measurement": unit}))
+
+    assert round(value(Inp.OVMS_RANGE, "50", "mi").normalized, 1) == 80.5
+    assert round(value(Inp.OVMS_SPEED, "60", "mph").normalized, 1) == 96.6
+    assert value(Inp.OVMS_OUTSIDE_TEMP, "50", "°F").normalized == 10.0
+    assert value(Inp.TOTAL_ENERGY, "0.04122", "MWh").normalized == 41.22
+
+
+def test_low_climate_belongs_to_the_month_the_session_ended_in():
+    """A night across the month change heats on the 1st: its climate went to the old
+    month while the energy went to the new one (driving energy could turn negative)."""
+    from datetime import date
+
+    from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory, PricePoint
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+    from custom_components.ev_charging_pilot.core.statistics import MonitorData, period_summary
+
+    night = ChargeSession(session_id="s", reason="schedule",
+                          started_at=datetime(2026, 10, 31, 23, 0, tzinfo=TZ),
+                          ended_at=datetime(2026, 11, 1, 5, 30, tzinfo=TZ),
+                          grid_energy_kwh=5.0, climate_energy_kwh=0.5, success=True)
+    data = MonitorData([night], [], [], [], [], set())
+    prices = FixedPriceHistory([PricePoint(date(2026, 1, 1), 0.3)], TZ)
+
+    def month(m):
+        return period_summary(data, datetime(2026, m, 1, tzinfo=TZ),
+                              datetime(2026, m + 1, 1, tzinfo=TZ), prices=prices,
+                              capacity_kwh=16.7, efficiency=0.88, odometer_source="manual")
+
+    assert month(10)["climate_energy_kwh"] is None
+    assert month(11)["climate_energy_kwh"] == 0.5

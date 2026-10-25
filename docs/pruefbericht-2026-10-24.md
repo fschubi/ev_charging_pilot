@@ -13,7 +13,10 @@ ruff und Panel-Syntax sauber – die Funde unten fallen den bisherigen Tests nic
 > **Mittel behoben** (je ein Release): HV-Zyklen-Sensor v0.27.11, Einheit v0.27.12, `inf` v0.27.13,
 > Status Klima ohne Kabel v0.27.14, Panel-Details v0.27.15, SOC-Ausreißer/Nachladen v0.27.16,
 > `enforce_target` v0.27.17, Pause nach Neustart v0.27.18, zweiter Preisblock v0.27.19,
-> Rechte v0.27.20, Statistik v0.27.21 (inkl. Klima-Nachlauf aus „Niedrig“). Niedrig sonst offen.
+> Rechte v0.27.20, Statistik v0.27.21 (inkl. Klima-Nachlauf aus „Niedrig“).
+> **Niedrig behoben** (thematisch gebündelt): Panel v0.27.22, Texte/Werte v0.27.23,
+> Ausschalten/Ø-Leistung v0.27.24, Preise/Intervalle v0.27.25, HA-Robustheit v0.27.26,
+> Replay/Fahrstil/Einheiten/Klima-Monat v0.27.27 – Rest siehe „Bewusst nicht geändert“.
 
 ## Kritisch
 
@@ -57,12 +60,29 @@ ruff und Panel-Syntax sauber – die Funde unten fallen den bisherigen Tests nic
 - Status „Nicht eingesteckt“ statt „Vorklimatisierung läuft“ bei Klima aus dem Akku.
 - Panel: nach Service-Aufruf hängen offene Details auf „Lade …“.
 
-## Niedrig (offen)
+## Niedrig (behoben, v0.27.22–v0.27.27)
 
 „Akku voll“ bei abfallender Leistung, `null/1000` als „0,0 kW“, Roh-Codes (STALE, public),
-„gesunken um -3 km“, Replay überspringt Zeitumstellungs-Stunde, Preiskurve auf 96 Slots,
-überlappende 45-min-Intervalle, Preis-Einheiten-Heuristik ohne Einheit, endloses DISABLE alle
-120 s, Shelly-Drift-Check ohne JSON-Fehlerbehandlung, `create_report` ohne Jahresgrenze.
+„gesunken um -3 km“, leere Klammern, Plan-Speichern bei leerer Uhrzeit, überlappende
+Refreshes, Zeitzone der Panel-Zeiten, Fahrtkosten bei 0/negativ, Fremdladung ohne Preis,
+endloses DISABLE alle 120 s (dabei gefunden: Abschalt-Weigerung lief unter dem Fehlstart-Code
+→ eigener Code `CHARGER_OFF_REFUSED`), Ø-Leistung über Maximum (live 24.10.: 10,6/10,4 kW),
+Preiskurve auf 96 Slots, gemischte Tibber-Raster, überlappende 45-min-Intervalle,
+Shelly-Drift-Check ohne JSON-Prüfung, `create_report` ohne Jahresgrenze, Test-Push ohne
+Admin, rohe TypeErrors bei Plänen/Replay, verwaistes Center nach Plattform-Fehler, Replay über
+die Zeitumstellung, Fahrstil wertet Lücken als Vollbremsung, mi/mph/°F/MWh, Klima-Monat.
+
+## Bewusst nicht geändert
+
+- **Preis-Einheiten-Heuristik ohne Einheit:** ohne Einheit nicht eindeutig lösbar; Tibber und
+  Nordpool liefern Einheiten, und der Einstellungen-Reiter zeigt das Ergebnis der Prüfung.
+- **Replay ohne Probebetrieb:** der Abgleich braucht das aufgezeichnete Halo-Schalten; ohne es
+  endet ein Replay zu Recht in START_FAILED.
+- **Monatsfilter der Session-Liste im Panel** in Browser-Zeit: betrifft nur abweichende
+  Zeitzonen am Monatsrand.
+- **Health-Push nach jeder Abfahrt:** in der Simulation vermutet, im Feld nicht beobachtet –
+  bei der Feldkontrolle darauf achten.
+- **`check_prices` ohne Admin:** nur lesender Abruf.
 
 ## Ohne Befund
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.27 – 2026-10-25
+
+Letzte Kleinigkeiten aus dem Prüfbericht:
+- **Replay über die Zeitumstellung** rechnet die doppelte Stunde mit (vorher fehlte sie).
+- **Fahrstil:** Eine Lücke im Geschwindigkeitsverlauf (keine Messwerte) zählt nicht mehr als
+  Vollbremsung.
+- **Imperiale Einheiten:** Meilen, mph, °F und MWh werden in km, km/h, °C und kWh umgerechnet.
+- **Vorklimatisierung im richtigen Monat:** Eine Nacht über den Monatswechsel heizt am 1. –
+  ihr Klimaanteil zählt jetzt zum neuen Monat, wie die Energie.
+- Der Prüfbericht vom 24.10. ist damit abgeschlossen (`docs/pruefbericht-2026-10-24.md`,
+  inkl. der bewusst nicht geänderten Punkte).
+
 ## 0.27.26 – 2026-10-25
 
 Robuster gegen Ausnahmefälle:

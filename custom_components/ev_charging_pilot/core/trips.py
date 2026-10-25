@@ -34,6 +34,7 @@ RANGE_RULE = 2
 # Driving style from the 15-s drive curve – the pilot's own measure, not the car's
 # eco display (OVMS does not provide that one).
 STYLE_MIN_SAMPLES = 20
+STYLE_MAX_GAP_S = 3 * TRACE_STEP_S
 STRONG_DRIVE_W = 25000      # drive power that counts as hard acceleration …
 STRONG_SPEEDUP_KMH = 10     # … while the speed rises at least this much per sample
 STEADY_MAX_DELTA_KMH = 5    # cruising: speed change per sample at most this
@@ -54,6 +55,10 @@ def driving_style(trace: list[list[float | None]]) -> dict[str, float] | None:
         return None
     moving = strong = cruising = steady = hard = 0
     for prev, cur in zip(points, points[1:], strict=False):
+        if cur[0] - prev[0] > STYLE_MAX_GAP_S:
+            # A gap in the curve (no samples) is no 15 s step: 70 → 0 km/h over two
+            # minutes is a stop, not a full braking (review 24.10.2026).
+            continue
         speed, delta = cur[1], cur[1] - prev[1]
         if speed < 5 and prev[1] < 5:
             continue

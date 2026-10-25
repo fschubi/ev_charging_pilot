@@ -139,6 +139,9 @@ class RawState:
         )
 
 
+MILE_KM = 1.609344
+
+
 def _float(text: Any) -> float | None:
     try:
         number = float(text)
@@ -205,6 +208,16 @@ def to_value(key: Inp, raw: RawState | None) -> Value:
     elif kind is Kind.ENERGY_KWH and unit == "Wh":
         number /= 1000
         unit = "kWh"
+    elif kind is Kind.ENERGY_KWH and unit == "MWh":
+        number *= 1000
+        unit = "kWh"
+    elif unit in ("mi", "mph"):
+        # Imperial OVMS setting: the pilot computes in km and km/h throughout.
+        number *= MILE_KM
+        unit = "km" if unit == "mi" else "km/h"
+    elif unit == "°F":
+        number = (number - 32) * 5 / 9
+        unit = "°C"
     if not math.isfinite(number):  # e.g. "1e308 kW" overflows in W
         return Value(raw.state, None, source, stamp, Quality.INVALID, unit)
     return Value(raw.state, number, source, stamp, unit=unit)

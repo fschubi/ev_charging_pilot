@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.9 Zähler-Plausibilität.** `costs.plausible_rise` (≤ 25 kW × Zeit seit
+  letzter Änderung + 1 kWh); `IntervalAccumulator.last_at` (Zeit der letzten Änderung,
+  gespeichert) verwirft unplausible Anstiege; `grid_energy_kwh` = Intervall-Summe statt
+  Ende − Start; Klima-Zähler ebenso; Klimakosten mit kWh skaliert, wenn > Netz. Prüfbericht H6.
 - **2026-10-25 – v0.27.8 Halo eingefroren.** `Executor._vehicle_charging(snap)` (OVMS-Flag
   GOOD): in `_in_charging` gilt Leistung als fließend, wenn `_halo_power_frozen` (LKV/STALE/
   unavailable in `_ingest_power`) und Auto lädt; `_escalate` weckt nie bei Auto lädt.

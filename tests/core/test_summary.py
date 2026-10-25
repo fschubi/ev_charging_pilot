@@ -152,3 +152,21 @@ def test_charging_away_is_shown_and_raises_no_false_warnings():
     assert "66 → 71 %" in line
     assert "DATA_CONFLICT" not in world.events
     assert "HV_CYCLE_WITHOUT_ACTIVITY" not in world.events
+
+
+def test_climate_running_unplugged_is_named_with_the_battery():
+    """Review 24.10.2026: unplugged, the cockpit said "Nicht eingesteckt" while the
+    pre-climatisation ran from the battery."""
+    from .test_engine import CLIMATE_START_AT, climate_world, local
+
+    world = climate_world("allow_topup")
+    world.run(60)
+    world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, "92")
+    world.set(Inp.OVMS_OUTSIDE_TEMP, "6")
+    world.run(30)
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.run(30)
+    line = text(world)
+    assert line.startswith("Vorklimatisierung läuft | Bis spätestens 05:35")
+    assert "Strom aus dem Akku" in line

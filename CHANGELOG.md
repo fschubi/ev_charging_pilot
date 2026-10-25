@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.27.14 – 2026-10-25
+
+Cockpit und Statuskarte zeigen die Vorklimatisierung auch ohne Kabel:
+- **„Vorklimatisierung läuft“ statt „Nicht eingesteckt“.** Lief die Klimatisierung bei
+  abgestecktem Auto aus dem Akku, zeigten Cockpit und `sensor.ev_pilot_status` (die
+  Mushroom-Karte) „Nicht eingesteckt …“. Jetzt steht dort „Vorklimatisierung läuft · Strom
+  aus dem Akku“.
+
 ## 0.27.13 – 2026-10-25
 
 Unsinnige Sensorwerte legen den Piloten nicht mehr lahm:

@@ -118,13 +118,7 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
             parts.append(f"{away['soc_start']:.0f} → {away['soc']:.0f} %")
         return (f"Lädt unterwegs mit {_de(kw, 1)} kW" if kw else "Lädt unterwegs",
                 " · ".join(parts) + ". Wird als Fremdladung erfasst.", "info")
-    if state is ExecState.DISCONNECTED:
-        if window is None:
-            return "Nicht eingesteckt", "Kein Ladeplan aktiv.", "info"
-        when = "jetzt" if window.start <= now else f"bis {at(window.start)}"
-        return ("Nicht eingesteckt",
-                f"Nächste Abfahrt {at(window.departure)} („{window.name}“) – bitte {when} "
-                "einstecken.", "info")
+    # Before "not plugged in": unplugged, the climate runs from the battery.
     override = engine.override
     if _climate_running(engine, now) and not (override is not None and override.charger_enabled):
         kw = _kw(engine.values.get(Inp.CHARGE_POWER)) \
@@ -133,6 +127,13 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
         return ("Vorklimatisierung läuft",
                 f"Bis spätestens {at(engine.climate_plan.until)} · "
                 f"{_climate_source(engine)}{charging}.", "ok")
+    if state is ExecState.DISCONNECTED:
+        if window is None:
+            return "Nicht eingesteckt", "Kein Ladeplan aktiv.", "info"
+        when = "jetzt" if window.start <= now else f"bis {at(window.start)}"
+        return ("Nicht eingesteckt",
+                f"Nächste Abfahrt {at(window.departure)} („{window.name}“) – bitte {when} "
+                "einstecken.", "info")
     if state is ExecState.PAUSED or engine.executor.paused:
         soc = engine.soc
         level = f" bei {float(soc.normalized):.0f} %" if soc.available \

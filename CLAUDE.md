@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.9 Zähler-Plausibilität.** `costs.plausible_rise` (≤ 25 kW × Zeit seit
-  letzter Änderung + 1 kWh); `IntervalAccumulator.last_at` (Zeit der letzten Änderung,
-  gespeichert) verwirft unplausible Anstiege; `grid_energy_kwh` = Intervall-Summe statt
-  Ende − Start; Klima-Zähler ebenso; Klimakosten mit kWh skaliert, wenn > Netz. Prüfbericht H6.
 - **2026-10-25 – v0.27.10 Klima-Stopp.** `Executor.request_climate_stop` sendet nur mit
   `climate_available` (enthält `ovms_enabled`), sonst Event `CLIMATE_UNAVAILABLE`. Prüfbericht
   H7; Bericht-Stand aktualisiert (K1–H7 behoben, Mittel/Niedrig offen).
@@ -158,3 +154,5 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.13 Nicht endliche Werte.** `inputs._float` → None bei inf/nan/Overflow;
   `to_value` → INVALID, wenn die Umrechnung (kW→W) überläuft. Vorher `round(inf)` in
   `sessions._sample`/`trips._trace` → Tick-Exception. Prüfbericht M7.
+- **2026-10-25 – v0.27.14 Klima ohne Kabel.** `summary._describe`: Zweig „Vorklimatisierung
+  läuft“ vor `DISCONNECTED` (sonst `_climate_source` „aus dem Akku“ nie erreicht). Prüfbericht M10.

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.7 – 2026-10-25
+
+Umschalten vom Probebetrieb auf Live lädt sofort:
+- **Live mitten im Ladefenster startet frisch.** Im Probebetrieb fließt nie Strom, deshalb
+  endet ein Ladefenster dort als „Ladestart fehlgeschlagen“. Wurde danach im selben Fenster
+  auf Live umgeschaltet, übernahm der Live-Betrieb dieses Ergebnis und schaltete die ganze
+  Nacht nichts – 0 kWh. Gerade beim ersten Live-Gang nach den Probenächten wichtig.
+- Probebetrieb und Live führen ihre Weckversuche und Fenster-Ergebnisse jetzt getrennt:
+  Ein kurzer Ausflug in den Probebetrieb setzt auch keine echten Weckversuche zurück.
+
 ## 0.27.6 – 2026-10-25
 
 Nach Fehlstarts geht es von selbst weiter:

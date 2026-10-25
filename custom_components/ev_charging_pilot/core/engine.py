@@ -279,8 +279,7 @@ class Engine:
         if shadow == self.shadow:
             return
         self.shadow = shadow
-        self.executor.shadow = shadow
-        self.executor.state = None
+        self.executor.set_shadow(shadow)
         self._virtual_charger = None
 
     # ================================================================ tick

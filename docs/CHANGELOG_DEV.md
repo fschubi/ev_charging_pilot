@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.2 Store sicher.** `ChargeSession/Trip.from_dict` filtern auf
+  Dataclass-Felder; `Monitor.restore` überspringt kaputte Datensätze (`skipped_records`, Log);
+  Coordinator speichert erst nach erfolgreichem `async_setup`-Restore (`_restored`), auch nicht
+  im Shutdown nach Fehler. Prüfbericht 24.10.: Downgrade löschte die Historie.
 - **2026-10-22 – v0.27.1 Reichweiten-Regel 2.** Start = Max in `RANGE_START_WINDOW` (3 min),
   Ende = letzter Wert bei Fahrzeug an (kein Nachlauf); `Trip.range_rule`, Backfill rechnet
   Regel < `RANGE_RULE` neu. Grund: smart rechnet laufende Heizung ein (101/112 km beim Start,

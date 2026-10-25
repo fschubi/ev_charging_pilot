@@ -9,7 +9,7 @@ the identical logic at test speed.
 from __future__ import annotations
 
 from collections.abc import Collection
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -198,6 +198,8 @@ class Executor:
         # Dry-run/replay: decisions are only logged, so a missing reaction of the
         # hardware is no failure (no push, no failed session, no health penalty).
         self.shadow = False
+        # Window bookkeeping of the live mode while a dry run works on its own copy
+        self._live_windows: tuple | None = None
         self._last_snap: Snapshot | None = None
         self._result = StepResult()
 
@@ -856,6 +858,28 @@ class Executor:
         self._go(ExecState.PAUSED, snap.now, "PAUSE_HOLD",
                  "Ladepause hält an – die Wallbox bleibt frei, bis das Kabel gezogen wird",
                  severity=Severity.WARNING)
+
+    def set_shadow(self, shadow: bool) -> None:
+        """Switch between dry run and live. A dry run never sees power flow, so its
+        wakeup attempts, failed and ended windows say nothing about reality: it keeps
+        them apart, and live continues with its own (field review 24.10.2026: a switch
+        to live mid-window started in START_FAILED and charged 0 kWh)."""
+        if shadow == self.shadow:
+            return
+        windows = (self._attempts, self._failed_window, self._ended_window,
+                   self.failure_code)
+        if shadow:
+            self._live_windows = windows
+            self._attempts, self._failed_window, self._ended_window = \
+                {k: replace(v) for k, v in self._attempts.items()}, \
+                self._failed_window, self._ended_window
+        else:
+            saved = self._live_windows or ({}, None, None, None)
+            self._attempts, self._failed_window, self._ended_window, self.failure_code = saved
+            self._live_windows = None
+            self._clear_pause()
+        self.shadow = shadow
+        self.state = None
 
     def _clear_pause(self) -> None:
         self._pause_since = None

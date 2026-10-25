@@ -3,6 +3,7 @@
 Each scenario was reproduced with this simulation before the fix.
 """
 
+from dataclasses import replace
 from datetime import datetime, time
 
 from custom_components.ev_charging_pilot.core.inputs import Inp
@@ -170,3 +171,44 @@ def test_h3_unplugging_clears_the_start_failures():
     world.run(60)
     assert world.engine.executor.consecutive_start_failures == 0
     assert world.engine.health.status.value != "ERROR"
+
+
+class DryRunWorld(World):
+    """Like the coordinator: in the dry run commands are only logged, never applied."""
+
+    def apply(self, result):
+        if self.engine.shadow:
+            result = replace(result, commands=[])
+        super().apply(result)
+
+
+def test_h4_switching_to_live_mid_window_starts_without_dry_run_leftovers():
+    """H4: in the dry run no power ever flows, so the window ended in START_FAILED –
+    after switching to live in the same window nothing was switched, 0 kWh."""
+    world = DryRunWorld(datetime(2026, 10, 20, 2, 55, tzinfo=TZ), configured=HALO)
+    _fixed_night_plan(world)
+    world.engine.set_shadow(True)
+    world.car_charges_when_enabled = False
+    world.run(3600)
+    assert world.engine.executor.failure_code == "CHARGE_START_FAILED"
+    world.engine.set_shadow(False)
+    world.car_charges_when_enabled = True
+    world.commands.clear()
+    world.run(1800)
+    assert CommandKind.ENABLE_CHARGER in world.commands
+    assert "CHARGE_STABLE" in world.events
+
+
+def test_h4_live_wakeup_budget_survives_a_dry_run_detour():
+    """The other way round: live attempts are not wiped by a short dry run."""
+    world = _ovms_world()
+    world.car_charges_when_enabled = False
+    world.set(Inp.OVMS_SOC, "60.0")
+    _plan(world)
+    world.run(6 * 3600)
+    executor = world.engine.executor
+    spent = {key: (a.ovms, a.cp) for key, a in executor._attempts.items()}
+    assert spent
+    world.engine.set_shadow(True)
+    world.engine.set_shadow(False)
+    assert {key: (a.ovms, a.cp) for key, a in executor._attempts.items()} == spent

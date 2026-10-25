@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.2 Store sicher.** `ChargeSession/Trip.from_dict` filtern auf
-  Dataclass-Felder; `Monitor.restore` überspringt kaputte Datensätze (`skipped_records`, Log);
-  Coordinator speichert erst nach erfolgreichem `async_setup`-Restore (`_restored`), auch nicht
-  im Shutdown nach Fehler. Prüfbericht 24.10.: Downgrade löschte die Historie.
 - **2026-10-25 – v0.27.3 Volles Auto schläft.** `Engine._target_known_reached`: SOC nicht GOOD,
   aber planbar (LKV/ESTIMATED) ≥ min(Ziel, 99) → `wake_allowed=False` für SCHEDULE/ONE_SHOT
   → `TOPUP_SKIPPED` statt Weckkette. Prüfbericht 24.10. K2 (`docs/pruefbericht-2026-10-24.md`).
@@ -160,3 +156,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   Fenster beim Erreichen von `REPEATED_START_FAILURES` (`_failure_window`, gespeichert), neues
   `active_window` → Zähler 0 + Event `START_FAILURES_RELEASED`; `executor._on_unplugged`
   setzt `consecutive_start_failures` zurück (§8.1). Prüfbericht H3.
+- **2026-10-25 – v0.27.7 Dry-Run → Live.** `Executor.set_shadow`: beim Wechsel in den
+  Probebetrieb Live-Stand (`_attempts`, `_failed_window`, `_ended_window`, `failure_code`) in
+  `_live_windows` sichern, Probebetrieb arbeitet auf Kopie; zurück zu Live → gesicherter Stand,
+  Pause gelöscht, `state=None`. `Engine.set_shadow` delegiert. Prüfbericht H4.

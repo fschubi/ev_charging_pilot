@@ -94,6 +94,10 @@ ENFORCE_TARGET_MARGIN_PCT = 1
 # After the target was reached a window only tops up again when a fresh SOC is
 # clearly below it – otherwise an aging SOC would restart the charge (and wake the car).
 TOPUP_HYSTERESIS_PCT = 3
+# A SOC report that jumps by more than this must stand for TARGET_CONFIRM before it may
+# end a charge; OVMS reports again on the next change (1 % every 1–2 min when charging).
+SOC_JUMP_PCT = 5
+TARGET_CONFIRM = timedelta(minutes=3)
 # Wallbox and car are polled with different delays; a contradiction only counts
 # once it lasts this long.
 CONFLICT_GRACE_S = 180
@@ -262,6 +266,11 @@ class Engine:
         self._was_conflict = False
         self._conflict_since: datetime | None = None
         self._target_hold: str | None = None
+        # Window whose top-up after the target runs (until the target again).
+        self._topping_up: str | None = None
+        # Last distinct GOOD SOC and since when it stands after an implausible jump.
+        self._soc_last: float | None = None
+        self._soc_jump_since: datetime | None = None
         # The window in which the repeated start failures happened: the next one is a
         # fresh start (§8.1), otherwise health ERROR would block every later night.
         self._failure_window: str | None = None
@@ -332,6 +341,7 @@ class Engine:
         self._pending_events.clear()
 
         self._release_repeated_failures(now, result)
+        self._track_soc_jumps(now)
         self.health = evaluate(self._health_inputs(now))
         self._climate(now)
         self.desired = self._arbitrate(now, cable_flag is True)
@@ -631,6 +641,8 @@ class Engine:
         self._latched = {k: v for k, v in self._latched.items() if k in keep}
         if self._target_hold not in keep:
             self._target_hold = None
+        if self._topping_up not in keep:
+            self._topping_up = None
         self.executor.prune_expired(now)
 
     def _overrun(self, window: ChargeWindow, now: datetime) -> ChargeWindow:
@@ -820,14 +832,20 @@ class Engine:
             if target is not None and target >= FULL_TARGET_PCT:
                 reached = self._full_charge_ended(now, window)
             else:
-                reached = target_soc_wish(soc, target, climate_topup_active=topup)
+                reached = self._confirmed(now, target_soc_wish(
+                    soc, target, climate_topup_active=topup))
             if reached is not None and window is not None:
                 self._target_hold = window.key
+                self._topping_up = None
             hold = window is not None and self._target_hold == window.key
             if hold and reached is None and not topup:
                 fresh_below = soc is not None and soc.quality is Quality.GOOD and \
                     float(soc.normalized) < target - TOPUP_HYSTERESIS_PCT
-                if not fresh_below:
+                if fresh_below:
+                    # A top-up, once started, runs to the target itself – the hysteresis
+                    # only decides whether to start (review 24.10.2026: ended at 87 of 90 %).
+                    self._topping_up = window.key
+                elif self._topping_up != window.key:
                     reached = Desired(False, Reason.TARGET_SOC_REACHED,
                                       source_id=f"held>={target}")
             wishes.append(reached)
@@ -887,6 +905,25 @@ class Engine:
             result.events.append(Event(
                 now, Category.HEALTH, Severity.INFO, "START_FAILURES_RELEASED",
                 "Neues Ladefenster – nach den Fehlstarts wird wieder normal geladen"))
+
+    def _track_soc_jumps(self, now: datetime) -> None:
+        soc = self.soc
+        if soc.quality is not Quality.GOOD or soc.normalized is None:
+            return
+        value = float(soc.normalized)
+        if value == self._soc_last:
+            return
+        jumped = self._soc_last is not None and value - self._soc_last > SOC_JUMP_PCT
+        self._soc_jump_since = now if jumped else None
+        self._soc_last = value
+
+    def _confirmed(self, now: datetime, reached: Desired | None) -> Desired | None:
+        """A SOC that reached the target by an implausible jump has to stand for
+        ``TARGET_CONFIRM`` first: one outlier (review 24.10.2026: 95 % at a real 65 %)
+        must not end the charge. A SOC rising step by step stops at once."""
+        if reached is None or self._soc_jump_since is None:
+            return reached
+        return reached if now - self._soc_jump_since >= TARGET_CONFIRM else None
 
     def _target_known_reached(self) -> bool:
         """Does a SOC that is not fresh (sleeping car) already meet the window's target?
@@ -1361,6 +1398,7 @@ class Engine:
             "last_result": self.last_result,
             "reminder_day": self._reminder_day.isoformat() if self._reminder_day else None,
             "target_hold": self._target_hold,
+            "topping_up": self._topping_up,
             "failure_window": self._failure_window,
             "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
             "last_unplug_at": self.last_unplug_at.isoformat() if self.last_unplug_at else None,
@@ -1396,6 +1434,7 @@ class Engine:
         day = data.get("reminder_day")
         self._reminder_day = date.fromisoformat(day) if day else None
         self._target_hold = data.get("target_hold")
+        self._topping_up = data.get("topping_up")
         self._failure_window = data.get("failure_window")
         offer, unplug = data.get("plug_offer_at"), data.get("last_unplug_at")
         self.plug_offer_at = datetime.fromisoformat(offer) if offer else None

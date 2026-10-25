@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.16 – 2026-10-25
+
+Ziel-SOC: kein Abbruch durch Ausreißer, Nachladen bis zum Ziel:
+- **Ein einzelner falscher Ladestand beendet die Ladung nicht mehr.** Meldete OVMS kurz
+  z. B. 95 % bei echten 65 %, schaltete der Pilot sofort ab. Springt der Ladestand um mehr
+  als 5 Prozentpunkte, muss er jetzt 3 Minuten stehen, bevor er am Ziel abschaltet.
+  Steigt er wie beim Laden üblich in kleinen Schritten, wird wie bisher sofort abgeschaltet.
+- **Nachladen läuft bis zum Ziel.** Sank der Ladestand nach erreichtem Ziel unter Ziel − 3 %,
+  wurde zwar nachgeladen, aber schon bei Ziel − 3 % wieder abgeschaltet (z. B. 87 statt
+  90 %). Die 3 % entscheiden jetzt nur noch, *ob* nachgeladen wird – dann bis zum Ziel.
+
 ## 0.27.15 – 2026-10-25
 
 Panel: aufgeklappte Details bleiben nach einer Aktion lesbar:

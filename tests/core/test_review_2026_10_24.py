@@ -100,7 +100,10 @@ def test_h1_paused_charge_after_the_window_gets_no_second_wakeup_budget():
 
 
 class FillingCar(World):
-    """Charges whenever the wallbox offers power and reports its SOC over OVMS."""
+    """Charges whenever the wallbox offers power and reports its SOC over OVMS
+    (or ``fake_soc`` instead, to fake an outlier)."""
+
+    fake_soc = None
 
     def __init__(self, *args, soc=80.0, **kwargs):
         super().__init__(*args, **kwargs)
@@ -113,7 +116,7 @@ class FillingCar(World):
         result = super().tick(seconds)
         if float(self.states[Inp.CHARGE_POWER][0]) > 0:
             self.soc += self.charging_power * seconds / 3600 / 1000 * 0.88 / 16.7 * 100
-            self.set(Inp.OVMS_SOC, f"{self.soc:.2f}")
+            self.set(Inp.OVMS_SOC, f"{self.fake_soc or self.soc:.2f}")
             self.set(Inp.OVMS_CHARGING, "on")
         return result
 
@@ -271,3 +274,37 @@ def test_m7_infinite_readings_are_invalid_and_never_crash_the_tick():
     world.engine.tick(world.now, world.raw())
     world.set(Inp.OVMS_BATTERY_POWER, "1e308", unit_of_measurement="kW")
     world.engine.tick(world.now, world.raw())
+
+
+def _charging_night(soc=60.0):
+    world = FillingCar(datetime(2026, 10, 20, 0, 25, tzinfo=TZ), soc=soc,
+                       configured=WITH_OVMS, ovms_port=True, ovms_enabled=True)
+    world.charging_power = 4600.0
+    world.engine.set_plans(world.now, [WeeklySchedule(
+        id="p", weekdays=frozenset(WEEKDAYS), mode=ScheduleMode.FIXED_START,
+        charge_start_time=time(0, 30), departure_time=time(5, 30), ready_buffer_min=0,
+        preferred_departure_soc_pct=90)])
+    world.run(15 * 60)
+    assert "CHARGE_STABLE" in world.events
+    return world
+
+
+def test_m3_single_soc_outlier_does_not_end_the_charge():
+    """OVMS reported 95 % for a minute at a real 65 % – the charge was switched off."""
+    world = _charging_night()
+    world.fake_soc = 95.0
+    world.run(60)
+    world.fake_soc = None
+    world.run(60)
+    assert CommandKind.DISABLE_CHARGER not in world.commands
+
+
+def test_m3_top_up_after_the_target_runs_to_the_target():
+    """Once restarted below target − 3 %, the top-up stopped at 87 instead of 90 %."""
+    world = _charging_night()
+    world.run(3 * 3600)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "off" and world.soc >= 90
+    world.soc = 85.0
+    world.set(Inp.OVMS_SOC, "85.00")
+    world.run(60 * 60)
+    assert world.soc >= 90

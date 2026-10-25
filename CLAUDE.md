@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.11 HV-Zyklen MEASUREMENT.** `sensor.hv_contactor_cycles` state_class
-  TOTAL_INCREASING → MEASUREMENT (Franks Quelle: `…_hv_contactor_cycles_remaining`, fallend).
-  Prüfbericht Mittel M1; Tests HA-Seite in `tests/integration/test_review_2026_10_24.py`.
 - **2026-10-25 – v0.27.12 Einheit normalisiert.** `inputs.to_value`: nach kW→W bzw. Wh→kWh
   trägt `Value.unit` die normalisierte Einheit (WS `_value`, Systemtest); Panel-Diagnose
   rundet Zahlen auf 3 Stellen, „–“ ohne „ s“. Prüfbericht M2 (live 24.10.: 9139.37 „kW“).
@@ -156,3 +153,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.15 Panel-Details.** `_call` behält `check`, `tempHistory/tempAt`,
   `sessionDetail`, `tripDetail` im Cache; neues `_resetCache()` (Reiter, Monat, Rückkehr)
   schließt `_sessionOpen/_tripOpen/_tempOpen` mit. Prüfbericht M11.
+- **2026-10-25 – v0.27.16 SOC-Ausreißer.** `Engine._track_soc_jumps`: GOOD-SOC-Sprung >
+  `SOC_JUMP_PCT` (5) → `_confirmed` hält die Ziel-Abschaltung `TARGET_CONFIRM` (3 min) zurück;
+  `_topping_up` (gespeichert): nach `fresh_below` kein „held“ mehr bis Ziel erreicht. Tests mit
+  synthetischen SOC-Sprüngen aufs Ziel laufen jetzt über einen Zwischenschritt. Prüfbericht M3.

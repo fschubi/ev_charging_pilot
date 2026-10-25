@@ -148,6 +148,8 @@ def test_charge_runs_past_the_block_until_the_target():
     assert engine.desired.wake_allowed is False
     assert "BLOCK_EXTENDED" in world.events
     # Target reached → off; the overrun ends with it.
+    world.set(Inp.OVMS_SOC, "88")  # OVMS reports the SOC step by step
+    world.run(5)
     world.set(Inp.OVMS_SOC, "90")
     world.run(60)
     assert engine.desired.charger_enabled is False

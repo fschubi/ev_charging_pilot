@@ -85,6 +85,8 @@ def test_target_reached_in_price_block_stays_reached_after_the_block():
     world.run(60)
     world.set(Inp.OVMS_CHARGING, "on")
     world.run(60)
+    world.set(Inp.OVMS_SOC, "88")  # OVMS reports the SOC step by step
+    world.run(5)
     world.set(Inp.OVMS_SOC, "90")
     world.run(60)
     world.set(Inp.OVMS_CHARGING, "off")
@@ -109,6 +111,8 @@ def test_soc_correction_after_the_block_plans_nothing_more():
     start, end = world.engine.next_window.blocks[-1]
     world.now = start
     world.run(60)
+    world.set(Inp.OVMS_SOC, "88")  # OVMS reports the SOC step by step
+    world.run(5)
     world.set(Inp.OVMS_SOC, "90")
     world.run(60)
     world.now = end + timedelta(minutes=30)

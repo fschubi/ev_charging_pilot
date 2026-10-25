@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.11 HV-Zyklen MEASUREMENT.** `sensor.hv_contactor_cycles` state_class
+  TOTAL_INCREASING → MEASUREMENT (Franks Quelle: `…_hv_contactor_cycles_remaining`, fallend).
+  Prüfbericht Mittel M1; Tests HA-Seite in `tests/integration/test_review_2026_10_24.py`.
 - **2026-10-25 – v0.27.10 Klima-Stopp.** `Executor.request_climate_stop` sendet nur mit
   `climate_available` (enthält `ovms_enabled`), sonst Event `CLIMATE_UNAVAILABLE`. Prüfbericht
   H7; Bericht-Stand aktualisiert (K1–H7 behoben, Mittel/Niedrig offen).

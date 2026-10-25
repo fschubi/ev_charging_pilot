@@ -116,6 +116,8 @@ def test_target_soc_stops_charging_with_good_soc_only():
     world.updated[Inp.OVMS_SOC] = world.reported[Inp.OVMS_SOC] = world.now.replace(hour=2)
     world.run(150)
     assert CommandKind.DISABLE_CHARGER not in world.commands
+    world.set(Inp.OVMS_SOC, "89")  # OVMS reports the SOC step by step
+    world.run(5)
     world.set(Inp.OVMS_SOC, "91")
     world.updated[Inp.OVMS_SOC] = world.reported[Inp.OVMS_SOC] = world.now
     world.run(30)
@@ -316,6 +318,8 @@ def test_one_off_departure_stops_at_its_own_target():
     world.tick()
     world.now = world.engine.next_window.start
     world.run(60)
+    world.set(Inp.OVMS_SOC, "68")  # OVMS reports the SOC step by step
+    world.run(5)
     world.set(Inp.OVMS_SOC, "70")
     world.run(60)
     assert world.engine.desired.charger_enabled is False
@@ -545,6 +549,8 @@ def test_target_100_resumed_balancing_restarts_the_wait():
 def test_target_below_100_still_stops_at_the_soc():
     world = full_charge_world()
     world.engine.one_shot = replace(world.engine.one_shot, preferred_departure_soc_pct=90)
+    world.set(Inp.OVMS_SOC, "88")  # OVMS reports the SOC step by step
+    world.run(5)
     world.set(Inp.OVMS_SOC, "90")
     world.run(30)
     assert world.engine.desired.charger_enabled is False
@@ -556,6 +562,8 @@ def test_a_new_start_after_session_end_gets_a_new_session_id():
     world.engine.one_shot = replace(world.engine.one_shot, preferred_departure_soc_pct=90)
     first = world.engine.executor.session_id
     assert first
+    world.set(Inp.OVMS_SOC, "88")  # OVMS reports the SOC step by step
+    world.run(5)
     world.set(Inp.OVMS_SOC, "90")
     world.run(30)
     assert "SESSION_END" in world.events

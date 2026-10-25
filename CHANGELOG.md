@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.27.26 – 2026-10-25
+
+Robuster gegen Ausnahmefälle:
+- **Shelly-Prüfung:** Antwortet unter der Shelly-Adresse ein anderes Gerät (kein JSON oder
+  keine Konfiguration), gilt das als „nicht erreichbar“ statt alle 15 Minuten einen Fehler
+  ins Log zu schreiben.
+- **PDF-Berichte** nur für die Jahre 2020–2100 (wie beim Dienst); Jahr 0 führte zu einem
+  unbehandelten Fehler.
+- **Systemtest mit Test-Push** nur für Administratoren; der Systemtest selbst bleibt für alle.
+- **Fehlerhafte Pläne oder Replay-Datensätze** ergeben eine verständliche Fehlermeldung statt
+  eines internen Fehlers.
+- **Fehlgeschlagener Start:** Scheitert das Einrichten der Entitäten, wird die Integration
+  sauber beendet, statt mit laufenden Timern im Hintergrund zu bleiben.
+
 ## 0.27.25 – 2026-10-25
 
 Preise und Energie-Intervalle:

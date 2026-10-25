@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.21 Statistik.** `period_summary`: `vehicle_consumption` = Σ(used−recd)
+  ÷ Σkm nur Fahrten mit Energie (auch ohne Distanz); `learn`: (Netz − Klima) ÷ ΔSOC;
+  `external._charge_battery_kwh`: Anstieg ohne Abfall → `last`; Klima-Slots `[netz, akku, seen]`,
+  ohne Akkuleistung 0 (außer Reason climate), Akku auch im Nachlauf. Prüfbericht M9 (+ N12).
 - **2026-10-25 – v0.27.20 Rechte.** `ChargingEntity.async_require_admin` (Kontext-User, ohne
   User = Automation erlaubt): `DryRunSwitch.turn_off`, Button `reset_error` (`admin=True`);
   Dienst `reset_error` in `ADMIN_SERVICES`. `Notifier._offered` (Aktion → gültig bis, Push-ID,

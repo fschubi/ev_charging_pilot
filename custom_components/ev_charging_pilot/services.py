@@ -252,7 +252,8 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 return await center.async_create_dataset(
                     _aware(data["start"]), _aware(data["end"]), data["name"],
                     data["poll_interval_s"])
-    except (ValueError, FileNotFoundError) as err:
+    except (ValueError, FileNotFoundError, KeyError, TypeError) as err:
+        # KeyError/TypeError: a hand-written dataset or plan with missing/odd fields
         raise ServiceValidationError(str(err)) from err
     return None
 

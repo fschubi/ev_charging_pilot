@@ -79,3 +79,18 @@ async def test_m8_push_buttons_work_once_and_only_when_offered(hass):
         await hass.async_block_till_done()
     assert handled == [ACTION_RETRY]
     unsub()
+
+
+async def test_low_ws_limits_report_year_and_test_push(hass, entry, halo, hass_ws_client,
+                                                        hass_read_only_access_token):
+    """create_report took any year (year 0 crashed); a test push was open to everyone."""
+    from custom_components.ev_charging_pilot.const import DOMAIN
+
+    await _setup(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": f"{DOMAIN}/create_report", "year": 0})
+    assert not (await client.receive_json())["success"]
+    user = await hass_ws_client(hass, hass_read_only_access_token)
+    await user.send_json({"id": 1, "type": f"{DOMAIN}/run_system_check", "send_test_push": True})
+    reply = await user.receive_json()
+    assert not reply["success"] and reply["error"]["code"] == "unauthorized"

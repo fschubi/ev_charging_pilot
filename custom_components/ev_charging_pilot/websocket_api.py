@@ -460,7 +460,7 @@ async def ws_set_plans(hass, connection, msg) -> None:
     try:
         plans = [WeeklySchedule.from_dict(p) for p in msg["plans"]]
         await center.async_run(lambda now: center.engine.set_plans(now, plans))
-    except (KeyError, ValueError) as err:
+    except (KeyError, ValueError, TypeError) as err:
         connection.send_error(msg["id"], "invalid_plan", str(err))
         return
     _send(connection, msg, {"plans": [p.as_dict() for p in center.engine.plans]})
@@ -478,7 +478,7 @@ async def ws_replay(hass, connection, msg) -> None:
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{PREFIX}/create_report",
-    vol.Optional("year"): int,
+    vol.Optional("year"): vol.All(int, vol.Range(2020, 2100)),  # same range as the service
     vol.Optional("month"): vol.Any(None, vol.All(int, vol.Range(1, 12))),
 })
 @websocket_api.async_response
@@ -593,6 +593,10 @@ async def ws_run_system_check(hass, connection, msg) -> None:
     """Check every link without switching anything and without waking the car."""
     center = _require(connection, msg, hass)
     if center is None:
+        return
+    if msg["send_test_push"] and not connection.user.is_admin:
+        # The check itself is for everyone; pushing to the configured phone is not.
+        connection.send_error(msg["id"], "unauthorized", "Test-Push nur für Administratoren")
         return
     from .system_check import async_system_check
 

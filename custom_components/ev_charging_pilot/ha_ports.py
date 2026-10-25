@@ -230,9 +230,11 @@ class HaPorts:
                                    timeout=aiohttp.ClientTimeout(total=SHELLY_TIMEOUT_S)) as resp:
                 if resp.status != 200:
                     return None
-                return await resp.json(content_type=None)
-        except (aiohttp.ClientError, TimeoutError):
+                data = await resp.json(content_type=None)
+        except (aiohttp.ClientError, TimeoutError, ValueError):
+            # ValueError: no JSON (another device answers on that address)
             return None
+        return data if isinstance(data, dict) else None
 
 
 def shelly_expected(pulse_s: int) -> dict[str, Any]:

@@ -52,7 +52,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> 
     if entry.title != center.name:
         hass.config_entries.async_update_entry(entry, title=center.name)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = dict(entry.options)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except Exception:
+        # Same as above: no orphaned center with running timers after a failed setup.
+        await center.async_shutdown()
+        raise
     async_register_services(hass)
     async_register_ws(hass)
     if not hass.data.get(f"{DOMAIN}_views_registered"):

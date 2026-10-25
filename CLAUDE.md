@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.21 Statistik.** `period_summary`: `vehicle_consumption` = Σ(used−recd)
-  ÷ Σkm nur Fahrten mit Energie (auch ohne Distanz); `learn`: (Netz − Klima) ÷ ΔSOC;
-  `external._charge_battery_kwh`: Anstieg ohne Abfall → `last`; Klima-Slots `[netz, akku, seen]`,
-  ohne Akkuleistung 0 (außer Reason climate), Akku auch im Nachlauf. Prüfbericht M9 (+ N12).
 - **2026-10-25 – v0.27.22 Panel-Kleinigkeiten.** `toKw()` null-sicher, `SOURCE_TEXT`,
   `QUALITY_TEXT` für SOC, Vorzeichen Reichweite, leere Zeit → alter Wert, `_savePlans`-Fehler
   lädt Pläne neu, `_refresh` serialisiert (`_refreshOnce`), `HA_TZ` aus `hass.locale.time_zone`,
@@ -161,3 +157,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   nächster Start bis `MAX_SLOT` (1 h), sonst typische Länge; `Settings.interval_min` →
   `_interval_divisor` (5/10/15/20/30/60). Preis-Einheiten-Heuristik ohne Einheit bewusst
   unverändert (Tibber/Nordpool liefern Einheiten). Prüfbericht Niedrig.
+- **2026-10-25 – v0.27.26 Robustheit.** `shelly_switch_config`: ValueError gefangen, nur dict;
+  WS `create_report` Jahr 2020–2100; `run_system_check` mit Test-Push nur Admin; `set_plans`
+  + Dienste fangen TypeError/KeyError → Validierungsfehler; `async_setup_entry` beendet das
+  Center, wenn `async_forward_entry_setups` scheitert. Prüfbericht Niedrig (HA-Schicht).

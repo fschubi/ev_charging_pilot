@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.12 Einheit normalisiert.** `inputs.to_value`: nach kW→W bzw. Wh→kWh
+  trägt `Value.unit` die normalisierte Einheit (WS `_value`, Systemtest); Panel-Diagnose
+  rundet Zahlen auf 3 Stellen, „–“ ohne „ s“. Prüfbericht M2 (live 24.10.: 9139.37 „kW“).
 - **2026-10-25 – v0.27.11 HV-Zyklen MEASUREMENT.** `sensor.hv_contactor_cycles` state_class
   TOTAL_INCREASING → MEASUREMENT (Franks Quelle: `…_hv_contactor_cycles_remaining`, fallend).
   Prüfbericht Mittel M1; Tests HA-Seite in `tests/integration/test_review_2026_10_24.py`.

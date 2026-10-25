@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.17 – 2026-10-25
+
+Klima-Option „Ziel einhalten“ heizt wieder aus der Wallbox:
+- **„enforce_target“ gibt die Wallbox für die Klimatisierung frei.** War das Ziel vor der
+  Vorklimatisierung erreicht, hielt der Pilot die Wallbox trotzdem aus – das Auto heizte
+  aus dem Akku, wie bei „nur Akku“, während die Statuszeile „Strom aus der Wallbox“ zeigte.
+  Jetzt ist die Wallbox während der Klimatisierung frei und schaltet erst ab, wenn der
+  Ladestand das Ziel um mehr als 1 % überschreitet (Masterplan §9.1).
+- Die Standard-Option „Nachladen erlaubt“ und „nur Akku“ sind unverändert.
+
 ## 0.27.16 – 2026-10-25
 
 Ziel-SOC: kein Abbruch durch Ausreißer, Nachladen bis zum Ziel:

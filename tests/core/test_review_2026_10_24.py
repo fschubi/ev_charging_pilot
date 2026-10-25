@@ -308,3 +308,22 @@ def test_m3_top_up_after_the_target_runs_to_the_target():
     world.set(Inp.OVMS_SOC, "85.00")
     world.run(60 * 60)
     assert world.soc >= 90
+
+
+def test_m4_enforce_target_frees_the_wallbox_for_the_climate():
+    """enforce_target behaved like battery_only: the target hold kept the Halo off and
+    the car heated from its battery (§9.1: the Halo is free, only exceeding stops)."""
+    from .test_engine import CLIMATE_START_AT, climate_world, local
+
+    world = climate_world("enforce_target")
+    world.set(Inp.OVMS_SOC, "90")
+    world.run(60)
+    assert world.engine.desired.charger_enabled is False  # target held before the climate
+    world.now = local(*CLIMATE_START_AT)
+    world.set(Inp.OVMS_SOC, "90")
+    world.set(Inp.OVMS_OUTSIDE_TEMP, "6")
+    world.run(30)
+    assert world.engine.desired.charger_enabled is True
+    world.set(Inp.OVMS_SOC, "91")  # target + margin exceeded
+    world.run(30)
+    assert world.engine.desired.charger_enabled is False

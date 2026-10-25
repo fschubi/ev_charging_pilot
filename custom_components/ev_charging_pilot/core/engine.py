@@ -826,8 +826,9 @@ class Engine:
             target = window.preferred_soc_pct if window else None
             soc = None if self.health.blocks_soc_functions else self.soc
             topup = climate_running and s.climate_after_target is ClimateAfterTarget.ALLOW_TOPUP
-            if climate_running and s.climate_after_target is ClimateAfterTarget.ENFORCE_TARGET \
-                    and target is not None:
+            enforce = climate_running and target is not None \
+                and s.climate_after_target is ClimateAfterTarget.ENFORCE_TARGET
+            if enforce:
                 target += ENFORCE_TARGET_MARGIN_PCT
             if target is not None and target >= FULL_TARGET_PCT:
                 reached = self._full_charge_ended(now, window)
@@ -838,7 +839,9 @@ class Engine:
                 self._target_hold = window.key
                 self._topping_up = None
             hold = window is not None and self._target_hold == window.key
-            if hold and reached is None and not topup:
+            # enforce_target (§9.1): the wallbox is free for the climate, only exceeding
+            # target + margin switches it off – the target hold must not keep it off.
+            if hold and reached is None and not topup and not enforce:
                 fresh_below = soc is not None and soc.quality is Quality.GOOD and \
                     float(soc.normalized) < target - TOPUP_HYSTERESIS_PCT
                 if fresh_below:

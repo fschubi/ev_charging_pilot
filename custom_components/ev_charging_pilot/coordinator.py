@@ -131,6 +131,9 @@ class ChargingCenter:
         self.mail_result: dict[str, Any] | None = None
         # Set on unload: a tick or price refresh still in flight must not act any more.
         self._closed = False
+        # Stores are written only after a successful restore: a failed restore
+        # (downgrade, damaged record) must never overwrite the history with an empty state.
+        self._restored = False
         # Monthly report waiting for a running session to end (year, month).
         self._report_due: tuple[int, int] | None = None
         self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
@@ -174,6 +177,10 @@ class ChargingCenter:
         self.monitor.restore(await self._monitor_store.async_load() or {})
         for item in await self._event_store.async_load() or []:
             self.events.append(item)
+        self._restored = True
+        if self.monitor.skipped_records:
+            _LOGGER.warning("%s gespeicherte Datensätze konnten nicht gelesen werden und "
+                            "wurden übersprungen", self.monitor.skipped_records)
 
         self._unsubs.append(async_track_state_change_event(
             self.hass, list(self.entity_ids.values()), self._on_state_change))
@@ -932,6 +939,8 @@ class ChargingCenter:
     # --------------------------------------------------------------- storage
 
     def _schedule_save(self, monitor: bool = False) -> None:
+        if not self._restored:
+            return
         self._state_store.async_delay_save(self.engine.as_dict, 5)
         self._event_store.async_delay_save(self._event_data, 30)
         if monitor:
@@ -939,7 +948,8 @@ class ChargingCenter:
 
     def monitor_changed(self) -> None:
         """Manual monitor input (external charge, odometer) – save and refresh."""
-        self._monitor_store.async_delay_save(self.monitor.as_dict, 5)
+        if self._restored:
+            self._monitor_store.async_delay_save(self.monitor.as_dict, 5)
         self.refresh_statistics()
         self._notify_listeners()
 
@@ -949,6 +959,8 @@ class ChargingCenter:
         return [e for e in self.events if e["timestamp"] >= cutoff]
 
     async def _save(self) -> None:
+        if not self._restored:
+            return
         self.monitor.prune(dt_util.now(self.tz).date())
         await self._state_store.async_save(self.engine.as_dict())
         await self._event_store.async_save(self._event_data())

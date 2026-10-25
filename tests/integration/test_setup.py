@@ -260,3 +260,28 @@ async def test_hanging_wallbox_command_times_out_and_frees_the_loop(hass, entry,
     assert any(e["code"] == "COMMAND_FAILED" and "keine Antwort nach 30 s" in e["message"]
                for e in center.events)
     assert not center._lock.locked()
+
+
+async def test_failed_restore_never_overwrites_the_history(hass, entry, halo, hass_storage):
+    """Review 24.10.2026: a downgrade made setup fail, and the shutdown then saved
+    the empty state over every session, trip and event."""
+    from custom_components.ev_charging_pilot.const import (
+        STORAGE_KEY_EVENTS,
+        STORAGE_KEY_MONITOR,
+        STORAGE_KEY_STATE,
+    )
+
+    keys = [f"{key}.{entry.entry_id}"
+            for key in (STORAGE_KEY_STATE, STORAGE_KEY_EVENTS, STORAGE_KEY_MONITOR)]
+    for key, data in zip(keys, ({"mode_of_a_newer_release": 1},
+                                [{"code": "KEEP_ME"}], {"sessions": [], "keep": True}),
+                         strict=True):
+        hass_storage[key] = {"version": 1, "minor_version": 1, "key": key, "data": data}
+    before = json.dumps([hass_storage[key] for key in keys])
+    with patch("custom_components.ev_charging_pilot.core.engine.Engine.restore",
+               side_effect=ValueError("unknown value of a newer release")):
+        entry.add_to_hass(hass)
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert json.dumps([hass_storage[key] for key in keys]) == before

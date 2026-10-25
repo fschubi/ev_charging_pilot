@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.2 – 2026-10-25
+
+Gespeicherte Historie ist beim Zurückgehen auf eine ältere Version sicher:
+- **Kein Datenverlust mehr bei einem Downgrade.** Kannte eine ältere Version ein Feld aus
+  einer neueren nicht (z. B. Fahrstil oder Reichweite je Fahrt), brach der Start ab – und
+  beim Aufräumen wurde der leere Zustand über alle Ladesessions, Fahrten und Ereignisse
+  gespeichert. Jetzt werden unbekannte Felder ignoriert, und nach einem fehlgeschlagenen
+  Laden wird nie gespeichert.
+- **Ein einzelner beschädigter Datensatz** wird übersprungen (Warnung im Log) statt die
+  ganze Historie unlesbar zu machen.
+
 ## 0.27.1 – 2026-10-22
 
 Reichweite gegen Anzeige – richtig gemessen und verständlich angezeigt:

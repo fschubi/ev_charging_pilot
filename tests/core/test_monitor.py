@@ -498,3 +498,18 @@ def test_range_ignores_the_climate_dip_at_the_start_and_the_jump_after_switching
     trip = park(tracker, off, 11, 9224.6)[0]
     assert (trip.range_start_km, trip.range_end_km) == (112, 88)
     assert trip.range_accuracy_pct == pytest.approx(24.6 / 24 * 100, abs=0.5)
+
+
+def test_restore_skips_unknown_fields_and_damaged_records():
+    """Review 24.10.2026: going back to an older release must not lose the history."""
+    session = ChargeSession(session_id="s-1", reason="schedule",
+                            started_at=local(2026, 10, 19, 2, 30), grid_energy_kwh=7.9)
+    trip = _short_trip("t-1", 12.0, 14.0)
+    newer = {**session.as_dict(), "field_of_a_newer_release": 1}
+    newer_trip = {**trip.as_dict(), "field_of_a_newer_release": 2}
+    monitor = Monitor(TZ)
+    monitor.restore({"sessions": [newer, {"session_id": "broken"}],
+                     "trips": [newer_trip, {"started_at": "kaputt"}]})
+    assert [s.session_id for s in monitor.data.sessions] == ["s-1"]
+    assert [t.trip_id for t in monitor.data.trips] == ["t-1"]
+    assert monitor.skipped_records == 2

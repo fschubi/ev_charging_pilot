@@ -151,8 +151,8 @@ class Trip:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Trip:
-        values = {k: v for k, v in data.items()
-                  if k not in ("range_used_km", "range_accuracy_pct")}
+        # Derived properties and keys of a newer release are not fields
+        values = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         values["started_at"] = datetime.fromisoformat(values["started_at"])
         values["ended_at"] = datetime.fromisoformat(values["ended_at"])
         return cls(**values)

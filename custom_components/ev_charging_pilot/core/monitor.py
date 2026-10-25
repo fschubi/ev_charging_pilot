@@ -34,6 +34,8 @@ class Monitor:
         self.data = MonitorData([], [], [], [], [], set())
         # Set by the engine: an OVMS odometer is mapped (odometer source "auto").
         self.ovms_odometer = False
+        # Records of the last restore that could not be read (and were dropped)
+        self.skipped_records = 0
 
     # ------------------------------------------------------------- records
 
@@ -164,10 +166,22 @@ class Monitor:
         def readings(items):
             return [Reading(datetime.fromisoformat(a), float(v)) for a, v in items or []]
 
+        self.skipped_records = 0
+
+        def records(parse, items):
+            # One damaged record must not cost the whole history
+            result = []
+            for item in items or []:
+                try:
+                    result.append(parse(item))
+                except (TypeError, ValueError, KeyError, AttributeError):
+                    self.skipped_records += 1
+            return result
+
         self.data = MonitorData(
-            sessions=[ChargeSession.from_dict(s) for s in raw.get("sessions") or []],
-            trips=[Trip.from_dict(t) for t in raw.get("trips") or []],
-            external=[ExternalCharge.from_dict(e) for e in raw.get("external") or []],
+            sessions=records(ChargeSession.from_dict, raw.get("sessions")),
+            trips=records(Trip.from_dict, raw.get("trips")),
+            external=records(ExternalCharge.from_dict, raw.get("external")),
             odometer_readings=readings(raw.get("odometer_readings")),
             soc_log=readings(raw.get("soc_log")),
             days_seen={date.fromisoformat(d) for d in raw.get("days_seen") or []},

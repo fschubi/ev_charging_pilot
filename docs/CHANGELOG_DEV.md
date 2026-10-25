@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-21 – v0.25.1 Fremdladen live.** `ExternalChargeDetector`: laden = OVMS-Flag GOOD
+  oder OVMS-Ladeleistung GOOD > Schwelle; kein SOC-Sprung, solange „lädt“ (auch gealtert);
+  Energie über `_charge_battery_kwh` (erster/kleinster/letzter `charge_energy`); `status` →
+  `summary` „Lädt unterwegs“; kein `DATA_CONFLICT` bei Kabel aus; HV-Aktivität inkl. Laden
+  unterwegs; `CLIMATE_GAP` 10 s. Feld: Lidl 4,35 kWh Akku / 4,9 kWh bezahlt (89 %).
 - **2026-10-20 – v0.25.0 Verbrauch realistisch.** `period_summary`: Start-SOC = erster SOC im
   Zeitraum, `grid_consumption` ohne Klima (+ `…_incl_climate`, `vehicle_consumption`), Kosten
   fürs Fahren; `Inp.OVMS_CHARGE_ENERGY` (v.c.kwh) → `plausible_charge_energy` (geändert,

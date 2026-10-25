@@ -72,7 +72,8 @@ class ChargeSession:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ChargeSession:
-        values = dict(data)
+        # Unknown keys come from a newer release – drop them so a downgrade still loads
+        values = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         values["started_at"] = datetime.fromisoformat(values["started_at"])
         values["ended_at"] = (
             datetime.fromisoformat(values["ended_at"]) if values.get("ended_at") else None

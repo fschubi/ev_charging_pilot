@@ -545,3 +545,27 @@ def test_low_average_power_counts_from_the_enable_and_stays_below_the_peak():
     world.run(3 * 3600)
     session = next(s for r in world.results for s in r.sessions)
     assert session.average_power_w <= session.max_power_w
+
+
+def test_low_energy_intervals_always_divide_the_hour():
+    """45 min intervals overlapped: 00:00–00:45, 00:45–01:30, then 01:00–01:45."""
+    from custom_components.ev_charging_pilot.core.settings import Settings
+
+    assert Settings.from_options({"interval_min": 45}).interval_min in (30, 60)
+    assert Settings.from_options({"interval_min": 15}).interval_min == 15
+    assert 60 % Settings.from_options({"interval_min": 25}).interval_min == 0
+
+
+def test_low_mixed_hourly_and_quarter_hour_prices_keep_their_length():
+    """Tibber without end times, hourly then 15 min: the shortest step cut every hour
+    to 15 min, coverage failed and price optimisation was off for the whole day."""
+    from datetime import timedelta
+
+    from custom_components.ev_charging_pilot.core.prices import _close
+
+    start = datetime(2026, 10, 26, 0, 0, tzinfo=TZ)
+    hourly = [(start + timedelta(hours=h), None, 0.30) for h in range(3)]
+    quarter = [(start + timedelta(hours=3, minutes=15 * q), None, 0.25) for q in range(4)]
+    slots = _close(hourly + quarter)
+    assert [s.end - s.start for s in slots[:3]] == [timedelta(hours=1)] * 3
+    assert slots[-1].end - slots[-1].start == timedelta(minutes=15)

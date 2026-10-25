@@ -428,7 +428,7 @@ class Settings:
             event_retention_days=int(o[OPT_EVENT_RETENTION_DAYS]),
             hv_cycles_warn_per_day=int(o[OPT_HV_CYCLES_WARN_PER_DAY]),
             price_history=prices,
-            interval_min=int(o[OPT_INTERVAL_MIN]),
+            interval_min=_interval_divisor(int(o[OPT_INTERVAL_MIN])),
             price_source=PriceSource(o[OPT_PRICE_SOURCE]),
             price_entity=str(o[OPT_PRICE_ENTITY] or ""),
             price_optimization=bool(o[OPT_PRICE_OPTIMIZATION]),
@@ -461,3 +461,9 @@ class Settings:
             ovms_climate_command=str(o[OPT_OVMS_CLIMATE_COMMAND] or ""),
             ovms_climate_stop_command=str(o[OPT_OVMS_CLIMATE_STOP_COMMAND] or ""),
         )
+
+
+def _interval_divisor(minutes: int) -> int:
+    """Energy intervals sit on the full hour: 45 min would overlap (00:45–01:30, then
+    01:00–01:45). The nearest divisor of 60 is used instead."""
+    return min((5, 10, 15, 20, 30, 60), key=lambda d: (abs(d - minutes), d))

@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.20 Rechte.** `ChargingEntity.async_require_admin` (Kontext-User, ohne
-  User = Automation erlaubt): `DryRunSwitch.turn_off`, Button `reset_error` (`admin=True`);
-  Dienst `reset_error` in `ADMIN_SERVICES`. `Notifier._offered` (Aktion → gültig bis, Push-ID,
-  `OFFER_VALID` 12 h): Aktionen nur, wenn angeboten, eine Antwort je Push. Prüfbericht M8.
 - **2026-10-25 – v0.27.21 Statistik.** `period_summary`: `vehicle_consumption` = Σ(used−recd)
   ÷ Σkm nur Fahrten mit Energie (auch ohne Distanz); `learn`: (Netz − Klima) ÷ ΔSOC;
   `external._charge_battery_kwh`: Anstieg ohne Abfall → `last`; Klima-Slots `[netz, akku, seen]`,
@@ -161,3 +157,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   START_FAILED): max. `max_confirm_attempts + 1` Versuche, dann `OFF_RETRY_AFTER`; Event
   `CHARGER_OFF_REFUSED` (WARNING, eigener Push) statt `CHARGER_NOT_CONFIRMED` (war Fehlstart →
   Session/Push). `sessions._energy_from` (gespeichert) für `average_power_w`, gedeckelt auf Max.
+- **2026-10-25 – v0.27.25 Preise/Intervalle.** WS-Preis-Slots `[:192]`; `prices._close`: Ende =
+  nächster Start bis `MAX_SLOT` (1 h), sonst typische Länge; `Settings.interval_min` →
+  `_interval_divisor` (5/10/15/20/30/60). Preis-Einheiten-Heuristik ohne Einheit bewusst
+  unverändert (Tibber/Nordpool liefern Einheiten). Prüfbericht Niedrig.

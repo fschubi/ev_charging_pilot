@@ -207,7 +207,9 @@ GROUPS: list[dict[str, Any]] = [
         _n("trip_merge_gap_min", "Kurze Stopps zu einer Fahrt zusammenfassen bis", 1, 120, 1,
            "min", advanced=True),
         _n("event_retention_days", "Ereignisse aufbewahren", 7, 730, 1, "Tage", advanced=True),
-        _n("interval_min", "Energie-Intervall für Kosten", 5, 60, 5, "min", advanced=True),
+        _n("interval_min", "Energie-Intervall für Kosten", 5, 60, 5, "min", advanced=True,
+           help="5, 10, 15, 20, 30 oder 60 min (Teiler einer Stunde) – andere Werte werden "
+                "auf den nächsten davon gerundet."),
     ]},
     {"id": "wakeup", "title": "Wecken und CP-Unterbrechung", "icon": "mdi:sleep-off",
      "description": "Wie ein schlafendes Auto zum Laden geweckt wird.",

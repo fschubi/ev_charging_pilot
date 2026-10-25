@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.25 – 2026-10-25
+
+Preise und Energie-Intervalle:
+- **Preiskurve im Cockpit bis 48 Stunden.** Die Kurve endete nach 24 h, obwohl die Preise
+  für morgen schon da waren (am Tag der Zeitumstellung schon um 22:15).
+- **Gemischte Preislisten** (stündlich und viertelstündlich, ohne Endzeiten): Stundenpreise
+  wurden auf 15 Minuten gekürzt – die Preisoptimierung fiel dann für den Tag aus. Jetzt gilt
+  bis zu einer Stunde der nächste Startzeitpunkt als Ende.
+- **Energie-Intervall für Kosten:** Werte, die keine Teiler einer Stunde sind (z. B. 45 min),
+  erzeugten sich überlappende Intervalle. Jetzt wird auf 5, 10, 15, 20, 30 oder 60 min
+  gerundet (Hinweis in den Einstellungen).
+
 ## 0.27.24 – 2026-10-25
 
 Wallbox lässt sich nicht ausschalten – sauber behandelt:

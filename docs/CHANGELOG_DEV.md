@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.20 Rechte.** `ChargingEntity.async_require_admin` (Kontext-User, ohne
+  User = Automation erlaubt): `DryRunSwitch.turn_off`, Button `reset_error` (`admin=True`);
+  Dienst `reset_error` in `ADMIN_SERVICES`. `Notifier._offered` (Aktion → gültig bis, Push-ID,
+  `OFFER_VALID` 12 h): Aktionen nur, wenn angeboten, eine Antwort je Push. Prüfbericht M8.
 - **2026-10-25 – v0.27.19 Zweiter Preisblock.** `WindowAttempts.charged` (gespeichert) bei
   `_charging_started`; `_escalate` ohne Versuche + `charged` → `_later_block_not_started`
   (Event `BLOCK_NOT_STARTED` WARNING, IDLE, kein Fehlstart-Zähler), Push „Ladeblock nicht

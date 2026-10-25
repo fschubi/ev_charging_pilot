@@ -81,6 +81,9 @@ def _time(value: Any, tz: ZoneInfo) -> datetime | None:
     return moment if moment.tzinfo else moment.replace(tzinfo=tz)
 
 
+MAX_SLOT = timedelta(hours=1)
+
+
 def _close(slots: list[tuple[datetime, datetime | None, float]]) -> list[PriceSlot]:
     """Fill missing slot ends from the next start – at most the typical slot length.
 
@@ -94,8 +97,13 @@ def _close(slots: list[tuple[datetime, datetime | None, float]]) -> list[PriceSl
     out: list[PriceSlot] = []
     for index, (start, end, price) in enumerate(slots):
         if end is None:
-            if index + 1 < len(slots):
-                end = min(slots[index + 1][0], start + typical)
+            nxt = slots[index + 1][0] if index + 1 < len(slots) else None
+            if nxt is not None and nxt - start <= MAX_SLOT:
+                # Up to an hour the next start is the end – also where hourly and
+                # 15-min prices meet (the shortest step cut hours to 15 min before).
+                end = nxt
+            elif nxt is not None:
+                end = min(nxt, start + typical)
             else:
                 end = start + typical
         if end > start:

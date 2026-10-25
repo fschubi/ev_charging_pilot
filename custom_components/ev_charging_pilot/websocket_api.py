@@ -172,7 +172,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             "last_update": _iso(center.price_fetcher.last_update),
             "error": center.price_fetcher.last_error,
             "slots": [s.as_dict() for s in engine.price_schedule.slots
-                      if s.end > now][:96],
+                      if s.end > now][:192],  # 48 h – today and tomorrow incl. DST
         },
         "statistics": center.statistics,
         "settings": {

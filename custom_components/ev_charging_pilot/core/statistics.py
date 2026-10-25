@@ -235,8 +235,14 @@ def period_summary(
         grid_per_100 = round((driving_grid - soc_term / efficiency) / distance * 100, 2)
         grid_incl_climate_per_100 = round(
             (grid_documented - soc_term / efficiency) / distance * 100, 2)
-        if used is not None:
-            vehicle_per_100 = round((used - (recd or 0.0)) / distance * 100, 2)
+    # Only trips with measured energy, over their own kilometres: reconstructed trips
+    # without energy would dilute it (review 24.10.2026: 6 instead of 15 kWh/100 km).
+    with_energy = [t for t in trips if t.vehicle_energy_used_kwh is not None and t.distance_km]
+    measured_km = sum(t.distance_km for t in with_energy)
+    if measured_km:
+        net = sum(t.vehicle_energy_used_kwh - (t.recovered_energy_kwh or 0.0)
+                  for t in with_energy)
+        vehicle_per_100 = round(net / measured_km * 100, 2)
     cost_total = round(home_cost + external_cost, 2)
     driving_cost = cost_total - (climate_cost or 0.0)
 

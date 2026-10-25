@@ -78,7 +78,10 @@ def learn(sessions: Iterable[ChargeSession], *, nominal_kwh_per_pct: float,
         start, end = session.start_soc_pct, session.end_soc_pct
         if start is not None and end is not None and end - start >= MIN_SOC_DELTA_PCT \
                 and session.grid_energy_kwh > 0:
-            value = session.grid_energy_kwh / (end - start)
+            # Only the charging part: a climate during the session drew grid energy
+            # that never reached the battery (review 24.10.2026: +18 %).
+            value = (session.grid_energy_kwh - (session.climate_energy_kwh or 0.0)) \
+                / (end - start)
             if PLAUSIBLE_BAND[0] <= value / nominal_kwh_per_pct <= PLAUSIBLE_BAND[1]:
                 per_pct.append(value)
                 counted = True

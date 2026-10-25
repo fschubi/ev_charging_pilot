@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.27.21 – 2026-10-25
+
+Statistik rechnet genauer:
+- **Fahrzeugverbrauch je 100 km nur über Fahrten mit gemessener Energie.** Fahrten ohne
+  Energiewert (z. B. aus dem Kilometerstand rekonstruiert) zählten mit ihren Kilometern,
+  aber ohne Energie – der Verbrauch fiel viel zu niedrig aus (Beispiel: 6 statt 15 kWh/100 km).
+- **Gelernter Energiebedarf je Prozent ohne Vorklimatisierung.** Lief während einer Ladung
+  die Klimatisierung, rechnete der Pilot deren Strom in „kWh pro % Ladestand“ ein – Planer
+  und Ladedauer überschätzten den Bedarf (bis ~18 %).
+- **Fremdladung spät erkannt:** Die Akku-Energie ist jetzt die ganze Ladung, nicht nur der
+  Teil ab der Erkennung (Beispiel: 4,35 statt 3,15 kWh).
+- **Klimaanteil ohne Akkuleistung:** Fehlte die OVMS-Akkuleistung, wurde während einer
+  Ladung der ganze Zähleranstieg als Klima gebucht. Ohne Akkuleistung zählt er jetzt als
+  Laden (eine reine Klima-Session bleibt Klima). Auch im Nachlauf nach dem Klima-Ende wird
+  die Akkuleistung mitgerechnet.
+
 ## 0.27.20 – 2026-10-25
 
 Rechte: Live-Schalter, Fehler-Reset und Push-Knöpfe abgesichert:

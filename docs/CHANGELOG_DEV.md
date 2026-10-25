@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.16 SOC-Ausreißer.** `Engine._track_soc_jumps`: GOOD-SOC-Sprung >
+  `SOC_JUMP_PCT` (5) → `_confirmed` hält die Ziel-Abschaltung `TARGET_CONFIRM` (3 min) zurück;
+  `_topping_up` (gespeichert): nach `fresh_below` kein „held“ mehr bis Ziel erreicht. Tests mit
+  synthetischen SOC-Sprüngen aufs Ziel laufen jetzt über einen Zwischenschritt. Prüfbericht M3.
 - **2026-10-25 – v0.27.15 Panel-Details.** `_call` behält `check`, `tempHistory/tempAt`,
   `sessionDetail`, `tripDetail` im Cache; neues `_resetCache()` (Reiter, Monat, Rückkehr)
   schließt `_sessionOpen/_tripOpen/_tempOpen` mit. Prüfbericht M11.

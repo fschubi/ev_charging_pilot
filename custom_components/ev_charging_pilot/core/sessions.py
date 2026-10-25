@@ -188,9 +188,11 @@ class SessionTracker:
         closing = data.get("closing")
         self._closing = (datetime.fromisoformat(closing[0]), bool(closing[1]), closing[2]) \
             if closing and self.open is not None else None
-        # Before v0.22.4 a slot held the climate kWh itself (from the Halo power).
+        # Before v0.22.4 a slot held the climate kWh itself (from the Halo power); before
+        # v0.27.21 it had no "battery power seen" flag (then assume it was seen).
         self._climate_kwh = {
-            k: [float(v), 0.0] if isinstance(v, (int, float)) else [float(v[0]), float(v[1])]
+            k: [float(v), 0.0, 1.0] if isinstance(v, (int, float))
+            else [float(v[0]), float(v[1]), float(v[2]) if len(v) > 2 else 1.0]
             for k, v in (data.get("climate_kwh") or {}).items()} if self.open is not None else {}
 
     @property
@@ -302,7 +304,7 @@ class SessionTracker:
             return
         minute = now.minute - now.minute % self.interval_min
         slot = self._climate_kwh.setdefault(
-            now.replace(minute=minute, second=0, microsecond=0).isoformat(), [0.0, 0.0])
+            now.replace(minute=minute, second=0, microsecond=0).isoformat(), [0.0, 0.0, 0.0])
         if total_energy.available and total_energy.normalized is not None:
             counter = float(total_energy.normalized)
             if counter != self._climate_counter:
@@ -311,10 +313,13 @@ class SessionTracker:
                                            self._climate_counter_at, now):
                     slot[0] += counter - self._climate_counter
                 self._climate_counter, self._climate_counter_at = counter, now
-        last, self._climate_at = self._climate_at, (now if climate else None)
-        if climate and last is not None and battery_power is not None \
-                and battery_power.quality is Quality.GOOD and battery_power.normalized is not None:
-            seconds = (now - last).total_seconds()
+        # The battery side is integrated over the tail, too: the counter rise of the tail
+        # still counts, and so does the charging that went on meanwhile.
+        last, self._climate_at = self._climate_at, now
+        if battery_power is not None and battery_power.quality is Quality.GOOD \
+                and battery_power.normalized is not None:
+            slot[2] = 1.0
+            seconds = (now - last).total_seconds() if last is not None else 0
             if 0 < seconds <= CLIMATE_MAX_STEP_S:
                 slot[1] += max(0.0, float(battery_power.normalized)) / 1000 * seconds / 3600
 
@@ -408,8 +413,13 @@ class SessionTracker:
             session.vehicle_energy_source = "ovms_charge_energy"
         self._charge_kwh = None
         if self._climate_kwh:
+            # Without the battery power the counter cannot be split: in a charging
+            # session the slot then counts as charging, not as a heater drawing it all
+            # (review 24.10.2026); a pure climate session still counts as climate.
+            climate_only = session.reason == "climate"
             shares = {slot: max(0.0, grid - battery / self._efficiency)
-                      for slot, (grid, battery) in self._climate_kwh.items()}
+                      if seen or climate_only else 0.0
+                      for slot, (grid, battery, seen) in self._climate_kwh.items()}
             total = sum(shares.values())
             if total > session.grid_energy_kwh:
                 # Never more climate than grid – in kWh and in euros alike.

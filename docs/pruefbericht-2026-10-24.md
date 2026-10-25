@@ -9,7 +9,11 @@ ruff und Panel-Syntax sauber – die Funde unten fallen den bisherigen Tests nic
 > H1 v0.27.4, H2 v0.27.5, H3 v0.27.6, H4 v0.27.7, H5 v0.27.8, H6 v0.27.9, H7 v0.27.10.
 > Jeder Fund hat einen Regressionstest (`tests/core/test_review_2026_10_24.py`,
 > `test_session_energy.py`, `test_monitor.py`, `tests/integration/test_setup.py`,
-> `test_vehicle_commands.py`), der mit dem alten Code fehlschlägt. Mittel/Niedrig sind offen.
+> `test_vehicle_commands.py`), der mit dem alten Code fehlschlägt.
+> **Mittel behoben** (je ein Release): HV-Zyklen-Sensor v0.27.11, Einheit v0.27.12, `inf` v0.27.13,
+> Status Klima ohne Kabel v0.27.14, Panel-Details v0.27.15, SOC-Ausreißer/Nachladen v0.27.16,
+> `enforce_target` v0.27.17, Pause nach Neustart v0.27.18, zweiter Preisblock v0.27.19,
+> Rechte v0.27.20, Statistik v0.27.21 (inkl. Klima-Nachlauf aus „Niedrig“). Niedrig sonst offen.
 
 ## Kritisch
 
@@ -36,7 +40,7 @@ ruff und Panel-Syntax sauber – die Funde unten fallen den bisherigen Tests nic
 - **H7 „Klima stopp“ ohne `ovms_enabled`** – `request_climate_stop` prüft `climate_available`
   nicht (Regel 8).
 
-## Mittel (offen)
+## Mittel (behoben, v0.27.11–v0.27.21)
 
 - HV-Kontaktor-Sensor `TOTAL_INCREASING`, Quelle bei Frank sind die *verbleibenden* Zyklen
   (fallend) → LTS wertet jede Abnahme als Reset.

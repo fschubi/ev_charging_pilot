@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.16 SOC-Ausreißer.** `Engine._track_soc_jumps`: GOOD-SOC-Sprung >
-  `SOC_JUMP_PCT` (5) → `_confirmed` hält die Ziel-Abschaltung `TARGET_CONFIRM` (3 min) zurück;
-  `_topping_up` (gespeichert): nach `fresh_below` kein „held“ mehr bis Ziel erreicht. Tests mit
-  synthetischen SOC-Sprüngen aufs Ziel laufen jetzt über einen Zwischenschritt. Prüfbericht M3.
 - **2026-10-25 – v0.27.17 enforce_target.** `_arbitrate`: `enforce` (Klima läuft +
   ENFORCE_TARGET) überspringt den Ziel-Hold-Zweig („held“); abgeschaltet wird nur über
   `target_soc_wish` bei Ziel + `ENFORCE_TARGET_MARGIN_PCT`. Prüfbericht M4.
@@ -160,3 +156,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   User = Automation erlaubt): `DryRunSwitch.turn_off`, Button `reset_error` (`admin=True`);
   Dienst `reset_error` in `ADMIN_SERVICES`. `Notifier._offered` (Aktion → gültig bis, Push-ID,
   `OFFER_VALID` 12 h): Aktionen nur, wenn angeboten, eine Antwort je Push. Prüfbericht M8.
+- **2026-10-25 – v0.27.21 Statistik.** `period_summary`: `vehicle_consumption` = Σ(used−recd)
+  ÷ Σkm nur Fahrten mit Energie (auch ohne Distanz); `learn`: (Netz − Klima) ÷ ΔSOC;
+  `external._charge_battery_kwh`: Anstieg ohne Abfall → `last`; Klima-Slots `[netz, akku, seen]`,
+  ohne Akkuleistung 0 (außer Reason climate), Akku auch im Nachlauf. Prüfbericht M9 (+ N12).

@@ -388,3 +388,85 @@ def test_m6_second_price_block_without_wakeups_left_is_no_failed_start():
     assert world.engine.executor.consecutive_start_failures == 0
     assert world.commands.count(CommandKind.OVMS_WAKEUP) == 1
     assert world.commands.count(CommandKind.CP_PULSE) == 1
+
+
+def test_m9_vehicle_consumption_only_over_trips_with_energy():
+    """40 km with 6 kWh plus 60 km reconstructed without energy gave 6 instead of 15."""
+    from datetime import date
+
+    from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory, PricePoint
+    from custom_components.ev_charging_pilot.core.statistics import MonitorData, period_summary
+    from custom_components.ev_charging_pilot.core.trips import Trip
+
+    def trip(trip_id, km, kwh, day):
+        at = datetime(2026, 10, day, 9, 0, tzinfo=TZ)
+        return Trip(trip_id=trip_id, started_at=at, ended_at=at.replace(hour=10),
+                    odometer_start_km=1000.0 + day * 100, odometer_end_km=1000.0 + day * 100 + km,
+                    distance_km=km, duration_min=60, average_speed_kmh=km,
+                    vehicle_energy_used_kwh=kwh, recovered_energy_kwh=0.0 if kwh else None,
+                    auxiliary_energy_kwh=None, consumption_kwh_100km=None,
+                    outside_temp_avg_c=10.0, season="autumn", soc_start_pct=None, soc_end_pct=None)
+
+    data = MonitorData([], [trip("a", 40.0, 6.0, 5), trip("b", 60.0, None, 6)], [], [], [], set())
+    month = period_summary(data, datetime(2026, 10, 1, tzinfo=TZ), datetime(2026, 11, 1, tzinfo=TZ),
+                           prices=FixedPriceHistory([PricePoint(date(2026, 1, 1), 0.3)], TZ),
+                           capacity_kwh=16.7, efficiency=0.88, odometer_source="ovms")
+    assert month["vehicle_consumption_kwh_100km"] == 15.0
+
+
+def test_m9_learned_energy_per_percent_leaves_the_climate_out():
+    from custom_components.ev_charging_pilot.core.learning import learn
+    from custom_components.ev_charging_pilot.core.sessions import ChargeSession
+
+    sessions = [ChargeSession(session_id=f"s{i}", reason="schedule", source="home_halo",
+                              started_at=datetime(2026, 10, 10 + i, 2, 0, tzinfo=TZ),
+                              start_soc_pct=40, end_soc_pct=90, grid_energy_kwh=10.6,
+                              climate_energy_kwh=1.6, success=True) for i in range(3)]
+    learned = learn(sessions, nominal_kwh_per_pct=0.19, max_power_kw=11)
+    assert learned.grid_kwh_per_pct == 0.18
+
+
+def test_m9_external_energy_detected_late_counts_the_whole_charge():
+    from custom_components.ev_charging_pilot.core.external import _charge_battery_kwh
+
+    assert _charge_battery_kwh((1.2, 1.2, 4.35)) == 4.35   # counting before detection
+    assert _charge_battery_kwh((8.34, 0.0, 4.35)) == 4.35  # dropped: new charge
+    assert _charge_battery_kwh((8.34, 8.34, 8.34)) is None  # the previous charge's value
+
+
+def test_m9_climate_without_battery_power_is_not_all_climate():
+    """Without a GOOD battery power the whole counter rise of a charging session was
+    booked as climate (2.32 of 4.52 kWh)."""
+    from datetime import timedelta
+
+    from custom_components.ev_charging_pilot.core.costs import FixedPriceHistory, PricePoint
+    from custom_components.ev_charging_pilot.core.model import (
+        Category,
+        Event,
+        Quality,
+        Severity,
+        Value,
+    )
+    from custom_components.ev_charging_pilot.core.sessions import TAIL_S, SessionTracker
+
+    t0 = datetime(2026, 10, 20, 5, 0, tzinfo=TZ)
+    prices = FixedPriceHistory([PricePoint(t0.date(), 0.30)], TZ)
+    tracker = SessionTracker()
+
+    def tick(at, total, events=(), climate=False):
+        def ev(code):
+            return Event(t0, Category.CHARGING, Severity.INFO, code, "")
+        return tracker.update(
+            t0 + timedelta(seconds=at), [ev(c) for c in events],
+            total_energy=Value(total, total, "halo", None, Quality.GOOD),
+            power=Value(4600, 4600, "halo", None), vehicle_power=Value.unavailable("ovms"),
+            soc=Value(80, 80, "ovms", None), reason="schedule", prices=prices,
+            climate=climate, battery_power=Value.unavailable("ovms"))
+
+    tick(0, 100.0, ["CHARGER_ENABLE"])
+    tick(5, 100.0, ["CHARGE_STABLE"])
+    for at in range(10, 3600, 10):
+        tick(at, round(100.0 + at * 4.6 / 3600, 4), climate=1800 <= at < 3600)
+    tick(3600, 104.6, ["SESSION_END"])
+    session = tick(3600 + TAIL_S, 104.6)[0]
+    assert not session.climate_energy_kwh

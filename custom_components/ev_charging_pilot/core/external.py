@@ -44,16 +44,17 @@ def _num(value: Value | None) -> float | None:
 def _charge_battery_kwh(readings: tuple[float, float, float] | None) -> float | None:
     """Energy into the battery from OVMS "energy of this charge" (first, lowest, last).
 
-    The counter restarts at 0 with each charge: once it dropped (or started near 0)
-    the last value is the whole charge; otherwise only its rise belongs to it
-    (field 21.10.2026: 8.34 from the night, then 0.36 … 4.35 kWh at Lidl).
+    The counter restarts at 0 with each charge (field 21.10.2026: 8.34 from the night,
+    then 0.36 … 4.35 kWh at Lidl). A value that never moves is the previous charge's;
+    one that rises without a drop already counts this charge (detected late) – then
+    the last value is the whole charge, not only the rise seen (review 24.10.2026).
     """
     if readings is None:
         return None
     first, lowest, last = readings
-    if lowest < first or first < 0.5:
+    if lowest < first or first < 0.5 or last > first:
         return last if last > 0 else None
-    return last - first if last > first else None
+    return None
 
 
 @dataclass(slots=True)

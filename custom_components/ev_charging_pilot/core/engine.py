@@ -718,7 +718,7 @@ class Engine:
                 < self.climate_plan.until:
             self._climate_lock = self.climate_plan
             self.climate_phase = "due"
-        degraded = self.health.status is not HealthStatus.HEALTHY
+        degraded = self.health.blocks_soc_functions
         self.climate_blocked = climate_blocker(self.soc, self.settings, degraded) \
             if self.climate_plan else None
         if self.climate_active:

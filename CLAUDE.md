@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-22 – v0.27.0 Fahrstil.** `trips.driving_style(trace)` (gentle/steady/anticipating,
-  Mittel = score; Schwellen `STRONG_DRIVE_W` 25 kW + ≥ 10 km/h, `STEADY_MAX_DELTA_KMH` 5,
-  `HARD_BRAKE_KMH` 40 je 15 s); `Trip.style` beim Schließen, `async_backfill_trip_style`,
-  WS-Detail rechnet aus Recorder-Kurve; Gruppen `style_score` (km-gewichtet). Kein OVMS-Eco-Score.
 - **2026-10-22 – v0.27.1 Reichweiten-Regel 2.** Start = Max in `RANGE_START_WINDOW` (3 min),
   Ende = letzter Wert bei Fahrzeug an (kein Nachlauf); `Trip.range_rule`, Backfill rechnet
   Regel < `RANGE_RULE` neu. Grund: smart rechnet laufende Heizung ein (101/112 km beim Start,
@@ -160,3 +156,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.4 Pause ohne neues Budget.** `Desired.held_key`: `window_key` liefert
   ihn vor `reason|source|until`; Engine-Pause-Halten setzt `held_key=hold[1].window_key`
   (vorher `valid_until=None` → neuer Schlüssel → frische `WindowAttempts`). Prüfbericht H1.
+- **2026-10-25 – v0.27.5 Shelly-Ausfall.** `health.CP_WAKEUP_ONLY = {CP_STATE_UNKNOWN}`:
+  `blocks_automation`/`blocks_soc_functions` ignorieren ihn; Executor-Safety-Hold über
+  `blocks_automation`, Klima-Sperre über `blocks_soc_functions`, Summary „Automatik gesperrt“
+  nur bei `blocks_automation`. CP-Puls bleibt bei ERROR gesperrt. Prüfbericht H2.

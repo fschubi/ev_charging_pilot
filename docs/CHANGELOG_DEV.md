@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-22 – v0.27.0 Fahrstil.** `trips.driving_style(trace)` (gentle/steady/anticipating,
+  Mittel = score; Schwellen `STRONG_DRIVE_W` 25 kW + ≥ 10 km/h, `STEADY_MAX_DELTA_KMH` 5,
+  `HARD_BRAKE_KMH` 40 je 15 s); `Trip.style` beim Schließen, `async_backfill_trip_style`,
+  WS-Detail rechnet aus Recorder-Kurve; Gruppen `style_score` (km-gewichtet). Kein OVMS-Eco-Score.
 - **2026-10-22 – v0.26.0 Reichweite je Fahrt.** `Trip.range_start_km/range_end_km` (OVMS_RANGE,
   Ende bis 2 min nach Aus), Properties `range_used_km`, `range_accuracy_pct` (km ÷ Anzeige-km);
   `temperature_statistics` → `range_accuracy_pct` je Gruppe; `async_backfill_trip_range`

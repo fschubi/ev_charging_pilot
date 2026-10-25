@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.5 – 2026-10-25
+
+Shelly nicht erreichbar – Laden geht weiter, Ziel-SOC gilt:
+- **Fällt der Shelly (CP-Relais) aus, wird nicht mehr alles eingefroren.** Bisher schaltete
+  der Systemfehler „Shelly nicht erreichbar“ jede Automatik ab – auch das Abschalten am
+  Ziel. Ein WLAN-Aussetzer von ein paar Stunden ließ das Auto so auf 100 % statt 90 % laden,
+  und die Wallbox blieb nach der Abfahrt an. Jetzt läuft das zeitbasierte Laden über die
+  Wallbox weiter, das Ziel wird eingehalten und die Vorklimatisierung bleibt möglich; gesperrt
+  ist nur der CP-Wakeup (wie im Masterplan §8.2 vorgesehen).
+- Der Fehler bleibt sichtbar (System „Fehler“, Push). Bei offenem oder nicht
+  zurückgestelltem CP-Relais und anderen echten Fehlern bleibt die Automatik gesperrt.
+
 ## 0.27.4 – 2026-10-25
 
 Ladepause: höchstens ein Weckversuch je Art und Nacht:

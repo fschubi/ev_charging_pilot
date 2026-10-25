@@ -220,7 +220,7 @@ class Executor:
             self._go(ExecState.IDLE, now, "CABLE_CONNECTED", "Kabel gesteckt", Category.CHARGING)
 
         self._last_snap = snap
-        if snap.health.status is HealthStatus.ERROR:
+        if snap.health.blocks_automation:
             self._safety_hold(snap)
             return self._result
         self._handle_climate(snap)

@@ -39,11 +39,20 @@ class Health:
 
     @property
     def blocks_automation(self) -> bool:
-        return self.status is HealthStatus.ERROR
+        """Freeze all switching? An unreachable Shelly alone does not (§8.2): only
+        the CP wakeup is locked, time-based charging over the Halo goes on."""
+        return self.status is HealthStatus.ERROR and any(
+            reason not in CP_WAKEUP_ONLY for reason in self.reasons)
 
     @property
     def blocks_soc_functions(self) -> bool:
-        return self.status is not HealthStatus.HEALTHY
+        return self.status is not HealthStatus.HEALTHY and any(
+            reason not in CP_WAKEUP_ONLY for reason in self.reasons)
+
+
+# Errors that lock nothing but the CP wakeup (§8.2 "Shelly": charging, target SOC
+# and climate continue; the executor refuses a pulse while health is ERROR).
+CP_WAKEUP_ONLY = frozenset({"CP_STATE_UNKNOWN"})
 
 
 REPEATED_START_FAILURES = 2

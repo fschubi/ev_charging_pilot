@@ -11,7 +11,6 @@ from typing import Any
 
 from .engine import FAILURE_HINTS, Engine
 from .executor import ExecState
-from .health import HealthStatus
 from .inputs import Inp
 from .model import Value
 from .planner import OverrideMode
@@ -100,7 +99,7 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
     window = engine.next_window
     at = lambda moment: _at(moment, engine, now)  # noqa: E731
 
-    if engine.health.status is HealthStatus.ERROR:
+    if engine.health.blocks_automation:
         return ("Automatik gesperrt",
                 "Aus Sicherheitsgründen wird nichts geschaltet – Details unter „System“.", "bad")
     if not engine.automation_enabled:

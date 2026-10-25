@@ -96,3 +96,45 @@ def test_h1_paused_charge_after_the_window_gets_no_second_wakeup_budget():
     assert "CHARGE_PAUSED" in world.events and "PAUSE_HOLD" in world.events
     assert world.commands.count(CommandKind.OVMS_WAKEUP) == 1
     assert world.commands.count(CommandKind.CP_PULSE) == 1
+
+
+class FillingCar(World):
+    """Charges whenever the wallbox offers power and reports its SOC over OVMS."""
+
+    def __init__(self, *args, soc=80.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.soc = soc
+        self.set(Inp.OVMS_SOC, f"{soc:.0f}")
+        self.set(Inp.OVMS_CHARGING, "off")
+
+    def tick(self, seconds=5):
+        self.car_charges_when_enabled = self.soc < 100
+        result = super().tick(seconds)
+        if float(self.states[Inp.CHARGE_POWER][0]) > 0:
+            self.soc += self.charging_power * seconds / 3600 / 1000 * 0.88 / 16.7 * 100
+            self.set(Inp.OVMS_SOC, f"{self.soc:.2f}")
+            self.set(Inp.OVMS_CHARGING, "on")
+        return result
+
+
+def test_h2_unreachable_shelly_still_stops_at_the_target():
+    """H2: the Shelly dropped out of the WLAN for 3 h – health ERROR froze every switch,
+    the car charged to 100 % instead of 90 % and the Halo stayed on after the departure.
+    §8.2: a Shelly outage only locks the CP wakeup."""
+    start = datetime(2026, 10, 20, 2, 55, tzinfo=TZ)
+    world = FillingCar(start, configured=WITH_OVMS, cp_pulse=True, ovms_port=True,
+                       ovms_enabled=True, cp_failsafe_verified=True)
+    world.engine.set_plans(start, [WeeklySchedule(
+        id="p", weekdays=frozenset(WEEKDAYS), mode=ScheduleMode.FIXED_START,
+        charge_start_time=time(3, 0), departure_time=time(5, 30), ready_buffer_min=0,
+        preferred_departure_soc_pct=90)])
+    world.run(15 * 60)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+    for _ in range(int(3 * 3600 / 5)):
+        world.set(Inp.CP_RELAY, "unavailable")
+        world.tick(5)
+    health = world.engine.health
+    assert health.status.value == "ERROR" and health.reasons == ("CP_STATE_UNKNOWN",)
+    assert world.soc < 92
+    assert world.states[Inp.CHARGER_ENABLE][0] == "off"
+    assert CommandKind.CP_PULSE not in world.commands

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.15 – 2026-10-25
+
+Panel: aufgeklappte Details bleiben nach einer Aktion lesbar:
+- **Kein endloses „Lade Verlauf …“ / „Lade Details …“ mehr.** War der Temperaturverlauf
+  oder eine Session- bzw. Fahrt-Zeile aufgeklappt und man drückte z. B. „Klima 10 min“
+  oder „Jetzt laden“, blieb die Zeile auf „Lade …“ stehen, bis man sie zweimal zu- und
+  aufklappte. Die geladenen Details bleiben jetzt erhalten; beim Wechsel von Reiter oder
+  Monat werden aufgeklappte Zeilen sauber geschlossen.
+
 ## 0.27.14 – 2026-10-25
 
 Cockpit und Statuskarte zeigen die Vorklimatisierung auch ohne Kabel:

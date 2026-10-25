@@ -738,7 +738,7 @@ class EvPilotPanel extends HTMLElement {
     if (this._detached && !this._settingsDraft) {
       // Back from another HA page: start in the cockpit again (unsaved settings stay).
       this._view = "cockpit";
-      this._cache = {};
+      this._resetCache();
       this._plans = null;
       this._signature = null;
       this._year = new Date().getFullYear();
@@ -756,6 +756,13 @@ class EvPilotPanel extends HTMLElement {
     this._timer = setInterval(() => this._refresh(), REFRESH_MS);
   }
 
+  // A fresh cache closes the detail rows whose data it held.
+  _resetCache() {
+    this._cache = {};
+    this._sessionOpen = this._tripOpen = null;
+    this._tempOpen = false;
+  }
+
   async _ws(type, extra = {}) {
     return this._hass.callWS({ type: `${DOMAIN}/${type}`, ...extra });
   }
@@ -764,8 +771,10 @@ class EvPilotPanel extends HTMLElement {
     try {
       await this._hass.callService(DOMAIN, service, data);
       this._toast(label || "Erledigt");
-      const check = this._cache.check;  // the system check result stays visible
-      this._cache = check ? { check } : {};
+      // The system check result and open details stay: their rows are still open, and
+      // they only load again on a click (an emptied cache left "Lade …" forever).
+      this._cache = Object.fromEntries(Object.entries(this._cache).filter(([key]) =>
+        ["check", "tempHistory", "tempAt", "sessionDetail", "tripDetail"].includes(key)));
       await this._refresh();
       return true;
     } catch (err) {
@@ -937,7 +946,7 @@ class EvPilotPanel extends HTMLElement {
     this._settingsDraft = null;
     if (this._planSaveTimer) this._savePlans();  // flush a pending plan change
     this._view = view;
-    this._cache = {};
+    this._resetCache();
     this._plans = null;
     this._refresh();
   }
@@ -1027,11 +1036,11 @@ class EvPilotPanel extends HTMLElement {
       case "month-prev":
         this._month -= 1;
         if (this._month < 1) { this._month = 12; this._year -= 1; }
-        this._cache = {}; this._refresh(); break;
+        this._resetCache(); this._refresh(); break;
       case "month-next":
         this._month += 1;
         if (this._month > 12) { this._month = 1; this._year += 1; }
-        this._cache = {}; this._refresh(); break;
+        this._resetCache(); this._refresh(); break;
       case "plan-field": {
         const plan = plans[Number(el.dataset.index)];
         const field = el.dataset.field;

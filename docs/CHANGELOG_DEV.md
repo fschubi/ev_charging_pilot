@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.10 Klima-Stopp.** `Executor.request_climate_stop` sendet nur mit
+  `climate_available` (enthält `ovms_enabled`), sonst Event `CLIMATE_UNAVAILABLE`. Prüfbericht
+  H7; Bericht-Stand aktualisiert (K1–H7 behoben, Mittel/Niedrig offen).
 - **2026-10-25 – v0.27.9 Zähler-Plausibilität.** `costs.plausible_rise` (≤ 25 kW × Zeit seit
   letzter Änderung + 1 kWh); `IntervalAccumulator.last_at` (Zeit der letzten Änderung,
   gespeichert) verwirft unplausible Anstiege; `grid_energy_kwh` = Intervall-Summe statt

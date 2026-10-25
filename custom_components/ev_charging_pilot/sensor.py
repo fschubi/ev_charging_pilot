@@ -270,7 +270,9 @@ SENSORS: tuple[ChargingSensorDescription, ...] = (
     ChargingSensorDescription(
         key="hv_contactor_cycles",
         requires=Inp.OVMS_HV_CYCLES,
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        # The OVMS integration exposes consumed (rising) or remaining (falling) cycles –
+        # TOTAL_INCREASING would read every falling step as a meter reset.
+        state_class=SensorStateClass.MEASUREMENT,
         value=lambda c: _num(c, Inp.OVMS_HV_CYCLES),
         attributes=lambda c: {**_quality(c, Inp.OVMS_HV_CYCLES), "today": c.engine.hv.today},
     ),

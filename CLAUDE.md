@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.6 Fehlstart-Sperre.** `Engine._release_repeated_failures`: merkt das
-  Fenster beim Erreichen von `REPEATED_START_FAILURES` (`_failure_window`, gespeichert), neues
-  `active_window` → Zähler 0 + Event `START_FAILURES_RELEASED`; `executor._on_unplugged`
-  setzt `consecutive_start_failures` zurück (§8.1). Prüfbericht H3.
 - **2026-10-25 – v0.27.7 Dry-Run → Live.** `Executor.set_shadow`: beim Wechsel in den
   Probebetrieb Live-Stand (`_attempts`, `_failed_window`, `_ended_window`, `failure_code`) in
   `_live_windows` sichern, Probebetrieb arbeitet auf Kopie; zurück zu Live → gesicherter Stand,
@@ -161,3 +157,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.10 Klima-Stopp.** `Executor.request_climate_stop` sendet nur mit
   `climate_available` (enthält `ovms_enabled`), sonst Event `CLIMATE_UNAVAILABLE`. Prüfbericht
   H7; Bericht-Stand aktualisiert (K1–H7 behoben, Mittel/Niedrig offen).
+- **2026-10-25 – v0.27.11 HV-Zyklen MEASUREMENT.** `sensor.hv_contactor_cycles` state_class
+  TOTAL_INCREASING → MEASUREMENT (Franks Quelle: `…_hv_contactor_cycles_remaining`, fallend).
+  Prüfbericht Mittel M1; Tests HA-Seite in `tests/integration/test_review_2026_10_24.py`.

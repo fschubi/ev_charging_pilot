@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.11 – 2026-10-25
+
+HV-Kontaktorzyklen ohne falsche Statistik:
+- **Der Sensor „HV-Kontaktorzyklen“ ist kein steigender Zähler mehr.** Die OVMS-Integration
+  liefert beim smart die *verbleibenden* Zyklen (z. B. 194 754, fallend). Als
+  „steigender Zähler“ wertete die HA-Langzeitstatistik jeden Schritt nach unten als
+  Zählerreset. Jetzt ist er ein normaler Messwert; die Warnung „HV-Kontaktor auffällig“
+  und „heute“ zählten schon immer nur die Größe der Änderung.
+- Hinweis: HA meldet unter *Entwicklerwerkzeuge → Statistiken* evtl. einmalig eine
+  geänderte Zustandsklasse für `sensor.ev_pilot_hv_contactor_cycles` – dort „Beheben“ wählen.
+
 ## 0.27.10 – 2026-10-25
 
 „Klima stopp“ respektiert den Fahrzeugzugriff:

@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.6 Fehlstart-Sperre.** `Engine._release_repeated_failures`: merkt das
+  Fenster beim Erreichen von `REPEATED_START_FAILURES` (`_failure_window`, gespeichert), neues
+  `active_window` → Zähler 0 + Event `START_FAILURES_RELEASED`; `executor._on_unplugged`
+  setzt `consecutive_start_failures` zurück (§8.1). Prüfbericht H3.
 - **2026-10-25 – v0.27.5 Shelly-Ausfall.** `health.CP_WAKEUP_ONLY = {CP_STATE_UNKNOWN}`:
   `blocks_automation`/`blocks_soc_functions` ignorieren ihn; Executor-Safety-Hold über
   `blocks_automation`, Klima-Sperre über `blocks_soc_functions`, Summary „Automatik gesperrt“

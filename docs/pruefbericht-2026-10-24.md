@@ -5,9 +5,11 @@ Fünf parallele Prüfungen (Steuerlogik, Berechnungen, Anzeige, HA-Schicht, Szen
 ruff und Panel-Syntax sauber – die Funde unten fallen den bisherigen Tests nicht auf.
 „reproduziert“ = mit der Testwelt `tests/core/world.py` bzw. einem Skript nachgestellt.
 
-> **Stand:** Kritisch und Hoch werden einzeln behoben (je ein Release ab v0.27.2), jeweils
-> mit Regressionstest in `tests/core/test_review_2026_10_24.py` bzw. `tests/integration/`,
-> der mit dem alten Code fehlschlägt. Mittel/Niedrig sind offen.
+> **Stand 2026-10-25: Kritisch und Hoch behoben**, je ein Release: K1 v0.27.2, K2 v0.27.3,
+> H1 v0.27.4, H2 v0.27.5, H3 v0.27.6, H4 v0.27.7, H5 v0.27.8, H6 v0.27.9, H7 v0.27.10.
+> Jeder Fund hat einen Regressionstest (`tests/core/test_review_2026_10_24.py`,
+> `test_session_energy.py`, `test_monitor.py`, `tests/integration/test_setup.py`,
+> `test_vehicle_commands.py`), der mit dem alten Code fehlschlägt. Mittel/Niedrig sind offen.
 
 ## Kritisch
 

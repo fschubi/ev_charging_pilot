@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.5 Shelly-Ausfall.** `health.CP_WAKEUP_ONLY = {CP_STATE_UNKNOWN}`:
+  `blocks_automation`/`blocks_soc_functions` ignorieren ihn; Executor-Safety-Hold über
+  `blocks_automation`, Klima-Sperre über `blocks_soc_functions`, Summary „Automatik gesperrt“
+  nur bei `blocks_automation`. CP-Puls bleibt bei ERROR gesperrt. Prüfbericht H2.
 - **2026-10-25 – v0.27.4 Pause ohne neues Budget.** `Desired.held_key`: `window_key` liefert
   ihn vor `reason|source|until`; Engine-Pause-Halten setzt `held_key=hold[1].window_key`
   (vorher `valid_until=None` → neuer Schlüssel → frische `WindowAttempts`). Prüfbericht H1.

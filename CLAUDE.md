@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.5 Shelly-Ausfall.** `health.CP_WAKEUP_ONLY = {CP_STATE_UNKNOWN}`:
-  `blocks_automation`/`blocks_soc_functions` ignorieren ihn; Executor-Safety-Hold über
-  `blocks_automation`, Klima-Sperre über `blocks_soc_functions`, Summary „Automatik gesperrt“
-  nur bei `blocks_automation`. CP-Puls bleibt bei ERROR gesperrt. Prüfbericht H2.
 - **2026-10-25 – v0.27.6 Fehlstart-Sperre.** `Engine._release_repeated_failures`: merkt das
   Fenster beim Erreichen von `REPEATED_START_FAILURES` (`_failure_window`, gespeichert), neues
   `active_window` → Zähler 0 + Event `START_FAILURES_RELEASED`; `executor._on_unplugged`
@@ -162,3 +158,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   letzter Änderung + 1 kWh); `IntervalAccumulator.last_at` (Zeit der letzten Änderung,
   gespeichert) verwirft unplausible Anstiege; `grid_energy_kwh` = Intervall-Summe statt
   Ende − Start; Klima-Zähler ebenso; Klimakosten mit kWh skaliert, wenn > Netz. Prüfbericht H6.
+- **2026-10-25 – v0.27.10 Klima-Stopp.** `Executor.request_climate_stop` sendet nur mit
+  `climate_available` (enthält `ovms_enabled`), sonst Event `CLIMATE_UNAVAILABLE`. Prüfbericht
+  H7; Bericht-Stand aktualisiert (K1–H7 behoben, Mittel/Niedrig offen).

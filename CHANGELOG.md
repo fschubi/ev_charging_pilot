@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.10 – 2026-10-25
+
+„Klima stopp“ respektiert den Fahrzeugzugriff:
+- **Ohne „Lesen & Schreiben“ geht kein Befehl mehr ans Auto.** Der Button bzw. Dienst
+  „Klima stoppen“ schickte den OVMS-Befehl bisher auch, wenn der Fahrzeugzugriff auf
+  „nur Lesen“ stand – als einziger Fahrzeugbefehl. Jetzt erscheint stattdessen der Hinweis
+  „Klima-Stopp nicht gesendet – Fahrzeugbefehle sind nicht freigegeben“.
+- Damit sind alle kritischen und hohen Punkte aus dem Prüfbericht vom 24.10. behoben
+  (v0.27.2–v0.27.10, Details in `docs/pruefbericht-2026-10-24.md`).
+
 ## 0.27.9 – 2026-10-25
 
 Ladeenergie und Kosten robust gegen Zähler-Aussetzer:

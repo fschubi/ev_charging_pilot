@@ -114,3 +114,15 @@ async def test_set_current_uses_the_number_entity_within_its_range(hass):
     sensor_only = HaPorts(hass, charger_switch="switch.halo", cp_relay=None, shelly_host=None,
                           ovms_topic=None, ovms_script=None, max_current="sensor.halo_current")
     assert not sensor_only.current_settable
+
+
+async def test_climate_stop_is_not_sent_while_vehicle_access_is_read_only(hass, halo):
+    """Review 24.10.2026: "Klima stopp" went to the car without ovms_enabled (rule 8)."""
+    calls: list = []
+    _ovms(hass, calls)
+    entry = await _setup(hass)
+    center = entry.runtime_data
+    await center.async_tick()
+    await hass.services.async_call(DOMAIN, "stop_climate", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert calls == []

@@ -306,6 +306,11 @@ class Executor:
 
     def request_climate_stop(self, now: datetime) -> StepResult:
         self._result = StepResult()
+        if not self.config.climate_available:
+            # Vehicle commands need the "read & write" access (§1.1 rule 8).
+            self._event(now, Category.CLIMATE, Severity.WARNING, "CLIMATE_UNAVAILABLE",
+                        "Klima-Stopp nicht gesendet – Fahrzeugbefehle sind nicht freigegeben")
+            return self._result
         self._command(CommandKind.CLIMATE_STOP)
         self._event(now, Category.CLIMATE, Severity.INFO, "CLIMATE_STOP", "Klimatisierung gestoppt")
         return self._result

@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.4 Pause ohne neues Budget.** `Desired.held_key`: `window_key` liefert
+  ihn vor `reason|source|until`; Engine-Pause-Halten setzt `held_key=hold[1].window_key`
+  (vorher `valid_until=None` → neuer Schlüssel → frische `WindowAttempts`). Prüfbericht H1.
 - **2026-10-25 – v0.27.3 Volles Auto schläft.** `Engine._target_known_reached`: SOC nicht GOOD,
   aber planbar (LKV/ESTIMATED) ≥ min(Ziel, 99) → `wake_allowed=False` für SCHEDULE/ONE_SHOT
   → `TOPUP_SKIPPED` statt Weckkette. Prüfbericht 24.10. K2 (`docs/pruefbericht-2026-10-24.md`).

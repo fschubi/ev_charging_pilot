@@ -169,3 +169,44 @@ def test_session_takes_the_ovms_energy_of_this_charge():
     assert session.grid_energy_kwh == pytest.approx(8.99)
     assert session.vehicle_charge_energy_kwh == 7.68
     assert session.vehicle_energy_source == "ovms_charge_energy"
+
+
+def _hour_charge(tracker, readings):
+    """A one-hour charge at 4.6 kW with readings every 30 s; ``readings`` may
+    replace single counter values: {second: value}."""
+    step(tracker, 0, 1000.0, [ev("CHARGER_ENABLE")])
+    step(tracker, 30, 1000.04, [ev("CHARGE_STABLE")])
+    for at in range(60, 3600, 30):
+        step(tracker, at, readings.get(at, round(1000.0 + at * 4.6 / 3600, 4)))
+    step(tracker, 3600, 1004.6, [ev("SESSION_END")])
+    return step(tracker, 3600 + TAIL_S, 1004.6)[0]
+
+
+def test_single_zero_reading_creates_no_phantom_energy():
+    """Review 24.10.2026: one 0 reading of the Halo counter added the whole meter
+    reading (≈1006 kWh, ≈382 €) to the intervals and the monthly report."""
+    session = _hour_charge(SessionTracker(), {1800: 0.0})
+    assert session.grid_energy_kwh == pytest.approx(4.6, abs=0.1)
+    assert sum(i["kwh"] for i in session.energy_intervals) == pytest.approx(4.6, abs=0.1)
+    assert session.cost_eur == pytest.approx(4.6 * 0.38, abs=0.05)
+
+
+def test_meter_reset_mid_session_keeps_energy_and_costs_together():
+    """Review 24.10.2026: after a reset "end − start" gave 0 kWh while costs remained."""
+    readings = {at: round((at - 1800) * 4.6 / 3600, 4) for at in range(1800, 3600, 30)}
+    tracker = SessionTracker()
+    step(tracker, 0, 1000.0, [ev("CHARGER_ENABLE")])
+    step(tracker, 30, 1000.04, [ev("CHARGE_STABLE")])
+    for at in range(60, 3600, 30):
+        step(tracker, at, readings.get(at, round(1000.0 + at * 4.6 / 3600, 4)))
+    step(tracker, 3600, 2.3, [ev("SESSION_END")])
+    session = step(tracker, 3600 + TAIL_S, 2.3)[0]
+    assert session.grid_energy_kwh == pytest.approx(4.6, abs=0.15)
+    assert session.cost_eur == pytest.approx(session.grid_energy_kwh * 0.38, abs=0.01)
+
+
+def test_implausible_counter_jump_is_ignored():
+    session = _hour_charge(SessionTracker(), {
+        at: round(1050.0 + at * 4.6 / 3600, 4) for at in range(1800, 3600, 30)})
+    assert session.grid_energy_kwh < 5.0
+    assert session.cost_eur < 5.0 * 0.38

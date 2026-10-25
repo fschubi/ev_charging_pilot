@@ -55,27 +55,48 @@ def interval_start(moment: datetime, interval_min: int = 15) -> datetime:
     return floored - timedelta(minutes=floored.minute % interval_min)
 
 
+# Above any home wallbox (Halo: 11 kW), plus a margin for cloud polls that arrive
+# late and in bursts – far below the meter reading a glitch jumps back to.
+MAX_PLAUSIBLE_KW = 25.0
+PLAUSIBLE_SLACK_KWH = 1.0
+
+
+def plausible_rise(delta_kwh: float, since: datetime | None, until: datetime) -> bool:
+    """Can a counter rise by ``delta_kwh`` between two readings? Unknown time: yes."""
+    if since is None:
+        return True
+    hours = max(0.0, (until - since).total_seconds() / 3600)
+    return delta_kwh <= MAX_PLAUSIBLE_KW * hours + PLAUSIBLE_SLACK_KWH
+
+
 class IntervalAccumulator:
     """Turns a monotonically rising energy counter into 15-min intervals.
 
     Feed it every reading of the Halo total-energy counter; it attributes
     each delta to the interval in which the reading arrived. A falling
     counter (meter reset, replaced device) starts a new baseline instead of
-    producing negative energy.
+    producing negative energy. A rise faster than any wallbox can deliver is a
+    glitch, too: after a single 0 reading the true counter returns, and that
+    jump back must not count as the whole meter reading (review 24.10.2026).
     """
 
     def __init__(self, interval_min: int = 15) -> None:
         self.interval_min = interval_min
         self.intervals: list[EnergyInterval] = []
         self.last_kwh: float | None = None
+        # When the counter last changed: a cloud counter repeats its value between
+        # polls, so the time for a rise counts from the previous change.
+        self.last_at: datetime | None = None
 
     def add(self, moment: datetime, total_kwh: float) -> None:
-        if self.last_kwh is None or total_kwh < self.last_kwh:
-            self.last_kwh = total_kwh
+        last, last_at = self.last_kwh, self.last_at
+        if total_kwh == last:
             return
-        delta = total_kwh - self.last_kwh
-        self.last_kwh = total_kwh
-        if delta <= 0:
+        self.last_kwh, self.last_at = total_kwh, moment
+        if last is None or total_kwh < last:
+            return
+        delta = total_kwh - last
+        if delta <= 0 or not plausible_rise(delta, last_at, moment):
             return
         start = interval_start(moment, self.interval_min)
         if self.intervals and self.intervals[-1].start == start:

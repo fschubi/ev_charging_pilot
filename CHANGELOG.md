@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.9 – 2026-10-25
+
+Ladeenergie und Kosten robust gegen Zähler-Aussetzer:
+- **Ein einzelner Fehlwert des Wallbox-Zählers erzeugt keine Phantomkosten mehr.** Meldete
+  die Halo-Cloud einmal 0 kWh statt des echten Zählerstands, zählte der Sprung zurück auf
+  den echten Wert als Ladeenergie – im Monatsbericht hätten dann rund 1000 kWh und mehrere
+  hundert Euro gestanden. Anstiege, die schneller sind, als eine Wallbox liefern kann,
+  werden jetzt verworfen (gemessen ab der letzten Zähleränderung, mit Spielraum für
+  verspätete Cloud-Werte).
+- **Zählerreset während einer Ladung:** Energie und Kosten der Session stimmen wieder
+  überein. Bisher stand 0 kWh in der Session, die Kosten aber zählten trotzdem.
+- Die Klimaenergie einer Session wird auch in Euro nie größer als der Netzbezug.
+
 ## 0.27.8 – 2026-10-25
 
 Hängende Wallbox-Cloud unterbricht keine Ladung mehr:

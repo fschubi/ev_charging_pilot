@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.4 Pause ohne neues Budget.** `Desired.held_key`: `window_key` liefert
-  ihn vor `reason|source|until`; Engine-Pause-Halten setzt `held_key=hold[1].window_key`
-  (vorher `valid_until=None` → neuer Schlüssel → frische `WindowAttempts`). Prüfbericht H1.
 - **2026-10-25 – v0.27.5 Shelly-Ausfall.** `health.CP_WAKEUP_ONLY = {CP_STATE_UNKNOWN}`:
   `blocks_automation`/`blocks_soc_functions` ignorieren ihn; Executor-Safety-Hold über
   `blocks_automation`, Klima-Sperre über `blocks_soc_functions`, Summary „Automatik gesperrt“
@@ -161,3 +158,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   GOOD): in `_in_charging` gilt Leistung als fließend, wenn `_halo_power_frozen` (LKV/STALE/
   unavailable in `_ingest_power`) und Auto lädt; `_escalate` weckt nie bei Auto lädt.
   Prüfbericht H5 (Pause → PAUSE_WAKE → CP-Puls mitten in der Ladung).
+- **2026-10-25 – v0.27.9 Zähler-Plausibilität.** `costs.plausible_rise` (≤ 25 kW × Zeit seit
+  letzter Änderung + 1 kWh); `IntervalAccumulator.last_at` (Zeit der letzten Änderung,
+  gespeichert) verwirft unplausible Anstiege; `grid_energy_kwh` = Intervall-Summe statt
+  Ende − Start; Klima-Zähler ebenso; Klimakosten mit kWh skaliert, wenn > Netz. Prüfbericht H6.

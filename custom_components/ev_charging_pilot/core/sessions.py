@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-from .costs import EnergyInterval, FixedPriceHistory, IntervalAccumulator
+from .costs import EnergyInterval, FixedPriceHistory, IntervalAccumulator, plausible_rise
 from .model import Event, Quality, Reason, Severity, Value
 
 FAILURE_CODES = ("CHARGE_START_FAILED", "CHARGER_NOT_CONFIRMED", "CHARGE_INTERRUPTED")
@@ -110,6 +110,7 @@ class SessionTracker:
         self._climate_kwh: dict[str, list[float]] = {}
         self._climate_at: datetime | None = None
         self._climate_counter: float | None = None
+        self._climate_counter_at: datetime | None = None
         self._climate_tail: datetime | None = None
         self._efficiency = 0.88
         # OVMS "energy of this charge" (v.c.kwh): first and latest reading in the session.
@@ -162,6 +163,7 @@ class SessionTracker:
             "open": self.open.as_dict() if self.open else None,
             "intervals": _intervals_to_dicts(self._acc.intervals),
             "last_kwh": self._acc.last_kwh,
+            "last_at": self._acc.last_at.isoformat() if self._acc.last_at else None,
             "pending_ovms": self._pending_ovms,
             "pending_cp": self._pending_cp,
             "enable_kwh": ([self._enable_kwh[0].isoformat(), self._enable_kwh[1]]
@@ -176,6 +178,8 @@ class SessionTracker:
         self._acc = IntervalAccumulator(self.interval_min)
         self._acc.intervals = _intervals_from_dicts(data.get("intervals") or [])
         self._acc.last_kwh = data.get("last_kwh")
+        last_at = data.get("last_at")
+        self._acc.last_at = datetime.fromisoformat(last_at) if last_at else None
         self._pending_ovms = bool(data.get("pending_ovms"))
         self._pending_cp = bool(data.get("pending_cp"))
         enable = data.get("enable_kwh")
@@ -301,9 +305,12 @@ class SessionTracker:
             now.replace(minute=minute, second=0, microsecond=0).isoformat(), [0.0, 0.0])
         if total_energy.available and total_energy.normalized is not None:
             counter = float(total_energy.normalized)
-            if self._climate_counter is not None and counter > self._climate_counter:
-                slot[0] += counter - self._climate_counter
-            self._climate_counter = counter
+            if counter != self._climate_counter:
+                if self._climate_counter is not None and counter > self._climate_counter \
+                        and plausible_rise(counter - self._climate_counter,
+                                           self._climate_counter_at, now):
+                    slot[0] += counter - self._climate_counter
+                self._climate_counter, self._climate_counter_at = counter, now
         last, self._climate_at = self._climate_at, (now if climate else None)
         if climate and last is not None and battery_power is not None \
                 and battery_power.quality is Quality.GOOD and battery_power.normalized is not None:
@@ -373,7 +380,12 @@ class SessionTracker:
             session.end_total_energy_kwh = self._acc.last_kwh
         elif total_energy.available and total_energy.normalized is not None:
             session.end_total_energy_kwh = float(total_energy.normalized)
-        if session.start_total_energy_kwh is not None and session.end_total_energy_kwh is not None:
+        if self._acc.last_kwh is not None:
+            # The sum of the plausible counter steps: unlike "end − start" it survives a
+            # meter reset or a glitch, and it is exactly what the costs are priced on.
+            session.grid_energy_kwh = self._acc.total_kwh
+        elif session.start_total_energy_kwh is not None \
+                and session.end_total_energy_kwh is not None:
             session.grid_energy_kwh = round(
                 max(0.0, session.end_total_energy_kwh - session.start_total_energy_kwh), 4)
         else:
@@ -398,6 +410,11 @@ class SessionTracker:
         if self._climate_kwh:
             shares = {slot: max(0.0, grid - battery / self._efficiency)
                       for slot, (grid, battery) in self._climate_kwh.items()}
+            total = sum(shares.values())
+            if total > session.grid_energy_kwh:
+                # Never more climate than grid – in kWh and in euros alike.
+                scale = session.grid_energy_kwh / total if total else 0.0
+                shares = {slot: kwh * scale for slot, kwh in shares.items()}
             session.climate_energy_kwh = round(min(sum(shares.values()),
                                                    session.grid_energy_kwh), 4)
             session.climate_cost_eur = round(sum(

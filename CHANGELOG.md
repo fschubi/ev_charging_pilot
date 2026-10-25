@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.27.22 – 2026-10-25
+
+Panel: kleine Anzeigefehler behoben:
+- **Fehlende Werte zeigen „–“** statt „0,0 kW“ oder „0,000 €/kWh“ (Max./Ø-Leistung, Ø-Preis).
+- **Deutsche Begriffe statt Codes:** Ort der Fremdladung („Öffentlich“ statt „public“) und
+  Qualität des Ladestands („veraltet“ statt „STALE“).
+- **Reichweitenanzeige:** „gestiegen um 3 km“ statt „gesunken um -3 km“.
+- **Außentemperatur** ohne leere Klammern, wenn die Quelle fehlt.
+- **Ladeplan:** Ein geleertes Uhrzeitfeld behält die alte Zeit (mit Hinweis), statt alle
+  weiteren Speicherungen zu blockieren; nach einem abgelehnten Speichern lädt das Panel
+  die gespeicherten Pläne neu.
+- **Shelly nicht erreichbar:** Der Hinweis heißt jetzt „CP-Wakeup gesperrt – Laden und Ziel
+  laufen weiter“ statt „Automatik gesperrt“ (seit v0.27.5 lädt der Pilot dann weiter).
+- **Zeitzone:** Uhrzeiten folgen der HA-Profileinstellung (Server- oder Browser-Zeitzone).
+- Überlappende Aktualisierungen werden nacheinander ausgeführt (kein doppeltes Laden).
+
 ## 0.27.21 – 2026-10-25
 
 Statistik rechnet genauer:

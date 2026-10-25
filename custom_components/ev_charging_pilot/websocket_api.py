@@ -129,6 +129,7 @@ def snapshot(center: ChargingCenter) -> dict[str, Any]:
             },
         },
         "health": {"status": str(engine.health.status), "reasons": list(engine.health.reasons),
+                   "blocks_automation": engine.health.blocks_automation,
                    "shelly_config_ok": engine.shelly_config_ok,
                    "shelly_deviations": center.shelly_deviations,
                    "shelly_host": bool(center.ports.shelly_host)},

@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.17 enforce_target.** `_arbitrate`: `enforce` (Klima läuft +
+  ENFORCE_TARGET) überspringt den Ziel-Hold-Zweig („held“); abgeschaltet wird nur über
+  `target_soc_wish` bei Ziel + `ENFORCE_TARGET_MARGIN_PCT`. Prüfbericht M4.
 - **2026-10-25 – v0.27.16 SOC-Ausreißer.** `Engine._track_soc_jumps`: GOOD-SOC-Sprung >
   `SOC_JUMP_PCT` (5) → `_confirmed` hält die Ziel-Abschaltung `TARGET_CONFIRM` (3 min) zurück;
   `_topping_up` (gespeichert): nach `fresh_below` kein „held“ mehr bis Ziel erreicht. Tests mit

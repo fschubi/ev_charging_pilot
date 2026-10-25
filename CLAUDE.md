@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.17 enforce_target.** `_arbitrate`: `enforce` (Klima läuft +
-  ENFORCE_TARGET) überspringt den Ziel-Hold-Zweig („held“); abgeschaltet wird nur über
-  `target_soc_wish` bei Ziel + `ENFORCE_TARGET_MARGIN_PCT`. Prüfbericht M4.
 - **2026-10-25 – v0.27.18 Pause gespeichert.** Engine `pause_hold` (Ziel + Desired ohne Klima,
   `held_key`) und Executor `pause_since`/`pause_woken` im Store; `_initial_state`: Halo an +
   Pause → PAUSED (bei Leistung CHARGING + `_clear_pause`). Prüfbericht M5.
@@ -160,3 +157,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   ÷ Σkm nur Fahrten mit Energie (auch ohne Distanz); `learn`: (Netz − Klima) ÷ ΔSOC;
   `external._charge_battery_kwh`: Anstieg ohne Abfall → `last`; Klima-Slots `[netz, akku, seen]`,
   ohne Akkuleistung 0 (außer Reason climate), Akku auch im Nachlauf. Prüfbericht M9 (+ N12).
+- **2026-10-25 – v0.27.22 Panel-Kleinigkeiten.** `toKw()` null-sicher, `SOURCE_TEXT`,
+  `QUALITY_TEXT` für SOC, Vorzeichen Reichweite, leere Zeit → alter Wert, `_savePlans`-Fehler
+  lädt Pläne neu, `_refresh` serialisiert (`_refreshOnce`), `HA_TZ` aus `hass.locale.time_zone`,
+  WS `health.blocks_automation` → Hinweis „CP-Wakeup gesperrt“. Prüfbericht Niedrig (Panel).

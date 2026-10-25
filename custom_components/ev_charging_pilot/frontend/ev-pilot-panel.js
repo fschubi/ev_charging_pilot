@@ -40,10 +40,16 @@ const num = (value, digits = 1, unit = "") =>
   value === null || value === undefined || Number.isNaN(Number(value))
     ? "–"
     : `${Number(value).toLocaleString("de-DE", { minimumFractionDigits: digits, maximumFractionDigits: digits })}${unit ? " " + unit : ""}`;
+// Times follow the HA profile: "server" time zone or the browser's (HA's default).
+let HA_TZ;
 const time = (iso) =>
-  iso ? new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "–";
+  iso ? new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: HA_TZ }) : "–";
 const dateTime = (iso) =>
-  iso ? new Date(iso).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "–";
+  iso ? new Date(iso).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: HA_TZ }) : "–";
+const hourOf = (t) => Number(new Date(t).toLocaleString("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: HA_TZ }));
+// W → kW without turning a missing value into "0,0".
+const toKw = (watts) => (watts === null || watts === undefined ? null : watts / 1000);
+const SOURCE_TEXT = { public: "Öffentlich", workplace: "Arbeitgeber", other_home: "Andere Wallbox" };
 // Charging current choices: "" keeps the wallbox setting (or the default from the settings).
 const AMPS = [6, 8, 10, 12, 14, 16];
 const ampsKw = (a, phases) => `${(a * (phases || 3) * 0.23).toLocaleString("de-DE", { maximumFractionDigits: 1 })} kW`;
@@ -61,7 +67,8 @@ const dateOnly = (iso) => {
   if (!iso) return "–";
   // A bare date ("2026-10-31") is a local day – new Date() would read it as UTC midnight.
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  return (m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso)).toLocaleDateString("de-DE");
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("de-DE")
+    : new Date(iso).toLocaleDateString("de-DE", { timeZone: HA_TZ });
 };
 
 // ------------------------------------------------------------------ graphics
@@ -220,7 +227,7 @@ function timelineSvg(s) {
   const hour = 3600e3;
   for (let t = Math.ceil(startT / hour) * hour; t <= endT; t += hour * (span > 14 * hour ? 2 : 1)) {
     ticks.push(`<line x1="${X(t).toFixed(1)}" y1="${bottom}" x2="${X(t).toFixed(1)}" y2="${bottom + 4}" stroke="var(--secondary-text-color)"/>
-      <text x="${X(t).toFixed(1)}" y="${bottom + 16}" text-anchor="middle" class="tl">${new Date(t).getHours()}</text>`);
+      <text x="${X(t).toFixed(1)}" y="${bottom + 16}" text-anchor="middle" class="tl">${hourOf(t)}</text>`);
   }
   // Labels sit beside their line: "fertig" to the left, everything else to the right.
   // Lines close together (climate 05:23, departure 05:30) must not print their labels
@@ -728,6 +735,8 @@ class EvPilotPanel extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
+    HA_TZ = hass.locale && hass.locale.time_zone === "server" && hass.config
+      ? hass.config.time_zone : undefined;
     if (first) this._start();
   }
 
@@ -853,6 +862,23 @@ class EvPilotPanel extends HTMLElement {
   }
 
   async _refresh() {
+    // The interval and button actions may overlap: run one at a time, then once more.
+    if (this._refreshing) {
+      this._refreshAgain = true;
+      return;
+    }
+    this._refreshing = true;
+    try {
+      do {
+        this._refreshAgain = false;
+        await this._refreshOnce();
+      } while (this._refreshAgain);
+    } finally {
+      this._refreshing = false;
+    }
+  }
+
+  async _refreshOnce() {
     await this._checkPriceLink();
     try {
       this._state = await this._ws("state");
@@ -1052,6 +1078,11 @@ class EvPilotPanel extends HTMLElement {
           plan[field] = el.checked;
         } else if (el.type === "number") {
           plan[field] = Number(el.value);
+        } else if (el.type === "time" && !el.value) {
+          // An emptied time is no plan – keep the old one instead of blocking every save.
+          el.value = plan[field] || "";
+          this._toast("Bitte eine Uhrzeit angeben");
+          break;
         } else {
           plan[field] = el.value;
         }
@@ -1215,6 +1246,9 @@ class EvPilotPanel extends HTMLElement {
       await this._refresh();
     } catch (err) {
       this._toast(`Fehler: ${err.message || err}`);
+      // Reload the stored plans: a rejected value must not block every later save.
+      this._plans = null;
+      await this._refresh();
     }
   }
 
@@ -1480,8 +1514,11 @@ class EvPilotPanel extends HTMLElement {
     const reasons = s.health.reasons.map((r) => `<p class="reason">${esc(HEALTH_TEXT[r] || r)}</p>`).join("");
     // The status sentence already says "Probebetrieb"; the header badge shows the mode.
     const notice = "";
-    const errorBox = health === "ERROR"
-      ? `<div class="notice bad"><b>Automatik gesperrt.</b>${reasons}</div>` : "";
+    // An unreachable Shelly alone only locks the CP wakeup – charging goes on (§8.2).
+    const errorBox = health !== "ERROR" ? ""
+      : s.health.blocks_automation === false
+        ? `<div class="notice warn"><b>CP-Wakeup gesperrt</b> – Laden und Ziel laufen weiter.${reasons}</div>`
+        : `<div class="notice bad"><b>Automatik gesperrt.</b>${reasons}</div>`;
     return `${notice}${errorBox}
     <div class="grid">
       <div class="card wide">
@@ -1491,7 +1528,7 @@ class EvPilotPanel extends HTMLElement {
             ${batterySvg({ charging, error: health === "ERROR" || !!ex.failure_code, soc: soc ? soc.value : null,
               min: w ? w.minimum_soc_pct : null, pref: w ? w.preferred_soc_pct : null })}
             ${this._sohChip(s)}
-            ${soc && soc.quality !== "GOOD" ? `<div class="hint"><span class="pill ${QUALITY_CLASS[soc.quality]}">${soc.quality === "LAST_KNOWN_VALID" ? "letzter bekannter Ladestand – Auto schläft" : esc(soc.quality)}</span></div>` : ""}
+            ${soc && soc.quality !== "GOOD" ? `<div class="hint"><span class="pill ${QUALITY_CLASS[soc.quality]}">${soc.quality === "LAST_KNOWN_VALID" ? "letzter bekannter Ladestand – Auto schläft" : esc(QUALITY_TEXT[soc.quality] || soc.quality)}</span></div>` : ""}
             ${!this._photoUrl ? `<div class="hint">Eigenes Fahrzeugfoto: Reiter „Einstellungen“</div>` : ""}
             ${s.summary ? `<div class="status tone-${esc(s.summary.tone)}"><div class="big">${esc(s.summary.headline)}</div>
               ${s.summary.detail ? `<div class="sdetail">${esc(s.summary.detail)}</div>` : ""}</div>`
@@ -1755,7 +1792,7 @@ class EvPilotPanel extends HTMLElement {
       <div class="card wide"><h2>Lade-Sessions</h2><div class="scroll"><table>
         <tr><th>Start</th><th>Ende</th><th class="n">kWh</th><th class="n">€</th><th class="n">max kW</th><th class="n">Klima</th><th>Grund</th><th>Wakeup</th><th>Ergebnis</th></tr>
         ${sessions.map((x) => `<tr class="sess-row${this._sessionOpen === x.session_id ? " open" : ""}" data-session="${esc(x.session_id)}" title="Details anzeigen"><td>${dateTime(x.started_at)}</td><td>${time(x.ended_at)}</td><td class="n">${num(x.grid_energy_kwh, 2)}</td>
-          <td class="n">${num(x.cost_eur, 2)}</td><td class="n">${num(x.max_power_w / 1000, 1)}</td>
+          <td class="n">${num(x.cost_eur, 2)}</td><td class="n">${num(toKw(x.max_power_w), 1)}</td>
           <td class="n">${x.climate_energy_kwh !== null && x.climate_energy_kwh !== undefined ? `${num(x.climate_energy_kwh, 2, "kWh")} · ${num(x.climate_cost_eur, 2, "€")}` : "–"}</td><td>${esc(REASON_LABELS[x.reason] || x.reason)}</td>
           <td>${x.ovms_wakeup_used ? "OVMS " : ""}${x.cp_wakeup_used ? "CP" : ""}</td>
           <td>${x.success ? `<span class="pill ok">ok</span>` : `<span class="pill bad">${esc(FAILURE_LABELS[x.failure_code] || x.failure_code || "Fehler")}</span>`}</td></tr>
@@ -1772,7 +1809,8 @@ class EvPilotPanel extends HTMLElement {
     // Same plausibility bound as the statistics: sparse OVMS samples can over- or undershoot.
     const rawLoss = vehicle && d.grid_energy_kwh ? (1 - vehicle / d.grid_energy_kwh) * 100 : null;
     const loss = rawLoss !== null && rawLoss >= 0 && rawLoss <= 40 ? rawLoss : null;
-    const avgPrice = d.grid_energy_kwh ? d.cost_eur / d.grid_energy_kwh : null;
+    const avgPrice = d.grid_energy_kwh && d.cost_eur !== null && d.cost_eur !== undefined
+      ? d.cost_eur / d.grid_energy_kwh : null;
     const row = (label, value) => `<div class="row"><span>${label}</span><b>${value}</b></div>`;
     const chart = sessionSvg(d);
     const source = d.trace_source === "recorder"
@@ -1786,7 +1824,7 @@ class EvPilotPanel extends HTMLElement {
           ${row("Wecken", d.ovms_wakeup_used || d.cp_wakeup_used ? `${d.ovms_wakeup_used ? "OVMS " : ""}${d.cp_wakeup_used ? "CP-Puls" : ""}` : "nicht nötig")}</div>
         <div>${row("Netz (Wallbox-Zähler)", num(d.grid_energy_kwh, 2, "kWh"))}${row("Im Akku (OVMS)", num(vehicle, 2, "kWh"))}
           ${row("Ladeverlust", num(loss, 0, "%"))}${row("Zähler", `${num(d.start_total_energy_kwh, 2)} → ${num(d.end_total_energy_kwh, 2, "kWh")}`)}</div>
-        <div>${row("SOC", `${num(d.start_soc_pct, 0, "%")} → ${num(d.end_soc_pct, 0, "%")}`)}${row("Leistung Ø / max", `${num(d.average_power_w / 1000, 1)} / ${num(d.max_power_w / 1000, 1, "kW")}`)}
+        <div>${row("SOC", `${num(d.start_soc_pct, 0, "%")} → ${num(d.end_soc_pct, 0, "%")}`)}${row("Leistung Ø / max", `${num(toKw(d.average_power_w), 1)} / ${num(toKw(d.max_power_w), 1, "kW")}`)}
           ${row("Kosten", num(d.cost_eur, 2, "€"))}${row("Ø Preis", num(avgPrice, 3, "€/kWh"))}
           ${d.climate_energy_kwh !== null && d.climate_energy_kwh !== undefined ? row("davon Vorklimatisierung", `${num(d.climate_energy_kwh, 2, "kWh")} · ${num(d.climate_cost_eur, 2, "€")}`) : ""}</div>
       </div>
@@ -1821,7 +1859,7 @@ class EvPilotPanel extends HTMLElement {
           ${row("Netto", num(net, 2, "kWh"))}${row("davon Nebenverbraucher", num(d.auxiliary_energy_kwh, 2, "kWh"))}</div>
         <div>${row("Verbrauch", num(d.consumption_kwh_100km, 1, "kWh/100 km"))}${row("SOC", `${num(d.soc_start_pct, 0, "%")} → ${num(d.soc_end_pct, 0, "%")}`)}
           ${row("Außentemperatur", num(d.outside_temp_avg_c, 1, "°C"))}
-          ${d.range_start_km !== null && d.range_start_km !== undefined ? row("Reichweitenanzeige", `${num(d.range_start_km, 0)} → ${num(d.range_end_km, 0, "km")} (gesunken um ${num(d.range_used_km, 0, "km")})`) : ""}
+          ${d.range_start_km !== null && d.range_start_km !== undefined ? row("Reichweitenanzeige", `${num(d.range_start_km, 0)} → ${num(d.range_end_km, 0, "km")} (${d.range_used_km < 0 ? `gestiegen um ${num(-d.range_used_km, 0, "km")}` : `gesunken um ${num(d.range_used_km, 0, "km")}`})`) : ""}
           ${d.style ? row("Fahrstil", `<b>${num(d.style.score, 0)}</b> von 100 · sanft beschleunigt ${num(d.style.gentle, 0)} · gleichmäßig ${num(d.style.steady, 0)} · vorausschauend ${num(d.style.anticipating, 0)}`) : ""}
           ${d.range_accuracy_pct ? row("Gefahren gegen Anzeige", `${num(d.distance_km, 1, "km")} für ${num(d.range_used_km, 0, "km")} Anzeige → ${rangeVs(d.range_accuracy_pct) === "genau" ? "genau wie angezeigt" : `${rangeVs(d.range_accuracy_pct)} als angezeigt`}`) : ""}${row("Kosten zu Hause*", d.cost_eur !== null && d.cost_eur !== undefined ? `${num(d.cost_eur, 2, "€")} (${num(d.grid_energy_kwh, 2, "kWh")} Netz)` : "–")}</div>
       </div>
@@ -1906,7 +1944,7 @@ class EvPilotPanel extends HTMLElement {
           <button class="act primary" data-action="external-add">Speichern</button>
         </div></details>
         <div class="scroll"><table><tr><th>Datum</th><th>Ort</th><th class="n">kWh</th><th class="n">€</th><th>Anbieter</th><th></th></tr>
-          ${external.map((e) => `<tr><td>${dateOnly(e.date)}</td><td>${esc(e.source)}</td><td class="n">${num(e.energy_kwh, 2)}</td>
+          ${external.map((e) => `<tr><td>${dateOnly(e.date)}</td><td>${esc(SOURCE_TEXT[e.source] || e.source)}</td><td class="n">${num(e.energy_kwh, 2)}</td>
             <td class="n">${num(e.cost_eur ?? (e.price_eur_kwh ? e.price_eur_kwh * e.energy_kwh : null), 2)}</td>
             <td>${esc(e.provider || "")} ${e.detected ? `<span class="pill warn">erkannt · geschätzt</span>` : ""}</td>
             <td>${e.detected ? `<button class="act" data-action="external-cost" data-id="${esc(e.id)}">Ergänzen</button> ` : ""}<button class="act danger" data-service="delete_external_charge" data-payload='${esc(JSON.stringify({ id: e.id }))}' data-confirm="Fremdladung löschen?">×</button></td></tr>`).join("") || `<tr><td colspan="6" class="sub">Keine Fremdladungen.</td></tr>`}
@@ -2015,7 +2053,7 @@ class EvPilotPanel extends HTMLElement {
         ${this._vehicleLinkRows(s)}
         <div class="row"><span>HV-Zyklen heute</span><span>${s.hv_cycles_today ?? "–"}</span></div>
         <div class="row"><span>12 V</span><span>${s.values.ovms_12v ? num(s.values.ovms_12v.value, 1, "V") : "–"}</span></div>
-        <div class="row"><span>Außentemperatur</span><span>${num(s.outside_temperature.value, 1, "°C")} (${esc(s.outside_temperature.source)})</span></div></div>
+        <div class="row"><span>Außentemperatur</span><span>${num(s.outside_temperature.value, 1, "°C")}${s.outside_temperature.source ? ` (${esc(s.outside_temperature.source)})` : ""}</span></div></div>
       <div class="card wide"><h2>Datenqualität je Wert</h2><div class="scroll"><table>
         <tr><th>Wert</th><th>Entität</th><th class="n">Wert</th><th class="n">Alter</th><th>Qualität</th></tr>${values}</table></div></div>
       <div class="card wide"><h2>Event Log</h2>

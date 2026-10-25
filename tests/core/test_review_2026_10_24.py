@@ -6,7 +6,11 @@ Each scenario was reproduced with this simulation before the fix.
 from datetime import datetime, time
 
 from custom_components.ev_charging_pilot.core.inputs import Inp
-from custom_components.ev_charging_pilot.core.planner import WEEKDAYS, WeeklySchedule
+from custom_components.ev_charging_pilot.core.planner import (
+    WEEKDAYS,
+    ScheduleMode,
+    WeeklySchedule,
+)
 from custom_components.ev_charging_pilot.core.ports import CommandKind
 
 from .world import TZ, WITH_OVMS, World
@@ -48,3 +52,47 @@ def test_k2_sleeping_car_below_its_target_is_still_woken():
     _plan(world)
     world.run(7 * 3600)
     assert CommandKind.OVMS_WAKEUP in world.commands
+
+
+class SleepyCar(World):
+    """Sleeps until a CP pulse, then charges and reports a rising SOC over OVMS;
+    from ``refuse_after`` on it stops taking power (pause below the target)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.awake = False
+        self.refuse_after = None
+        self.soc = 50.0
+        self.set(Inp.OVMS_SOC, "50.0")
+        self.set(Inp.OVMS_CHARGING, "off")
+
+    def tick(self, seconds=5):
+        self.car_charges_when_enabled = self.awake and not (
+            self.refuse_after and self.now >= self.refuse_after)
+        result = super().tick(seconds)
+        if any(c.kind is CommandKind.CP_PULSE for c in result.commands):
+            self.awake = True
+        if float(self.states[Inp.CHARGE_POWER][0]) > 0:
+            self.soc += 0.01
+            self.set(Inp.OVMS_CHARGING, "on")
+        elif self.states[Inp.OVMS_CHARGING][0] == "on":
+            self.set(Inp.OVMS_CHARGING, "off")
+        if self.awake:
+            self.set(Inp.OVMS_SOC, f"{self.soc:.2f}")
+        return result
+
+
+def test_h1_paused_charge_after_the_window_gets_no_second_wakeup_budget():
+    """H1: holding a paused charge past the window changed its key – the pause recovery
+    then woke the car a second time over OVMS and CP in the same night (rule 3)."""
+    start = datetime(2026, 10, 20, 2, 55, tzinfo=TZ)
+    world = SleepyCar(start, configured=WITH_OVMS, cp_pulse=True, ovms_port=True,
+                      ovms_enabled=True, cp_failsafe_verified=True)
+    world.engine.set_plans(start, [WeeklySchedule(
+        id="p", weekdays=frozenset(WEEKDAYS), mode=ScheduleMode.FIXED_START,
+        charge_start_time=time(3, 0), departure_time=time(5, 30), ready_buffer_min=0)])
+    world.refuse_after = datetime(2026, 10, 20, 5, 20, tzinfo=TZ)
+    world.run(4 * 3600)
+    assert "CHARGE_PAUSED" in world.events and "PAUSE_HOLD" in world.events
+    assert world.commands.count(CommandKind.OVMS_WAKEUP) == 1
+    assert world.commands.count(CommandKind.CP_PULSE) == 1

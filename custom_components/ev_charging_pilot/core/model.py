@@ -122,10 +122,15 @@ class Desired:
     wake_allowed: bool = True
     # Charging current to set at the wallbox (None = leave it as it is).
     current_a: int | None = None
+    # Set when a request outlives its window (paused charge held until unplugged):
+    # it keeps the window's key and with it the wakeup budget already spent (rule 3).
+    held_key: str | None = None
 
     @property
     def window_key(self) -> str:
         """Identifies one charging window – wakeup attempts are counted per key."""
+        if self.held_key:
+            return self.held_key
         until = self.valid_until.isoformat() if self.valid_until else "-"
         return f"{self.reason}|{self.source_id or '-'}|{until}"
 

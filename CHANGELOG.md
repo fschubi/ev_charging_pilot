@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.4 – 2026-10-25
+
+Ladepause: höchstens ein Weckversuch je Art und Nacht:
+- **Kein zweites Wecken nach einer Ladepause.** Pausierte die Ladung unter dem Ziel und
+  hielt der Pilot die Wallbox über das Fensterende (bzw. Preisblock-Ende) frei, galt das
+  intern als neues Ladefenster – mit frischen Weckversuchen. In einer Nacht konnte das Auto
+  so zweimal per OVMS und zweimal per CP-Puls geweckt werden. Jetzt zählt die gehaltene
+  Pause zum ursprünglichen Fenster: Ist dessen Weckversuch verbraucht, wird nur noch
+  gewartet („Ladung pausiert – Wallbox bleibt frei“).
+
 ## 0.27.3 – 2026-10-25
 
 Ein volles Auto wird nicht mehr geweckt:

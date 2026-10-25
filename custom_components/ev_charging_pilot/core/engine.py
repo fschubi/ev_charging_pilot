@@ -859,7 +859,7 @@ class Engine:
         if hold is not None and plugged_in and desired.reason is Reason.DEFAULT_OFF:
             # A charge paused below its target keeps its wallbox until the cable is
             # pulled – also after the window or price block (Frank, 20.10.2026).
-            desired = replace(hold[1], valid_until=None)
+            desired = replace(hold[1], valid_until=None, held_key=hold[1].window_key)
         return desired
 
     def _soc_text(self) -> str:

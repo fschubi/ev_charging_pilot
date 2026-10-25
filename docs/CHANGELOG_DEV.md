@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-22 – v0.26.0 Reichweite je Fahrt.** `Trip.range_start_km/range_end_km` (OVMS_RANGE,
+  Ende bis 2 min nach Aus), Properties `range_used_km`, `range_accuracy_pct` (km ÷ Anzeige-km);
+  `temperature_statistics` → `range_accuracy_pct` je Gruppe; `async_backfill_trip_range`
+  (Recorder, 10 Tage); Panel-Spalte „Reichweite“ + Gruppen-Spalte „Reichweite stimmt“.
 - **2026-10-22 – v0.25.2 Eingefrorene Ladeleistung.** `ExternalChargeDetector`: Leistung nur
   bei Änderung binnen `POWER_FRESH` (10 min) oder frischem Flag, nie bei Flag „aus“;
   `_finish_live` verwirft ohne `charge_energy`-Anstieg und < `MIN_SOC_RISE_PCT` (2 %). Feld:

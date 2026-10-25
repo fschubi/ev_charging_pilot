@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.8 Halo eingefroren.** `Executor._vehicle_charging(snap)` (OVMS-Flag
+  GOOD): in `_in_charging` gilt Leistung als fließend, wenn `_halo_power_frozen` (LKV/STALE/
+  unavailable in `_ingest_power`) und Auto lädt; `_escalate` weckt nie bei Auto lädt.
+  Prüfbericht H5 (Pause → PAUSE_WAKE → CP-Puls mitten in der Ladung).
 - **2026-10-25 – v0.27.7 Dry-Run → Live.** `Executor.set_shadow`: beim Wechsel in den
   Probebetrieb Live-Stand (`_attempts`, `_failed_window`, `_ended_window`, `failure_code`) in
   `_live_windows` sichern, Probebetrieb arbeitet auf Kopie; zurück zu Live → gesicherter Stand,

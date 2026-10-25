@@ -251,3 +251,23 @@ def test_m2_normalized_value_carries_its_own_unit():
     assert (round(power.normalized, 2), power.unit) == (9139.37, "W")
     energy = to_value(Inp.TOTAL_ENERGY, RawState("41220", at, at, {"unit_of_measurement": "Wh"}))
     assert (energy.normalized, energy.unit) == (41.22, "kWh")
+
+
+def test_m7_infinite_readings_are_invalid_and_never_crash_the_tick():
+    """"inf" (or "1e308 kW", infinite in W) passed as GOOD – round() in the session
+    trace then raised on every tick and its commands were lost."""
+    from custom_components.ev_charging_pilot.core.inputs import RawState, to_value
+    from custom_components.ev_charging_pilot.core.model import Quality
+
+    at = datetime(2026, 10, 24, 23, 0, tzinfo=TZ)
+    for state, unit in (("inf", "W"), ("nan", "W"), ("1e308", "kW"), ("-inf", "W")):
+        value = to_value(Inp.CHARGE_POWER, RawState(state, at, at, {"unit_of_measurement": unit}))
+        assert value.quality is Quality.INVALID and value.normalized is None
+    world = FillingCar(datetime(2026, 10, 20, 2, 55, tzinfo=TZ), soc=50.0,
+                       configured=WITH_OVMS)
+    _fixed_night_plan(world)
+    world.run(15 * 60)
+    world.states[Inp.CHARGE_POWER] = ("inf", {"unit_of_measurement": "W"})
+    world.engine.tick(world.now, world.raw())
+    world.set(Inp.OVMS_BATTERY_POWER, "1e308", unit_of_measurement="kW")
+    world.engine.tick(world.now, world.raw())

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.27.13 – 2026-10-25
+
+Unsinnige Sensorwerte legen den Piloten nicht mehr lahm:
+- **„inf“, „nan“ oder überlaufende Werte gelten als ungültig.** Meldete ein Sensor z. B.
+  „inf“ als Leistung, rechnete der Pilot damit weiter und stürzte während einer Ladung oder
+  Fahrt bei jedem Takt ab – die Schaltbefehle dieses Takts gingen verloren, solange der
+  Wert anstand. Solche Werte sind jetzt „ungültig“ wie ein unlesbarer Text.
+
 ## 0.27.12 – 2026-10-25
 
 Diagnose zeigt Werte mit der richtigen Einheit:

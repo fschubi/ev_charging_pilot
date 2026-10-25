@@ -7,6 +7,7 @@ so that live operation and replay interpret the data identically.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
@@ -140,9 +141,11 @@ class RawState:
 
 def _float(text: Any) -> float | None:
     try:
-        return float(text)
-    except (TypeError, ValueError):
+        number = float(text)
+    except (TypeError, ValueError, OverflowError):
         return None
+    # "inf"/"nan" are no measurement – and round() on them crashed the tick
+    return number if math.isfinite(number) else None
 
 
 def _hv_cycles(state: Any) -> float | None:
@@ -202,4 +205,6 @@ def to_value(key: Inp, raw: RawState | None) -> Value:
     elif kind is Kind.ENERGY_KWH and unit == "Wh":
         number /= 1000
         unit = "kWh"
+    if not math.isfinite(number):  # e.g. "1e308 kW" overflows in W
+        return Value(raw.state, None, source, stamp, Quality.INVALID, unit)
     return Value(raw.state, number, source, stamp, unit=unit)

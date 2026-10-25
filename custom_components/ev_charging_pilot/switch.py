@@ -55,4 +55,5 @@ class DryRunSwitch(ChargingEntity, SwitchEntity):
         await self.center.async_set_mode(RunMode.DRY_RUN)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.async_require_admin()
         await self.center.async_set_mode(RunMode.LIVE)

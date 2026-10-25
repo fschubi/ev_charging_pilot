@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.exceptions import Unauthorized
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
@@ -31,6 +32,16 @@ class ChargingEntity(Entity):
     @property
     def engine(self):
         return self.center.engine
+
+    async def async_require_admin(self) -> None:
+        """Going live or clearing the wakeup counters is for admins, like the settings.
+        Calls without a user (automations, scripts) were set up by an admin."""
+        context = self._context
+        if context is None or not context.user_id:
+            return
+        user = await self.hass.auth.async_get_user(context.user_id)
+        if user is None or not user.is_admin:
+            raise Unauthorized(context=context)
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self.center.async_add_listener(self.async_write_ha_state))

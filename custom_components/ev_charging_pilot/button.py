@@ -22,6 +22,7 @@ from .entity import ChargingEntity
 class ChargingButtonDescription(ButtonEntityDescription):
     press: Callable[[Engine, datetime], TickResult]
     requires: Inp | None = None
+    admin: bool = False
 
 
 BUTTONS: tuple[ChargingButtonDescription, ...] = (
@@ -36,7 +37,8 @@ BUTTONS: tuple[ChargingButtonDescription, ...] = (
     ChargingButtonDescription(
         key="cp_wakeup", requires=Inp.CP_RELAY,
         press=lambda e, now: e.wakeup(now, CommandKind.CP_PULSE)),
-    ChargingButtonDescription(key="reset_error", press=lambda e, now: e.reset(now)),
+    # Resetting also clears the wakeup counters of the window (rule 3): admins only.
+    ChargingButtonDescription(key="reset_error", admin=True, press=lambda e, now: e.reset(now)),
     ChargingButtonDescription(
         key="climate_5min", requires=Inp.OVMS_SOC, press=lambda e, now: e.start_climate(now, 5)),
     ChargingButtonDescription(
@@ -71,5 +73,7 @@ class ChargingButton(ChargingEntity, ButtonEntity):
         super().__init__(center, description.key)
 
     async def async_press(self) -> None:
+        if self.entity_description.admin:
+            await self.async_require_admin()
         await self.center.async_run(
             lambda now: self.entity_description.press(self.engine, now))

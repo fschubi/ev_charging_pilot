@@ -124,7 +124,7 @@ SCHEMAS: dict[str, vol.Schema] = {
 }
 # Device configuration, real e-mails and file access: admins only (automations may).
 ADMIN_SERVICES = {"configure_shelly", "send_report_mail", "create_replay_dataset",
-                  "start_replay", "export"}
+                  "start_replay", "export", "reset_error"}
 RESPONSE = {"add_external_charge", "export", "start_replay", "create_replay_dataset",
             "create_report", "refresh_prices", "configure_shelly", "send_report_mail"}
 

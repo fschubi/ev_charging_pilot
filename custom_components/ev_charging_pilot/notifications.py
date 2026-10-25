@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ACTION_EXT_PRICE,
@@ -28,6 +30,9 @@ ACTIONS = (
 )
 EXTRA_ACTIONS = {"retry": {"action": ACTION_RETRY, "title": "Erneut versuchen"}}
 MOBILE_ACTION_EVENT = "mobile_app_notification_action"
+# A push button only works for a while after the push and only once: any other
+# "mobile_app_notification_action" (another device, an automation) is ignored.
+OFFER_VALID = timedelta(hours=12)
 
 
 def _de(price: float) -> str:
@@ -52,6 +57,9 @@ class Notifier:
         self.service = target.removeprefix("notify.") or None
         # Quick-pick prices of the external charge push (from the settings).
         self.price_buttons: tuple[float, ...] = ()
+        # Offered action → (valid until, id of its push): one answer per push.
+        self._offered: dict[str, tuple[datetime, int]] = {}
+        self._pushes = 0
 
     async def async_send(self, notification: Notification, service: str | None = None) -> None:
         """Push to the configured phone, or to ``service`` (notify.mobile_app_…)."""
@@ -71,6 +79,10 @@ class Notifier:
         elif notification.actions:
             data["actions"] = [action for a in notification.actions
                                for action in _actions(a, self.price_buttons)]
+        if data.get("actions"):
+            self._pushes += 1
+            until = dt_util.utcnow() + OFFER_VALID
+            self._offered.update({a["action"]: (until, self._pushes) for a in data["actions"]})
         # Tapping a push opens the panel (iOS: url, Android: clickAction).
         data["url"] = data["clickAction"] = notification.url or "/ev-pilot"
         try:
@@ -91,8 +103,15 @@ class Notifier:
         @callback
         def on_action(event: Event) -> None:
             action = str(event.data.get("action") or "")
-            if action in (ACTION_PLAN, ACTION_TONIGHT, ACTION_NOW, ACTION_RETRY) \
-                    or action.startswith(f"{ACTION_EXT_PRICE}|"):
-                self.hass.async_create_task(handler(action, event.data.get("reply_text")))
+            if not (action in (ACTION_PLAN, ACTION_TONIGHT, ACTION_NOW, ACTION_RETRY)
+                    or action.startswith(f"{ACTION_EXT_PRICE}|")):
+                return
+            offer = self._offered.get(action)
+            if offer is None or offer[0] < dt_util.utcnow():
+                _LOGGER.info("Push-Aktion %s ignoriert – nicht (mehr) angeboten", action)
+                return
+            # One answer per push: its other buttons are spent, too.
+            self._offered = {k: v for k, v in self._offered.items() if v[1] != offer[1]}
+            self.hass.async_create_task(handler(action, event.data.get("reply_text")))
 
         return self.hass.bus.async_listen(MOBILE_ACTION_EVENT, on_action)

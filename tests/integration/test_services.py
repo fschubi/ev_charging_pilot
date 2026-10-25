@@ -151,7 +151,18 @@ async def test_price_typed_into_the_push_completes_the_external_charge(hass, ent
     center.monitor.add_external(ExternalCharge(
         "auto-202610171200", dt_util.now().date(), "public", 10.0, price_eur_kwh=0.59,
         detected=True, quality="ESTIMATED"))
-    # Quick-pick button in the push.
+    # Quick-pick button in the push – only a button that was offered counts.
+    hass.bus.async_fire("mobile_app_notification_action", {
+        "action": f"{ACTION_EXT_PRICE}|auto-202610171200|0.49"})
+    await hass.async_block_till_done()
+    assert center.monitor.data.external[0].price_eur_kwh == 0.59
+    from custom_components.ev_charging_pilot.core.engine import Notification
+
+    async_mock_service(hass, "notify", "mobile_app_phone")
+    center.notifier.price_buttons = (0.39, 0.49)
+    await center.notifier.async_send(
+        Notification("external", "normal", "Fremdladung", "Preis?",
+                     actions=("ext_price:auto-202610171200",)), "notify.mobile_app_phone")
     hass.bus.async_fire("mobile_app_notification_action", {
         "action": f"{ACTION_EXT_PRICE}|auto-202610171200|0.49"})
     await hass.async_block_till_done()

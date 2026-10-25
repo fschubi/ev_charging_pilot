@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.27.20 – 2026-10-25
+
+Rechte: Live-Schalter, Fehler-Reset und Push-Knöpfe abgesichert:
+- **Live-Betrieb einschalten nur für Admins.** Der Modus ist in den Einstellungen schon
+  Admin-Sache; über den Schalter „Probebetrieb“ konnte ihn aber jeder Benutzer auf Live
+  stellen. Jetzt nur noch Admins (und Automationen); zurück in den Probebetrieb darf
+  weiterhin jeder.
+- **„Fehler zurücksetzen“ nur für Admins** (Button und Dienst), weil es auch die
+  Weckversuche des Ladefensters zurücksetzt.
+- **Push-Knöpfe gelten nur für den eigenen Push.** Bisher startete *jedes*
+  „mobile_app_notification_action“-Ereignis mit passender Aktion das Laden – von jedem
+  Gerät oder aus einer Automation, beliebig oft. Jetzt wirkt ein Knopf nur, wenn der Pilot
+  ihn in den letzten 12 Stunden per Push angeboten hat, und nur einmal pro Push.
+  Nach einem HA-Neustart sind ältere Pushes nicht mehr bedienbar – dann über das Panel.
+
 ## 0.27.19 – 2026-10-25
 
 Zwei Preisblöcke: der zweite Block ist kein Fehlstart mehr:

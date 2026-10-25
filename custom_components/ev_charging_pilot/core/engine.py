@@ -1401,6 +1401,7 @@ class Engine:
             "last_result": self.last_result,
             "reminder_day": self._reminder_day.isoformat() if self._reminder_day else None,
             "target_hold": self._target_hold,
+            "pause_hold": _pause_hold_to_dict(self._pause_hold),
             "topping_up": self._topping_up,
             "failure_window": self._failure_window,
             "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
@@ -1437,6 +1438,7 @@ class Engine:
         day = data.get("reminder_day")
         self._reminder_day = date.fromisoformat(day) if day else None
         self._target_hold = data.get("target_hold")
+        self._pause_hold = _pause_hold_from_dict(data.get("pause_hold"))
         self._topping_up = data.get("topping_up")
         self._failure_window = data.get("failure_window")
         offer, unplug = data.get("plug_offer_at"), data.get("last_unplug_at")
@@ -1452,3 +1454,33 @@ class Engine:
                 datetime.fromisoformat(lock["until"]))
             self.climate_phase = lock.get("phase")
             self._climate_restarts = int(lock.get("restarts", 0))
+
+
+def _pause_hold_to_dict(hold: tuple[int | None, Desired] | None) -> dict | None:
+    if hold is None:
+        return None
+    target, desired = hold
+    return {
+        "target": target, "charger_enabled": desired.charger_enabled,
+        "reason": str(desired.reason), "source_id": desired.source_id,
+        "valid_until": desired.valid_until.isoformat() if desired.valid_until else None,
+        "wake_allowed": desired.wake_allowed, "current_a": desired.current_a,
+        "window_key": desired.window_key,
+    }
+
+
+def _pause_hold_from_dict(data: dict | None) -> tuple[int | None, Desired] | None:
+    """The climate request is not kept: it has a plan of its own."""
+    if not data:
+        return None
+    try:
+        until = data.get("valid_until")
+        desired = Desired(
+            charger_enabled=data.get("charger_enabled"), reason=Reason(data["reason"]),
+            source_id=data.get("source_id"),
+            valid_until=datetime.fromisoformat(until) if until else None,
+            wake_allowed=bool(data.get("wake_allowed", True)), current_a=data.get("current_a"),
+            held_key=data.get("window_key"))
+    except (KeyError, ValueError):
+        return None
+    return data.get("target"), desired

@@ -345,6 +345,9 @@ class Executor:
             "last_wakeup_at": self._last_wakeup_at.isoformat() if self._last_wakeup_at else None,
             # A restart during the climate window must not send the command twice.
             "climate_sent": self._climate_sent,
+            # A paused charge keeps its wallbox until unplugged – also across a restart.
+            "pause_since": self._pause_since.isoformat() if self._pause_since else None,
+            "pause_woken": self._pause_woken,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -361,6 +364,9 @@ class Executor:
         self._last_switch_at = datetime.fromisoformat(switch_at) if switch_at else None
         self._last_wakeup_at = datetime.fromisoformat(wakeup_at) if wakeup_at else None
         self._climate_sent = data.get("climate_sent")
+        pause = data.get("pause_since")
+        self._pause_since = datetime.fromisoformat(pause) if pause else None
+        self._pause_woken = bool(data.get("pause_woken", False))
 
     def prune_expired(self, now: datetime, keep_last: int = 20) -> None:
         """Drop counters of windows that ended more than a day ago – keeps the store small."""
@@ -442,6 +448,10 @@ class Executor:
             state = ExecState.DISCONNECTED
         elif on and self._power_flowing():
             state = ExecState.CHARGING
+            self._clear_pause()
+        elif on and self._pause_since is not None:
+            # Paused before the restart: wait on, never start the wakeup chain anew.
+            state = ExecState.PAUSED
         elif self._failed_window is not None and self._failed_window == window:
             # The start of this window already failed – a restart is no new attempt.
             state = ExecState.START_FAILED

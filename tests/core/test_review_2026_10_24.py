@@ -327,3 +327,26 @@ def test_m4_enforce_target_frees_the_wallbox_for_the_climate():
     world.set(Inp.OVMS_SOC, "91")  # target + margin exceeded
     world.run(30)
     assert world.engine.desired.charger_enabled is False
+
+
+def test_m5_paused_charge_keeps_its_wallbox_across_a_restart():
+    """A restart during a pause after the window switched the Halo off although the
+    pilot had promised "free until unplugged"."""
+    from custom_components.ev_charging_pilot.core.engine import Engine
+
+    start = datetime(2026, 10, 20, 2, 55, tzinfo=TZ)
+    world = SleepyCar(start, configured=WITH_OVMS, cp_pulse=True, ovms_port=True,
+                      ovms_enabled=True, cp_failsafe_verified=True)
+    world.engine.set_plans(start, [WeeklySchedule(
+        id="p", weekdays=frozenset(WEEKDAYS), mode=ScheduleMode.FIXED_START,
+        charge_start_time=time(3, 0), departure_time=time(5, 30), ready_buffer_min=0)])
+    world.refuse_after = datetime(2026, 10, 20, 5, 20, tzinfo=TZ)
+    world.run(3 * 3600)
+    assert "PAUSE_HOLD" in world.events and world.states[Inp.CHARGER_ENABLE][0] == "on"
+    data = world.engine.as_dict()
+    world.engine = Engine(world.engine.config)
+    world.engine.restore(data)
+    world.commands.clear()
+    world.run(30 * 60)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+    assert not {CommandKind.DISABLE_CHARGER, *WAKEUPS} & set(world.commands)

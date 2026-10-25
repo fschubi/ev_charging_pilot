@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.13 Nicht endliche Werte.** `inputs._float` → None bei inf/nan/Overflow;
-  `to_value` → INVALID, wenn die Umrechnung (kW→W) überläuft. Vorher `round(inf)` in
-  `sessions._sample`/`trips._trace` → Tick-Exception. Prüfbericht M7.
 - **2026-10-25 – v0.27.14 Klima ohne Kabel.** `summary._describe`: Zweig „Vorklimatisierung
   läuft“ vor `DISCONNECTED` (sonst `_climate_source` „aus dem Akku“ nie erreicht). Prüfbericht M10.
 - **2026-10-25 – v0.27.15 Panel-Details.** `_call` behält `check`, `tempHistory/tempAt`,
@@ -157,3 +154,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.17 enforce_target.** `_arbitrate`: `enforce` (Klima läuft +
   ENFORCE_TARGET) überspringt den Ziel-Hold-Zweig („held“); abgeschaltet wird nur über
   `target_soc_wish` bei Ziel + `ENFORCE_TARGET_MARGIN_PCT`. Prüfbericht M4.
+- **2026-10-25 – v0.27.18 Pause gespeichert.** Engine `pause_hold` (Ziel + Desired ohne Klima,
+  `held_key`) und Executor `pause_since`/`pause_woken` im Store; `_initial_state`: Halo an +
+  Pause → PAUSED (bei Leistung CHARGING + `_clear_pause`). Prüfbericht M5.

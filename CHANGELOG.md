@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.18 – 2026-10-25
+
+Ladepause übersteht einen HA-Neustart:
+- **Die Wallbox bleibt nach einem Neustart frei.** Pausierte eine Ladung unter dem Ziel und
+  hielt der Pilot die Wallbox über das Fensterende frei („bleibt frei, bis das Kabel gezogen
+  wird“), schaltete ein Neustart von Home Assistant sie trotzdem aus. Jetzt merkt sich der
+  Pilot die Pause samt ihrem Weckversuch; nach dem Neustart wartet er weiter, ohne erneut
+  zu wecken.
+
 ## 0.27.17 – 2026-10-25
 
 Klima-Option „Ziel einhalten“ heizt wieder aus der Wallbox:

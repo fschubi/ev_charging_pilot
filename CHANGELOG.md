@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.29 – 2026-10-26
+
+Reichweite pro Fahrt ohne Klima-Delle am Start:
+- **Startwert berücksichtigt jetzt auch die Zeit vor der Fahrt.** Läuft die
+  Vorklimatisierung schon vor dem Aufschließen, zeigt der smart auch in den ersten
+  Fahrminuten weniger Reichweite an (26.10.: 77 statt 94 km, die Fahrt wirkte dadurch
+  „45 % weiter als angezeigt“). Der Pilot merkt sich nun den höchsten Wert, solange das
+  Auto steht (seit der letzten Fahrt, höchstens 12 Stunden), und nimmt ihn als Startwert,
+  wenn er höher ist.
+- **Ältere Fahrten** der letzten 10 Tage werden beim Start einmal aus dem Verlauf neu
+  berechnet.
+
 ## 0.27.28 – 2026-10-25
 
 Zeitachse im Cockpit wieder lesbar:

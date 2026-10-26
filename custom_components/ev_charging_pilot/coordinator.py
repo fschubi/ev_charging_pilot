@@ -566,11 +566,12 @@ class ChargingCenter:
     async def async_backfill_trip_range(self) -> int:
         """Older trips: the range estimate at start and end from the recorder.
 
-        Rule 2 (v0.27.1): start = highest value in the first minutes (a running
-        pre-climatisation lowers the display), end = last value before switching off
-        (the display jumps up afterwards). Trips of rule 1 are recomputed.
+        Rule 3 (v0.27.29): start = highest value while parked before the trip (since
+        the previous trip, at most 12 h) and in the first minutes – a running
+        pre-climatisation lowers the display; end = last value before switching off
+        (the display jumps up afterwards). Trips of older rules are recomputed.
         """
-        from .core.trips import RANGE_RULE, RANGE_START_WINDOW
+        from .core.trips import RANGE_PARKED_WINDOW, RANGE_RULE, RANGE_START_WINDOW
         entity_id = self.entity_ids.get(Inp.OVMS_RANGE)
         if entity_id is None or "recorder" not in self.hass.config.components:
             return 0
@@ -583,8 +584,10 @@ class ChargingCenter:
         done = 0
         for trip in todo:
             start, end = trip.started_at, trip.ended_at
+            before = [t.ended_at for t in self.monitor.data.trips if t.ended_at <= start]
+            parked_from = max([start - RANGE_PARKED_WINDOW, *before])
 
-            def load(start=start, end=end) -> dict[str, list]:
+            def load(start=parked_from, end=end) -> dict[str, list]:
                 return history.get_significant_states(
                     self.hass, start, end, [entity_id], include_start_time_state=True,
                     significant_changes_only=False)
@@ -599,10 +602,14 @@ class ChargingCenter:
                 value = to_value(Inp.OVMS_RANGE, RawState(
                     state.state, state.last_updated, state.last_updated, dict(state.attributes)))
                 if value.available and value.normalized is not None:
-                    readings.append((max(state.last_updated, start), float(value.normalized)))
-            early = [r for at, r in readings if at - start <= RANGE_START_WINDOW]
-            if len(readings) >= 2 and early and max(early) > readings[-1][1]:
-                trip.range_start_km, trip.range_end_km = max(early), readings[-1][1]
+                    readings.append((max(state.last_updated, parked_from),
+                                     float(value.normalized)))
+            during = [(at, r) for at, r in readings if at >= start]
+            parked = [r for at, r in readings if at < start]
+            early = [r for at, r in during if at - start <= RANGE_START_WINDOW]
+            first = max(parked + early) if parked or early else None
+            if during and first is not None and first > during[-1][1]:
+                trip.range_start_km, trip.range_end_km = first, during[-1][1]
                 trip.range_rule = RANGE_RULE
                 done += 1
         if done:

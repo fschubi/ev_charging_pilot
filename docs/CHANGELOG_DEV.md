@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.24 Ausschalten.** `Executor._off_unconfirmed` (DISCONNECTED,
+  START_FAILED): max. `max_confirm_attempts + 1` Versuche, dann `OFF_RETRY_AFTER`; Event
+  `CHARGER_OFF_REFUSED` (WARNING, eigener Push) statt `CHARGER_NOT_CONFIRMED` (war Fehlstart →
+  Session/Push). `sessions._energy_from` (gespeichert) für `average_power_w`, gedeckelt auf Max.
 - **2026-10-25 – v0.27.23 Texte/Werte.** `summary` CHARGE_ENDED: „voll“ nur bei SOC GOOD ≥ 99,
   sonst „bei x %“; WS Fahrtdetail `net` 0 gültig, < 0 → 0; `period_summary` ESTIMATED bei
   Fremdladung ohne Kosten und Preis. Prüfbericht Niedrig.

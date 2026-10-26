@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.24 Ausschalten.** `Executor._off_unconfirmed` (DISCONNECTED,
-  START_FAILED): max. `max_confirm_attempts + 1` Versuche, dann `OFF_RETRY_AFTER`; Event
-  `CHARGER_OFF_REFUSED` (WARNING, eigener Push) statt `CHARGER_NOT_CONFIRMED` (war Fehlstart →
-  Session/Push). `sessions._energy_from` (gespeichert) für `average_power_w`, gedeckelt auf Max.
 - **2026-10-25 – v0.27.25 Preise/Intervalle.** WS-Preis-Slots `[:192]`; `prices._close`: Ende =
   nächster Start bis `MAX_SLOT` (1 h), sonst typische Länge; `Settings.interval_min` →
   `_interval_divisor` (5/10/15/20/30/60). Preis-Einheiten-Heuristik ohne Einheit bewusst
@@ -160,3 +156,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-25 – v0.27.28 Achse.** Panel `hourOf` über `Intl.DateTimeFormat.formatToParts`
   (vorher `Number("10 Uhr")` = NaN, live nach v0.27.27 gesehen); `_repair_sessions` deckelt
   gespeicherte `average_power_w` auf `max_power_w`.
+- **2026-10-26 – v0.27.29 Reichweite Start.** `TripTracker.range_parked` (Wert bei Änderung,
+  sonst alle 30 min, 12 h, geleert bei Fahrtende, im Store) → `range_start` = max(Parkwerte,
+  erste 3 min); `RANGE_RULE` 3, Backfill lädt ab max(Ende Vorfahrt, Start − 12 h).

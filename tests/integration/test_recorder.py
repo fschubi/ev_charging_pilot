@@ -143,6 +143,9 @@ async def test_older_trips_get_their_range_from_the_recorder(hass, halo, freezer
     from .conftest import DATA, SOC
 
     reach = "sensor.car_estimated_range"
+    hass.states.async_set(reach, "90", {"unit_of_measurement": "km"})  # parked, no climate
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=15))
     start = dt_util.utcnow()
     hass.states.async_set(reach, "80", {"unit_of_measurement": "km"})
     await hass.async_block_till_done()
@@ -167,7 +170,7 @@ async def test_older_trips_get_their_range_from_the_recorder(hass, halo, freezer
         soc_start_pct=54, soc_end_pct=33)]
     assert await center.async_backfill_trip_range() == 1
     trip = center.monitor.data.trips[0]
-    assert (trip.range_start_km, trip.range_end_km) == (80, 50)
+    assert (trip.range_start_km, trip.range_end_km) == (90, 50)
     assert await center.async_backfill_trip_range() == 0
 
 

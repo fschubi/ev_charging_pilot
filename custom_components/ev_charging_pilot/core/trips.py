@@ -28,8 +28,13 @@ MIN_CONSUMPTION_KM = 1.0
 # Range estimate at the start: the highest value in the first minutes. While the
 # pre-climatisation still runs the car shows less (21.10.2026: 101 instead of 112 km).
 RANGE_START_WINDOW = timedelta(minutes=3)
+# … and the highest value while parked before (since the last trip, at most 12 h):
+# a pre-climatisation that runs before unlocking lowers even the first minutes
+# (26.10.2026: 77 instead of 94 km at the start).
+RANGE_PARKED_WINDOW = timedelta(hours=12)
+RANGE_PARKED_REPEAT = timedelta(minutes=30)
 # Version of the range rule; older trips are recomputed from the recorder.
-RANGE_RULE = 2
+RANGE_RULE = 3
 
 # Driving style from the 15-s drive curve – the pilot's own measure, not the car's
 # eco display (OVMS does not provide that one).
@@ -193,6 +198,8 @@ class TripTracker:
         self.open: dict[str, Any] | None = None
         self.last_odometer: float | None = None
         self.last_odometer_at: datetime | None = None
+        # Range readings while parked: (time, km) on change, else every 30 min.
+        self.range_parked: list[tuple[datetime, float]] = []
 
     def update(
         self,
@@ -218,6 +225,7 @@ class TripTracker:
         if on:
             if self.open is None:
                 self._start(now, km, energy_used, energy_recd, aux, soc)
+                self.open["range_start"] = self._parked_max(now)
             else:
                 self.open["off_since"] = None
                 self.open["unlocked_after_off"] = False
@@ -255,6 +263,8 @@ class TripTracker:
                 and km - self.last_odometer >= MIN_RECONSTRUCT_KM:
             closed.append(self._reconstruct(now, km, soc))
 
+        if self.open is None:
+            self._park_range(now, _num(range_km))
         if km is not None and self.open is None:
             self.last_odometer = km if self.last_odometer is None else max(self.last_odometer, km)
             self.last_odometer_at = now
@@ -327,9 +337,25 @@ class TripTracker:
             trip["temp_sum"] += temperature
             trip["temp_n"] += 1
 
+    def _park_range(self, now: datetime, reach: float | None) -> None:
+        if reach is None:
+            return
+        last = self.range_parked[-1] if self.range_parked else None
+        if last is None or last[1] != reach or now - last[0] >= RANGE_PARKED_REPEAT:
+            self.range_parked.append((now, reach))
+        cutoff = now - RANGE_PARKED_WINDOW
+        while self.range_parked and self.range_parked[0][0] < cutoff:
+            self.range_parked.pop(0)
+
+    def _parked_max(self, now: datetime) -> float | None:
+        cutoff = now - RANGE_PARKED_WINDOW
+        values = [r for at, r in self.range_parked if at >= cutoff]
+        return max(values) if values else None
+
     def _close(self, partial: bool) -> Trip:
         t = self.open
         self.open = None
+        self.range_parked = []
         ended = t["off_since"] or t["last_on_at"]
         distance = None
         if t["odometer_start"] is not None and t["odometer_end"] is not None:
@@ -408,6 +434,7 @@ class TripTracker:
             "last_odometer": self.last_odometer,
             "last_odometer_at": self.last_odometer_at.isoformat()
             if self.last_odometer_at else None,
+            "range_parked": [[at.isoformat(), r] for at, r in self.range_parked],
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -421,3 +448,5 @@ class TripTracker:
         self.last_odometer = data.get("last_odometer")
         at = data.get("last_odometer_at")
         self.last_odometer_at = datetime.fromisoformat(at) if at else None
+        self.range_parked = [(datetime.fromisoformat(a), float(r))
+                             for a, r in data.get("range_parked") or []]

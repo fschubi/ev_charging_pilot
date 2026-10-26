@@ -500,6 +500,54 @@ def test_range_ignores_the_climate_dip_at_the_start_and_the_jump_after_switching
     assert trip.range_accuracy_pct == pytest.approx(24.6 / 24 * 100, abs=0.5)
 
 
+def _parked(tracker, now, reach, odo=9300.0):
+    tracker.update(now, vehicle_on=v(False, now), odometer=v(odo, now), energy_used=v(0, now),
+                   energy_recd=v(0, now), aux=v(0, now), soc=v(95, now),
+                   outside_temp=v(6, now), range_km=v(reach, now))
+
+
+def _drive(tracker, start, readings, odo=9300.0):
+    for minute, reach in enumerate(readings):
+        now = start + timedelta(minutes=minute)
+        tracker.update(
+            now, vehicle_on=v(True, now), odometer=v(odo + minute * 0.8, now),
+            energy_used=v(minute * 0.12, now), energy_recd=v(0, now), aux=v(0, now),
+            soc=v(95 - minute * 0.6, now), outside_temp=v(6, now), range_km=v(reach, now))
+    off = start + timedelta(minutes=len(readings))
+    end = odo + len(readings) * 0.8
+    tracker.update(off, vehicle_on=v(False, off), odometer=v(end, off), energy_used=v(3, off),
+                   energy_recd=v(0, off), aux=v(0, off), soc=v(80, off),
+                   outside_temp=v(6, off), range_km=v(readings[-1], off))
+    return park(tracker, off, 11, end)[0]
+
+
+def test_range_start_includes_the_value_before_the_pre_climatisation():
+    """Field 26.10.2026: 94 km after charging, the climate ran from 05:15, the trip
+    started at 05:31 with 77 km – the first minutes alone read 145 %."""
+    tracker = TripTracker(10, TZ)
+    _parked(tracker, local(2026, 10, 26, 4, 50), 94)
+    _parked(tracker, local(2026, 10, 26, 5, 16), 80)     # HVAC running
+    data = tracker.as_dict()
+    tracker = TripTracker(10, TZ)
+    tracker.restore(data)                                  # survives a restart
+    trip = _drive(tracker, local(2026, 10, 26, 5, 31), [77, 78] + [78 - i for i in range(20)])
+    assert (trip.range_start_km, trip.range_end_km) == (94, 59)
+    assert trip.range_rule == 3
+
+
+def test_parked_range_counts_only_since_the_last_trip_and_twelve_hours():
+    tracker = TripTracker(10, TZ)
+    _parked(tracker, local(2026, 10, 25, 7), 120)          # older than 12 h
+    _parked(tracker, local(2026, 10, 25, 19, 30), 70)
+    trip = _drive(tracker, local(2026, 10, 25, 20), [72] + [72 - i for i in range(10)])
+    assert trip.range_start_km == 72
+    # The next trip does not see the values from before the previous one.
+    _parked(tracker, trip.ended_at + timedelta(minutes=30), 66, 9308.8)
+    second = _drive(tracker, trip.ended_at + timedelta(hours=1),
+                    [64 - i for i in range(10)], 9308.8)
+    assert second.range_start_km == 66
+
+
 def test_restore_skips_unknown_fields_and_damaged_records():
     """Review 24.10.2026: going back to an older release must not lose the history."""
     session = ChargeSession(session_id="s-1", reason="schedule",

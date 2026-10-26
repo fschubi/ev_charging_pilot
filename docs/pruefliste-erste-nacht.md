@@ -221,3 +221,15 @@ Auto eingesteckt, 90 %, Wallbox aus. Ausgewertet um 08:50.
 - [x] Erstes Speichern der Einstellungen nach dem Boot (08:53): Integration neu geladen
       (`EXECUTOR_STARTED`), **kein** ERROR von `ev_charging_pilot` im HA-Log (Fix H5),
       danach wieder kein Wecken, Zustand bereit, Cockpit „Ziel 90 % erreicht“.
+
+**Montag 26.10. (v0.27.28, erste Woche nach Zeitumstellung):**
+- Nacht: Freigabe 02:45:03, bestätigt 02:45:08, Auto wach 02:45:19 (**kein Wecken**), stabil
+  02:46:03; Ziel jetzt 95 % → Abschaltung beim SOC 03:09:51 (78 → 95 %). 3,17 kWh, 0,75 €
+  (0,24 €/kWh), 2,70 kWh in den Akku → Ladeverlust 14,7 %.
+- Klima (15 min, bis 05:30): Wallbox 05:15:01, bestätigt/`CLIMATE_START` 05:15:06, HVAC
+  05:15:08–05:20:08 (OVMS ließ diesmal schon Block 2 aus), **Nachstart nach 11 s** (05:20:19).
+  Innen 11 → 28 °C, im Nachstart-Loch kurz 18 °C, beim Entsperren 05:23:43 **24 °C**.
+  Sitzung 0,72 kWh (Klima 0,21 kWh), Auto lud dabei 94 → 96 %.
+- Fahrt 05:24–06:01: 24,6 km, 11,4 kWh/100 km laut OVMS-Zähler (SOC 96 → 72 % spricht eher
+  für ~16), Reichweite 94 → 77 (145 %) – Startwert noch durch die laufende Klimaanlage gedrückt.
+- HA-Log: nichts vom Pilot.

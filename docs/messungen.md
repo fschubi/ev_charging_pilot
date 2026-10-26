@@ -38,3 +38,5 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | 2026-10-20 | Fahrzeugverbrauch 16.–20.10.: (18,98 − 1,79) kWh / 104 km = 16,5 kWh/100 km bei 5–13 °C | Plausibilität |
 | 2026-10-21 | Ladeverlust 14,2 % (9,72 kWh Wallbox, 8,34 kWh in den Akku), 51 → 100 % in 81 min; rückwirkend 19.10. 13,6 %, 20.10. 14,5 % – Jahr 13,3 % | `charge_efficiency` → ~0,86 |
 | 2026-10-21 | Verbrauch 16.–20.10. (v0.25.0): Fahrzeug 16,2 kWh/100 km, Netz fürs Fahren 19,1 kWh/100 km, 7,99 €/100 km | – |
+| 2026-10-26 | Ladeverlust 14,7 % (3,17 kWh Wallbox, 2,70 kWh Akku), 78 → 95 % | bestätigt ~14 % |
+| 2026-10-26 | M8: wach 16 s nach Freigabe, kein Wecken (Start Nr. 6+) | – |

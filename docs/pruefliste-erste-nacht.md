@@ -233,3 +233,23 @@ Auto eingesteckt, 90 %, Wallbox aus. Ausgewertet um 08:50.
 - Fahrt 05:24–06:01: 24,6 km, 11,4 kWh/100 km laut OVMS-Zähler (SOC 96 → 72 % spricht eher
   für ~16), Reichweite 94 → 77 (145 %) – Startwert noch durch die laufende Klimaanlage gedrückt.
 - HA-Log: nichts vom Pilot.
+**Dienstag 27.10. (v0.27.29):**
+- Nacht: Freigabe 02:15:04, bestätigt 02:15:09, stabil 02:16:04 (**kein Wecken**), Abschaltung
+  beim Ziel 03:11:19 (44 → 95 %). 9,1 kWh, 3,03 € (0,33 €/kWh), 8,07 kWh in den Akku →
+  Ladeverlust 11,3 %, Ø 9,7 kW.
+- Klima (10 min): Wallbox 05:15:02, bestätigt/`CLIMATE_START` 05:15:07, HVAC ab 05:15:09.
+  Innen 13 → 26 °C in 2,5 min, beim Entsperren 05:20:21 **23 °C**, Abfahrt 05:20:38 (vor dem
+  zweiten Block). Sitzung 0,5 kWh, Auto lud dabei 95 → 96 % (0,46 kWh) → Klima-Anteil nur
+  0,03 kWh – die Aufteilung ist ungenau, wenn das Auto parallel nachlädt.
+- Fahrten: 05:20–05:58 24,6 km, 16,1 kWh/100 km, Reichweite 102 → 81 (117 %, Regel 3 nimmt
+  den Parkwert vor der Klima); 15:24–16:21 21,6 km (80 %); 16:42–16:51 3,4 km. Die Fahrt vom
+  26.10. früh steht nach Neuberechnung bei 103 → 77 (95 % statt 145 %).
+- **Einstecken abends nicht erkannt:** Fahrt endet 16:51, Auto schläft ab 16:56, verriegelt
+  17:06. OVMS meldete `charge_plug_detected` bis 17:56:41 durchgehend „no“; die Halo ist aus
+  und sieht kein Kabel („Unavailable“). Erst nach manuellem Einschalten der Halo (17:56:04)
+  wachte das Auto auf und meldete den Stecker. Kein Code-Fehler (Erkennung unverändert seit
+  v0.19): Der schlafende smart meldet ein Einstecken an der abgeschalteten Wallbox nicht.
+  Bisher wurde immer eingesteckt, solange das Auto noch wach war (26.10. 17:19 bei
+  Zündung aus; 20.10. weckte das Einstecken das Auto). **Folge:** Zustand „nicht
+  eingesteckt“ → die Nachtladung wäre ausgefallen. Lösungsvorschlag: Steckprobe.
+- HA-Log: nichts vom Pilot.

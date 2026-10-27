@@ -60,6 +60,11 @@ CLIMATE_CONFIRM_TIMEOUT = timedelta(seconds=60)
 OFF_RETRY_AFTER = timedelta(minutes=30)
 # How often a "close the CP" command is repeated while the relay stays open.
 CP_CLOSE_RETRY_S = 30.0
+# A sleeping smart does not report a plug at a disabled wallbox (field 27.10.2026:
+# plugged in after it fell asleep, "not plugged in" until the Halo was switched on).
+# The plug probe switches the Halo on this long: a plugged car wakes and reports.
+PLUG_PROBE = timedelta(minutes=3)
+PLUG_PROBE_KEYS = 10
 # A charge whose last power sample fell below this share of its peak tapered off:
 # the car ended it (battery full), it was not interrupted.
 TAPER_RATIO = 0.6
@@ -199,6 +204,11 @@ class Executor:
         self._peak_w: float = 0.0
         self._last_flow_w: float | None = None
         self._halo_power_frozen = False
+        # Plug probe: running until, keys already probed, and this step's request.
+        self._probe_until: datetime | None = None
+        self._probe_keys: list[str] = []
+        self._probe_request: str | None = None
+        self._probe_now: str | None = None
         # Dry-run/replay: decisions are only logged, so a missing reaction of the
         # hardware is no failure (no push, no failed session, no health penalty).
         self.shadow = False
@@ -211,6 +221,8 @@ class Executor:
 
     def step(self, snap: Snapshot) -> StepResult:
         self._result = StepResult()
+        # A probe request only counts for the step it was made in.
+        self._probe_now, self._probe_request = self._probe_request, None
         now = snap.now
         self._ingest_power(snap.power_w)
         self._check_cp_restored(snap)
@@ -223,7 +235,9 @@ class Executor:
             if self.state is not ExecState.DISCONNECTED:
                 self._on_unplugged(now)
         elif cable is True and self.state is ExecState.DISCONNECTED:
-            self._go(ExecState.IDLE, now, "CABLE_CONNECTED", "Kabel gesteckt", Category.CHARGING)
+            text = "Kabel gesteckt (Steckprobe)" if self._probe_until else "Kabel gesteckt"
+            self._probe_until = None
+            self._go(ExecState.IDLE, now, "CABLE_CONNECTED", text, Category.CHARGING)
 
         self._last_snap = snap
         if snap.health.blocks_automation:
@@ -242,6 +256,10 @@ class Executor:
     def starting(self) -> bool:
         """Is the executor currently trying to get energy flowing?"""
         return self.state in _STARTING
+
+    def request_plug_probe(self, key: str) -> None:
+        """Ask for one plug probe (per key) in this step, e.g. after locking at home."""
+        self._probe_request = key
 
     def cp_masked(self, now: datetime) -> bool:
         """During a CP pulse the Halo briefly sees "no vehicle" – ignore that (§3.4)."""
@@ -352,6 +370,8 @@ class Executor:
             # A paused charge keeps its wallbox until unplugged – also across a restart.
             "pause_since": self._pause_since.isoformat() if self._pause_since else None,
             "pause_woken": self._pause_woken,
+            "probe_until": self._probe_until.isoformat() if self._probe_until else None,
+            "probe_keys": self._probe_keys,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -372,6 +392,9 @@ class Executor:
         pause = data.get("pause_since")
         self._pause_since = datetime.fromisoformat(pause) if pause else None
         self._pause_woken = bool(data.get("pause_woken", False))
+        probe = data.get("probe_until")
+        self._probe_until = datetime.fromisoformat(probe) if probe else None
+        self._probe_keys = list(data.get("probe_keys") or [])
 
     def prune_expired(self, now: datetime, keep_last: int = 20) -> None:
         """Drop counters of windows that ended more than a day ago – keeps the store small."""
@@ -755,6 +778,24 @@ class Executor:
     # --------------------------------------------------------------- states
 
     def _in_disconnected(self, snap: Snapshot) -> None:
+        request = self._probe_now
+        if self._probe_until is not None:
+            if snap.now < self._probe_until:
+                return
+            self._probe_until = None
+            self._event(snap.now, Category.CHARGING, Severity.INFO, "PLUG_PROBE_EMPTY",
+                        "Steckprobe: kein Auto eingesteckt – Wallbox wieder aus")
+            if _flag(snap.charger_on) is True:
+                self._switch(snap, False, retry=True)
+            return
+        if request is not None and request not in self._probe_keys \
+                and _flag(snap.charger_on) is False:
+            if self._switch(snap, True):
+                self._probe_keys = [*self._probe_keys, request][-PLUG_PROBE_KEYS:]
+                self._probe_until = snap.now + PLUG_PROBE
+                self._event(snap.now, Category.CHARGING, Severity.INFO, "PLUG_PROBE_START",
+                            "Steckprobe: Wallbox kurz an – meldet sich ein eingestecktes Auto?")
+            return
         # Without a vehicle there is nothing to confirm; a Halo left on is
         # switched off fire-and-forget and re-checked on later steps.
         self._off_unconfirmed(snap)

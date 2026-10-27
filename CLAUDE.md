@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.25 Preise/Intervalle.** WS-Preis-Slots `[:192]`; `prices._close`: Ende =
-  nächster Start bis `MAX_SLOT` (1 h), sonst typische Länge; `Settings.interval_min` →
-  `_interval_divisor` (5/10/15/20/30/60). Preis-Einheiten-Heuristik ohne Einheit bewusst
-  unverändert (Tibber/Nordpool liefern Einheiten). Prüfbericht Niedrig.
 - **2026-10-25 – v0.27.26 Robustheit.** `shelly_switch_config`: ValueError gefangen, nur dict;
   WS `create_report` Jahr 2020–2100; `run_system_check` mit Test-Push nur Admin; `set_plans`
   + Dienste fangen TypeError/KeyError → Validierungsfehler; `async_setup_entry` beendet das
@@ -159,3 +155,8 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 - **2026-10-26 – v0.27.29 Reichweite Start.** `TripTracker.range_parked` (Wert bei Änderung,
   sonst alle 30 min, 12 h, geleert bei Fahrtende, im Store) → `range_start` = max(Parkwerte,
   erste 3 min); `RANGE_RULE` 3, Backfill lädt ab max(Ende Vorfahrt, Start − 12 h).
+- **2026-10-27 – v0.27.30 Steckprobe.** Schlafender smart meldet Einstecken an der aus-
+  geschalteten Halo nicht (Feld 27.10.). `Engine._plug_probe`: Kabel False + `OVMS_PLUG`
+  + zu Hause + Zündung aus → `executor.request_plug_probe(key)` bei Fensterstart
+  (`window_key`) oder 10 min nach Verriegeln (`lock|…`, nur mit Location); Executor in
+  DISCONNECTED: Halo an, `PLUG_PROBE` 3 min, sonst `PLUG_PROBE_EMPTY` + aus; Keys im Store.

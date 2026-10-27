@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.27.30 – 2026-10-27
+
+Steckprobe – ein schlafend eingestecktes Auto wird gefunden:
+- **Problem (27.10.):** Wurde der smart erst eingesteckt, als er schon schlief, meldete OVMS
+  weiter „nicht eingesteckt“, und die abgeschaltete Wallbox sieht kein Kabel. Der Pilot
+  zeigte „nicht eingesteckt“, und die Nachtladung wäre ausgefallen.
+- **Nach dem Abschließen zu Hause:** Steht das Auto 10 Minuten verriegelt zu Hause und
+  meldet „nicht eingesteckt“, schaltet der Pilot die Wallbox einmal für bis zu 3 Minuten
+  ein. Ist das Auto eingesteckt, wacht es auf, meldet den Stecker, und alles läuft wie
+  gewohnt (Push „Eingesteckt“, Cockpit). Ist nichts eingesteckt, geht die Wallbox wieder
+  aus. Einmal pro Abschließen.
+- **Absicherung zum Ladestart:** Beginnt ein Ladefenster und das Auto gilt als nicht
+  eingesteckt, gibt es dieselbe Probe noch einmal (einmal pro Fenster).
+- Nur mit OVMS-Steckererkennung, nie unterwegs oder bei eingeschalteter Zündung. Im
+  Ereignisprotokoll: „Steckprobe: Wallbox kurz an …“ bzw. „… kein Auto eingesteckt“.
+
 ## 0.27.29 – 2026-10-26
 
 Reichweite pro Fahrt ohne Klima-Delle am Start:

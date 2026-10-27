@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.25 Preise/Intervalle.** WS-Preis-Slots `[:192]`; `prices._close`: Ende =
+  nächster Start bis `MAX_SLOT` (1 h), sonst typische Länge; `Settings.interval_min` →
+  `_interval_divisor` (5/10/15/20/30/60). Preis-Einheiten-Heuristik ohne Einheit bewusst
+  unverändert (Tibber/Nordpool liefern Einheiten). Prüfbericht Niedrig.
 - **2026-10-25 – v0.27.24 Ausschalten.** `Executor._off_unconfirmed` (DISCONNECTED,
   START_FAILED): max. `max_confirm_attempts + 1` Versuche, dann `OFF_RETRY_AFTER`; Event
   `CHARGER_OFF_REFUSED` (WARNING, eigener Push) statt `CHARGER_NOT_CONFIRMED` (war Fehlstart →

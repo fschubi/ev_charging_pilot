@@ -110,6 +110,9 @@ CLIMATE_GAP = timedelta(seconds=10)
 # OVMS repeats the last values of a sleeping car, so a value that has not changed for
 # this long is no current measurement any more (temperatures only).
 UNCHANGED_STALE = timedelta(minutes=30)
+# Locked at home and the car says "not plugged in": after this long the wallbox is
+# switched on briefly once – a car plugged in while asleep reports nothing (27.10.2026).
+PLUG_PROBE_AFTER_LOCK = timedelta(minutes=10)
 CHANGE_TRACKED = (Inp.OVMS_CABIN_TEMP, Inp.OVMS_OUTSIDE_TEMP)
 # A 100 % target is never ended by the SOC: the smart shows 100 % at a real ~93 %
 # (field 19.10.2026) and still balances. The car ends the charge itself; once it
@@ -253,6 +256,7 @@ class Engine:
         self._latched: dict[str, ChargeWindow] = {}
         self._latched_raw: dict[str, Any] = {}
         self._cable: bool | None = None
+        self._locked_since: datetime | None = None
         self._overrun_key: str | None = None
         # Automation off: the end of a manual override still switches the wallbox off once.
         self._had_override = False
@@ -348,6 +352,7 @@ class Engine:
         self.desired = replace(self.desired, current_a=self._current_for(self.desired))
         self._set_current(now, result)
 
+        self._plug_probe(now, cable_flag)
         charger_on = values[Inp.CHARGER_ENABLE]
         if self.shadow:
             if self._virtual_charger is None and charger_on.available:
@@ -383,6 +388,28 @@ class Engine:
             result.events.append(Event(now, Category.HEALTH, Severity.WARNING, "DATA_CONFLICT",
                                        "Wallbox und Fahrzeug widersprechen sich beim Ladezustand"))
         return result
+
+    def _plug_probe(self, now: datetime, cable_flag: bool | None) -> None:
+        """Ask the executor for a plug probe (see executor): once when a charge window
+        starts and once per lock at home – only while the car itself says "not plugged
+        in", which a sleeping car also says when it was plugged in."""
+        v = self.values
+        lock = v[Inp.OVMS_LOCKED]
+        if lock.available and lock.normalized:
+            self._locked_since = self._locked_since or now
+        else:
+            self._locked_since = None
+        home, on = v[Inp.OVMS_LOCATION], v[Inp.OVMS_VEHICLE_ON]
+        at_home = Inp.OVMS_LOCATION not in self.config.configured \
+            or (home.available and bool(home.normalized))
+        if cable_flag is not False or Inp.OVMS_PLUG not in self.config.configured \
+                or not at_home or (on.available and on.normalized):
+            return
+        if self.desired.charger_enabled is True:
+            self.executor.request_plug_probe(self.desired.window_key)
+        elif self._locked_since is not None and Inp.OVMS_LOCATION in self.config.configured \
+                and now - self._locked_since >= PLUG_PROBE_AFTER_LOCK:
+            self.executor.request_plug_probe(f"lock|{self._locked_since.isoformat()}")
 
     # ------------------------------------------------------------- values
 
@@ -1414,6 +1441,7 @@ class Engine:
             "failure_window": self._failure_window,
             "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
             "last_unplug_at": self.last_unplug_at.isoformat() if self.last_unplug_at else None,
+            "locked_since": self._locked_since.isoformat() if self._locked_since else None,
             "changed": {k.value: [state, at.isoformat()]
                         for k, (state, at) in self._changed.items()},
             "climate_lock": {"duration_min": self._climate_lock.duration_min,
@@ -1452,6 +1480,8 @@ class Engine:
         offer, unplug = data.get("plug_offer_at"), data.get("last_unplug_at")
         self.plug_offer_at = datetime.fromisoformat(offer) if offer else None
         self.last_unplug_at = datetime.fromisoformat(unplug) if unplug else None
+        locked = data.get("locked_since")
+        self._locked_since = datetime.fromisoformat(locked) if locked else None
         known = {i.value for i in Inp}
         self._changed = {Inp(k): (v[0], datetime.fromisoformat(v[1]))
                          for k, v in (data.get("changed") or {}).items() if k in known}

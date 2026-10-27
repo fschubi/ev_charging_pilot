@@ -701,3 +701,95 @@ def test_target_100_with_a_pause_at_60_is_not_full():
         world.run(60)
     assert world.engine.executor.state is ExecState.PAUSED
     assert world.engine.desired.charger_enabled is True
+
+
+PROBE = WITH_OVMS | {Inp.OVMS_PLUG, Inp.OVMS_LOCATION, Inp.OVMS_LOCKED}
+
+
+def _parked_at_home(start):
+    """Field 27.10.2026: home 16:51, asleep 16:56, locked 17:06 – plugged in while asleep,
+    the car reports "not plugged in" and the disabled Halo sees no cable."""
+    world = World(start, configured=PROBE)
+    for key, state in ((Inp.CABLE_CONNECTED, "off"), (Inp.CHARGER_STATUS, "Unavailable"),
+                       (Inp.OVMS_PLUG, "no"), (Inp.OVMS_LOCATION, "home"),
+                       (Inp.OVMS_LOCKED, "unlocked"), (Inp.OVMS_VEHICLE_ON, "off"),
+                       (Inp.OVMS_SOC, "54"), (Inp.OVMS_CHARGING, "off")):
+        world.set(key, state)
+    world.run(30)
+    assert world.engine.executor.state is ExecState.DISCONNECTED
+    return world
+
+
+def test_plug_probe_after_locking_at_home_finds_the_sleeping_car():
+    world = _parked_at_home(local(2026, 10, 27, 17, 5))
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(9 * 60)
+    assert CommandKind.ENABLE_CHARGER not in world.commands
+    world.run(90)
+    assert world.commands == [CommandKind.ENABLE_CHARGER]
+    assert "PLUG_PROBE_START" in world.events
+    # The released Halo wakes the plugged car: it reports its plug.
+    world.set(Inp.OVMS_PLUG, "yes")
+    world.set(Inp.CABLE_CONNECTED, "on")
+    world.run(30)
+    assert "CABLE_CONNECTED" in world.events and "PLUGGED_IN" in world.events
+    assert world.engine.executor.state is not ExecState.DISCONNECTED
+    world.run(300)  # no charge window: the wallbox goes off again
+    assert world.commands[-1] is CommandKind.DISABLE_CHARGER
+    assert "PLUG_PROBE_EMPTY" not in world.events
+
+
+def test_plug_probe_without_car_switches_off_and_runs_once_per_lock():
+    world = _parked_at_home(local(2026, 10, 27, 17, 5))
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(11 * 60)
+    assert world.commands == [CommandKind.ENABLE_CHARGER]
+    world.run(3 * 60)
+    assert world.commands == [CommandKind.ENABLE_CHARGER, CommandKind.DISABLE_CHARGER]
+    assert "PLUG_PROBE_EMPTY" in world.events
+    world.run(30 * 60)
+    assert world.commands.count(CommandKind.ENABLE_CHARGER) == 1
+    # Unlocked and locked again: a new chance (something may have been plugged in).
+    world.set(Inp.OVMS_LOCKED, "unlocked")
+    world.run(60)
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(11 * 60)
+    assert world.commands.count(CommandKind.ENABLE_CHARGER) == 2
+
+
+def test_no_plug_probe_away_from_home_or_while_driving():
+    world = _parked_at_home(local(2026, 10, 27, 12, 0))
+    world.set(Inp.OVMS_LOCATION, "not_home")
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(20 * 60)
+    world.set(Inp.OVMS_LOCATION, "home")
+    world.set(Inp.OVMS_VEHICLE_ON, "on")
+    world.run(20 * 60)
+    assert CommandKind.ENABLE_CHARGER not in world.commands
+
+
+def test_plug_probe_when_the_charge_window_starts():
+    # Tuesday plan; the car was never locked (no lock probe).
+    world = _parked_at_home(local(2026, 10, 13, 0, 0))
+    world.now = world.engine.next_window.start - timedelta(minutes=1)
+    world.run(30)
+    assert CommandKind.ENABLE_CHARGER not in world.commands
+    world.run(120)
+    assert world.commands == [CommandKind.ENABLE_CHARGER]
+    world.run(4 * 60)
+    assert world.commands == [CommandKind.ENABLE_CHARGER, CommandKind.DISABLE_CHARGER]
+    world.run(30 * 60)
+    assert world.commands.count(CommandKind.ENABLE_CHARGER) == 1  # once per window
+
+
+def test_plug_probe_survives_a_restart():
+    world = _parked_at_home(local(2026, 10, 27, 17, 5))
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(11 * 60)
+    data = world.engine.as_dict()
+    fresh = World(world.now, configured=PROBE)
+    fresh.states, fresh.updated, fresh.reported = world.states, world.updated, world.reported
+    fresh.engine.restore(data)
+    fresh.run(4 * 60)
+    assert fresh.commands == [CommandKind.DISABLE_CHARGER]   # the probe ends, no new one
+    assert "PLUG_PROBE_EMPTY" in fresh.events

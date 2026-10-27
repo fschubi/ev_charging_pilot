@@ -247,9 +247,12 @@ Auto eingesteckt, 90 %, Wallbox aus. Ausgewertet um 08:50.
 - **Einstecken abends nicht erkannt:** Fahrt endet 16:51, Auto schläft ab 16:56, verriegelt
   17:06. OVMS meldete `charge_plug_detected` bis 17:56:41 durchgehend „no“; die Halo ist aus
   und sieht kein Kabel („Unavailable“). Erst nach manuellem Einschalten der Halo (17:56:04)
-  wachte das Auto auf und meldete den Stecker. Kein Code-Fehler (Erkennung unverändert seit
-  v0.19): Der schlafende smart meldet ein Einstecken an der abgeschalteten Wallbox nicht.
-  Bisher wurde immer eingesteckt, solange das Auto noch wach war (26.10. 17:19 bei
-  Zündung aus; 20.10. weckte das Einstecken das Auto). **Folge:** Zustand „nicht
-  eingesteckt“ → die Nachtladung wäre ausgefallen. Lösungsvorschlag: Steckprobe.
+  wachte das Auto auf und meldete den Stecker. Kein Code-Fehler: Die Stecker-Erkennung
+  (`plugged_in`, `cable_flag`) wurde seit v0.25.1 (21.10.) nicht geändert, der Pilot schaltete
+  zwischen 05:20 und 17:56 nichts, der Shelly (CP) war durchgehend geschlossen, die Halo wie
+  jeden Abend aus. Der Pilot liest den OVMS-Sensor nur – und der blieb „no“. Früher meldete
+  der smart das Einstecken auch schlafend (20.10. 17:50 und 23.10. 12:50 wachte er davon
+  auf, 24.10. 13:12 meldete er es ohne aufzuwachen), heute nicht – Ursache auf Auto-/OVMS-
+  Seite, nicht reproduzierbar. **Folge:** Zustand „nicht eingesteckt“ → die Nachtladung wäre
+  ausgefallen. Abhilfe: Steckprobe (v0.27.30).
 - HA-Log: nichts vom Pilot.

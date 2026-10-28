@@ -1599,7 +1599,7 @@ class EvPilotPanel extends HTMLElement {
         <h2>Schnellaktionen</h2>
         <div class="actions">
           <button class="act primary" data-service="start_charging" data-label="Jetzt laden">Jetzt laden</button>
-          <button class="act" data-service="stop_charging" data-label="Laden gestoppt">Laden stoppen</button>
+          <button class="act" data-service="stop_charging" data-label="„Jetzt laden“ gestoppt" ${s.override && s.override.mode !== "stop" ? "" : "disabled title='Nur während „Jetzt laden“'"}>Laden stoppen</button>
           <button class="act" data-service="start_one_shot" data-label="Heute Nacht laden">Heute Nacht laden</button>
           <button class="act" data-service="clear_override" ${s.override ? "" : "disabled"}>Override aufheben</button>
           <button class="act" data-service="cancel_one_shot" ${s.one_shot ? "" : "disabled"}>Einmalige Abfahrt löschen</button>

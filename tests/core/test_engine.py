@@ -793,3 +793,42 @@ def test_plug_probe_survives_a_restart():
     fresh.run(4 * 60)
     assert fresh.commands == [CommandKind.DISABLE_CHARGER]   # the probe ends, no new one
     assert "PLUG_PROBE_EMPTY" in fresh.events
+
+
+def test_stop_ends_only_the_manual_charge_and_the_night_plan_still_charges():
+    """Field 27./28.10.2026: "Laden stoppen" after a short manual charge at 17:57 stayed
+    active until unplugged – the night window 03:28 never started, the status showed
+    the plan."""
+    world = World(local(2026, 10, 12, 17, 55))   # Monday evening, plan Tue 03:00
+    world.engine.charge_now(world.now)
+    world.run(90)
+    assert world.engine.executor.state is ExecState.CHARGING
+    world.apply(world.engine.stop_charging(world.now))
+    assert world.engine.override is None
+    world.run(300)
+    assert world.commands[-1] is CommandKind.DISABLE_CHARGER
+    assert "OVERRIDE_CLEARED" in world.events
+    # Hours later, still plugged in: the night plan charges as usual.
+    world.now = local(2026, 10, 13, 2, 59)
+    world.run(180)
+    assert world.commands[-1] is CommandKind.ENABLE_CHARGER
+    assert world.engine.executor.state is ExecState.CHARGING
+
+
+def test_stop_without_manual_charge_changes_nothing():
+    world = World(local(2026, 10, 12, 18, 0))
+    world.run(30)
+    with pytest.raises(ValueError, match="keine manuelle Ladung"):
+        world.engine.stop_charging(world.now)
+    with pytest.raises(ValueError):
+        world.engine.set_override(world.now, OverrideMode.STOP)
+    assert world.engine.override is None
+
+
+def test_a_stored_lasting_stop_is_dropped_on_restore():
+    world = World(local(2026, 10, 12, 18, 0))
+    data = world.engine.as_dict()
+    data["override"] = {"mode": "stop", "started_at": "2026-10-27T16:57:45+00:00",
+                        "expires_at": None, "target_soc": None, "source": "override"}
+    world.engine.restore(data)
+    assert world.engine.override is None

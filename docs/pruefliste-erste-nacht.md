@@ -256,3 +256,14 @@ Auto eingesteckt, 90 %, Wallbox aus. Ausgewertet um 08:50.
   Seite, nicht reproduzierbar. **Folge:** Zustand „nicht eingesteckt“ → die Nachtladung wäre
   ausgefallen. Abhilfe: Steckprobe (v0.27.30).
 - HA-Log: nichts vom Pilot.
+
+**Mittwoch 28.10. – Nachtladung ausgefallen (v0.27.30):**
+- Plan „Büro Mo-Mi“, Fenster 03:28, Abfahrt 05:20, SOC 59 %. Kein `CHARGER_ENABLE`, kein
+  Weckversuch, Executor die ganze Nacht `IDLE` (eingesteckt erkannt), kein Fensterversuch
+  im Executor gespeichert. Status zeigte ab 03:28 „Lädt 03:28–… auf 95 %“.
+- **Ursache:** 27.10. 17:57:45 „Manuell: Laden gestoppt“ (Testladung beendet). Der Override
+  STOP galt bis zum Abstecken (unverändert seit v0.1) und hatte Vorrang vor dem Plan; er
+  überstand die Neustarts 18:26/18:56/20:27. `core/summary.py` kannte STOP nicht und zeigte
+  den Plantext. Steckprobe (v0.27.30) war nicht beteiligt (`probe_keys` leer).
+- 04:59 manuell gestartet, lädt mit 10,4 kW. Behoben in v0.27.31: Stopp beendet nur
+  „Jetzt laden“, danach Automatik.

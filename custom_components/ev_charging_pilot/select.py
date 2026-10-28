@@ -14,7 +14,7 @@ from .core.planner import OverrideMode
 from .entity import ChargingEntity
 
 NONE = "none"
-OPTIONS = [NONE, *(m.value for m in OverrideMode)]
+OPTIONS = [NONE, *(m.value for m in OverrideMode if m is not OverrideMode.STOP)]
 DEFAULT_DURATION = timedelta(hours=2)
 FALLBACK_UNTIL = timedelta(hours=8)
 

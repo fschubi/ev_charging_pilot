@@ -612,7 +612,7 @@
     },
     "stop_charging": {
       "name": "Stop charging",
-      "description": "Stop until unplugged."
+      "description": "Ends a manual charge; the charging plans apply again."
     },
     "set_override": {
       "name": "Set override",

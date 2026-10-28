@@ -612,7 +612,7 @@
     },
     "stop_charging": {
       "name": "Laden stoppen",
-      "description": "Override „Laden stoppen“ bis Kabel ab."
+      "description": "Beendet „Jetzt laden“; danach gelten wieder die Ladepläne."
     },
     "set_override": {
       "name": "Override setzen",

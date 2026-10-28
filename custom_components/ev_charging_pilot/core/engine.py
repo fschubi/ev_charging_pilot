@@ -1271,6 +1271,9 @@ class Engine:
             raise ValueError("Für „Bis Uhrzeit“ bitte until angeben")
         if mode is OverrideMode.UNTIL_SOC and target_soc is None:
             raise ValueError("Für „Bis Ladestand“ bitte target_soc angeben")
+        if mode is OverrideMode.STOP:
+            # A lasting "stop" silently blocked the next night's plan (28.10.2026).
+            raise ValueError("„Laden stoppen“ beendet nur „Jetzt laden“ – bitte stop_charging")
         self.override = ManualOverride(mode, now, expires_at, target_soc, source)
         return self._user_event(now, "OVERRIDE_SET", f"Manuell: {OVERRIDE_TEXT.get(mode, mode)}",
                                 mode=str(mode),
@@ -1335,6 +1338,17 @@ class Engine:
                 now, Category.CHARGING, Severity.INFO if test.ok else Severity.WARNING,
                 "CHARGE_TEST_RESULT", f"Ladetest {verdict}: {test.summary}",
                 data={"ok": test.ok, "woke_by": test.woke_by, "power_w": test.power_w}))
+
+    def stop_charging(self, now: datetime) -> TickResult:
+        """"Laden stoppen" ends a manual charge and hands back to the automation – nothing
+        more: the plans keep charging (field 28.10.2026: a lasting stop from the evening
+        before blocked the night charge while the status still showed the plan)."""
+        if self.override is None or not self.override.charger_enabled:
+            raise ValueError("Es läuft keine manuelle Ladung – „Laden stoppen“ beendet nur "
+                             "„Jetzt laden“. Die Ladepläne bleiben aktiv.")
+        self.override = None
+        return self._user_event(now, "OVERRIDE_CLEARED",
+                                "„Jetzt laden“ gestoppt – Automatik übernimmt")
 
     def clear_override(self, now: datetime) -> TickResult:
         self.override = None
@@ -1456,6 +1470,8 @@ class Engine:
             self.plans = [WeeklySchedule.from_dict(p) for p in data["plans"]]
         self.override = ManualOverride.from_dict(data["override"]) if data.get("override") \
             else None
+        if self.override is not None and not self.override.charger_enabled:
+            self.override = None  # a lasting "stop" of an older release – no longer exists
         self.one_shot = OneShot.from_dict(data["one_shot"]) if data.get("one_shot") else None
         self.automation_enabled = bool(data.get("automation_enabled", True))
         self.executor.restore(data.get("executor") or {})

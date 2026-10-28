@@ -8,12 +8,12 @@ from datetime import datetime
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ChargingConfigEntry
 from .core.engine import Engine, TickResult
 from .core.inputs import Inp
-from .core.planner import OverrideMode
 from .core.ports import CommandKind
 from .entity import ChargingEntity
 
@@ -30,7 +30,7 @@ BUTTONS: tuple[ChargingButtonDescription, ...] = (
         key="start_charge",
         press=lambda e, now: e.charge_now(now)),
     ChargingButtonDescription(
-        key="stop_charge", press=lambda e, now: e.set_override(now, OverrideMode.STOP)),
+        key="stop_charge", press=lambda e, now: e.stop_charging(now)),
     ChargingButtonDescription(
         key="vehicle_wakeup", requires=Inp.OVMS_SOC,
         press=lambda e, now: e.wakeup(now, CommandKind.OVMS_WAKEUP)),
@@ -75,5 +75,8 @@ class ChargingButton(ChargingEntity, ButtonEntity):
     async def async_press(self) -> None:
         if self.entity_description.admin:
             await self.async_require_admin()
-        await self.center.async_run(
-            lambda now: self.entity_description.press(self.engine, now))
+        try:
+            await self.center.async_run(
+                lambda now: self.entity_description.press(self.engine, now))
+        except ValueError as err:
+            raise ServiceValidationError(str(err)) from err

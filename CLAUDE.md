@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.26 Robustheit.** `shelly_switch_config`: ValueError gefangen, nur dict;
-  WS `create_report` Jahr 2020–2100; `run_system_check` mit Test-Push nur Admin; `set_plans`
-  + Dienste fangen TypeError/KeyError → Validierungsfehler; `async_setup_entry` beendet das
-  Center, wenn `async_forward_entry_setups` scheitert. Prüfbericht Niedrig (HA-Schicht).
 - **2026-10-25 – v0.27.27 Abschluss Prüfbericht.** Replay tickt in UTC; `driving_style`
   überspringt Schritte > `STYLE_MAX_GAP_S` (45 s); `to_value` mi/mph → km(/h), °F → °C,
   MWh → kWh; Klima-Monat nach `ended_at`. Bericht: Niedrig behoben, „Bewusst nicht geändert“.
@@ -160,3 +156,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   + zu Hause + Zündung aus → `executor.request_plug_probe(key)` bei Fensterstart
   (`window_key`) oder 10 min nach Verriegeln (`lock|…`, nur mit Location); Executor in
   DISCONNECTED: Halo an, `PLUG_PROBE` 3 min, sonst `PLUG_PROBE_EMPTY` + aus; Keys im Store.
+- **2026-10-28 – v0.27.31 Stopp.** Dauer-Override STOP (bis Kabel ab, seit v0.1) blockierte
+  die Nachtladung 28.10., Status zeigte den Plan. `Engine.stop_charging`: nur bei
+  `override.charger_enabled` → Override weg (`OVERRIDE_CLEARED`), sonst ValueError;
+  `set_override(STOP)` verboten, STOP im Store wird verworfen, Select ohne „stop“.

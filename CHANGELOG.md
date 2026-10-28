@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.31 – 2026-10-28
+
+„Laden stoppen“ beendet nur noch „Jetzt laden“:
+- **Problem (28.10.):** Am Vorabend wurde eine kurze manuelle Ladung mit „Laden stoppen“
+  beendet. Dieser Stopp galt bis zum Abstecken. Weil das Kabel steckte, fiel die
+  Nachtladung aus, während Cockpit und Dashboard weiter „Lädt in der günstigsten Zeit …“
+  zeigten.
+- **Jetzt:** „Laden stoppen“ (Knopf, Dienst, Cockpit) beendet eine laufende manuelle Ladung
+  und gibt an die Automatik zurück – die Ladepläne laden wie gewohnt. Läuft keine
+  manuelle Ladung, ändert der Knopf nichts und sagt das. Im Cockpit ist er dann gesperrt.
+- Ein noch gespeicherter Dauer-Stopp aus älteren Versionen wird beim Start verworfen.
+  Den Modus „gestoppt“ gibt es im Override-Auswahlfeld nicht mehr.
+
 ## 0.27.30 – 2026-10-27
 
 Steckprobe – ein schlafend eingestecktes Auto wird gefunden:

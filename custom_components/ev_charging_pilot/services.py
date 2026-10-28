@@ -165,7 +165,7 @@ async def _handle(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
                 await center.async_run(lambda now: engine.set_override(
                     now, mode, **_override_params(data, now)))
             case "stop_charging":
-                await center.async_run(lambda now: engine.set_override(now, OverrideMode.STOP))
+                await center.async_run(engine.stop_charging)
             case "clear_override":
                 await center.async_run(engine.clear_override)
             case "start_one_shot":

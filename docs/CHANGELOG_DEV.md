@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.26 Robustheit.** `shelly_switch_config`: ValueError gefangen, nur dict;
+  WS `create_report` Jahr 2020–2100; `run_system_check` mit Test-Push nur Admin; `set_plans`
+  + Dienste fangen TypeError/KeyError → Validierungsfehler; `async_setup_entry` beendet das
+  Center, wenn `async_forward_entry_setups` scheitert. Prüfbericht Niedrig (HA-Schicht).
 - **2026-10-25 – v0.27.25 Preise/Intervalle.** WS-Preis-Slots `[:192]`; `prices._close`: Ende =
   nächster Start bis `MAX_SLOT` (1 h), sonst typische Länge; `Settings.interval_min` →
   `_interval_divisor` (5/10/15/20/30/60). Preis-Einheiten-Heuristik ohne Einheit bewusst

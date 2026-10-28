@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-25 – v0.27.27 Abschluss Prüfbericht.** Replay tickt in UTC; `driving_style`
+  überspringt Schritte > `STYLE_MAX_GAP_S` (45 s); `to_value` mi/mph → km(/h), °F → °C,
+  MWh → kWh; Klima-Monat nach `ended_at`. Bericht: Niedrig behoben, „Bewusst nicht geändert“.
 - **2026-10-25 – v0.27.26 Robustheit.** `shelly_switch_config`: ValueError gefangen, nur dict;
   WS `create_report` Jahr 2020–2100; `run_system_check` mit Test-Push nur Admin; `set_plans`
   + Dienste fangen TypeError/KeyError → Validierungsfehler; `async_setup_entry` beendet das

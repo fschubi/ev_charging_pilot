@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.32 – 2026-10-28
+
+Sicherheitsfreigabe vor der Abfahrt:
+- **Steht eine geplante Abfahrt an und erkennt der Pilot keinen Stecker, schaltet er die
+  Wallbox spätestens 2 Stunden vor der Abfahrt trotzdem frei** und lässt sie bis zur
+  Abfahrt an. Ist das Auto eingesteckt, wacht es auf, lädt und meldet sich – danach läuft
+  alles wie gewohnt (Ziel-SOC, Abschaltung). Ist kein Auto da, passiert nichts; zur
+  Abfahrt geht die Wallbox wieder aus.
+- Gilt für Wochenpläne und die einmalige Abfahrt, nicht wenn das Ziel schon erreicht ist,
+  die Automatik aus ist, ein manueller Override läuft oder OVMS das Auto woanders meldet.
+- Cockpit und Dashboard zeigen dann „Wallbox zur Sicherheit frei“, im Protokoll steht
+  „Sicherheitsfreigabe: Stecker nicht erkannt …“.
+
 ## 0.27.31 – 2026-10-28
 
 „Laden stoppen“ beendet nur noch „Jetzt laden“:

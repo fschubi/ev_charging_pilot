@@ -209,6 +209,11 @@ class Executor:
         self._probe_keys: list[str] = []
         self._probe_request: str | None = None
         self._probe_now: str | None = None
+        # Fallback release before a departure: (key, until) of this step, and the key
+        # already announced.
+        self._fallback_request: tuple[str, str] | None = None
+        self._fallback_now: tuple[str, str] | None = None
+        self._fallback_key: str | None = None
         # Dry-run/replay: decisions are only logged, so a missing reaction of the
         # hardware is no failure (no push, no failed session, no health penalty).
         self.shadow = False
@@ -223,6 +228,7 @@ class Executor:
         self._result = StepResult()
         # A probe request only counts for the step it was made in.
         self._probe_now, self._probe_request = self._probe_request, None
+        self._fallback_now, self._fallback_request = self._fallback_request, None
         now = snap.now
         self._ingest_power(snap.power_w)
         self._check_cp_restored(snap)
@@ -260,6 +266,33 @@ class Executor:
     def request_plug_probe(self, key: str) -> None:
         """Ask for one plug probe (per key) in this step, e.g. after locking at home."""
         self._probe_request = key
+
+    def request_fallback(self, key: str, until: str) -> None:
+        """Keep the Halo on in this step although no cable is seen (before a departure)."""
+        self._fallback_request = (key, until)
+
+    @property
+    def fallback_active(self) -> bool:
+        return self._fallback_key is not None
+
+    def _fallback_hold(self, snap: Snapshot) -> bool:
+        """A plan needs the car soon but no cable is seen: the wallbox is released anyway
+        until the departure (Frank, 28.10.2026). Plugged in, the car charges and reports
+        itself; without a car nothing happens. True while the fallback holds the Halo."""
+        if self._fallback_now is None or _flag(snap.cable_connected) is True:
+            self._fallback_key = None
+            return False
+        key, until = self._fallback_now
+        if _flag(snap.charger_on) is not True:
+            if not self._switch(snap, True, retry=self._fallback_key == key):
+                return True
+        if self._fallback_key != key:
+            self._fallback_key = key
+            self._probe_until = None
+            self._event(snap.now, Category.CHARGING, Severity.WARNING, "FALLBACK_ENABLE",
+                        f"Sicherheitsfreigabe: Stecker nicht erkannt – Wallbox frei bis zur "
+                        f"Abfahrt {until}", until=until)
+        return True
 
     def cp_masked(self, now: datetime) -> bool:
         """During a CP pulse the Halo briefly sees "no vehicle" – ignore that (§3.4)."""
@@ -653,7 +686,7 @@ class Executor:
             self._failed_window = snap.desired.window_key
             self._event(snap.now, Category.WAKEUP, Severity.INFO, "WAKEUP_SKIPPED",
                         "Kein Weckversuch – ob das Auto eingesteckt ist, ist unbekannt")
-            if _flag(snap.charger_on) is True:
+            if _flag(snap.charger_on) is True and self._fallback_now is None:
                 self._switch(snap, False, retry=True)
             self._go(ExecState.IDLE, snap.now)
             return
@@ -778,6 +811,8 @@ class Executor:
     # --------------------------------------------------------------- states
 
     def _in_disconnected(self, snap: Snapshot) -> None:
+        if self._fallback_hold(snap):
+            return
         request = self._probe_now
         if self._probe_until is not None:
             if snap.now < self._probe_until:
@@ -821,6 +856,8 @@ class Executor:
             self._loose_off_tries += 1
 
     def _in_idle(self, snap: Snapshot) -> None:
+        if self._fallback_hold(snap):
+            return
         if snap.desired.charger_enabled is True:
             if snap.desired.window_key == self._failed_window:
                 return

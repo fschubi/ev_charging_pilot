@@ -113,6 +113,9 @@ UNCHANGED_STALE = timedelta(minutes=30)
 # Locked at home and the car says "not plugged in": after this long the wallbox is
 # switched on briefly once – a car plugged in while asleep reports nothing (27.10.2026).
 PLUG_PROBE_AFTER_LOCK = timedelta(minutes=10)
+# Fallback: this long before a planned departure the wallbox is released even without
+# a detected cable – a full charge of the 453 takes less (Frank, 28.10.2026).
+FALLBACK_BEFORE_DEPARTURE = timedelta(hours=2)
 CHANGE_TRACKED = (Inp.OVMS_CABIN_TEMP, Inp.OVMS_OUTSIDE_TEMP)
 # A 100 % target is never ended by the SOC: the smart shows 100 % at a real ~93 %
 # (field 19.10.2026) and still balances. The car ends the charge itself; once it
@@ -257,6 +260,7 @@ class Engine:
         self._latched_raw: dict[str, Any] = {}
         self._cable: bool | None = None
         self._locked_since: datetime | None = None
+        self.fallback_until: datetime | None = None
         self._overrun_key: str | None = None
         # Automation off: the end of a manual override still switches the wallbox off once.
         self._had_override = False
@@ -353,6 +357,7 @@ class Engine:
         self._set_current(now, result)
 
         self._plug_probe(now, cable_flag)
+        self._fallback(now, cable_flag)
         charger_on = values[Inp.CHARGER_ENABLE]
         if self.shadow:
             if self._virtual_charger is None and charger_on.available:
@@ -410,6 +415,25 @@ class Engine:
         elif self._locked_since is not None and Inp.OVMS_LOCATION in self.config.configured \
                 and now - self._locked_since >= PLUG_PROBE_AFTER_LOCK:
             self.executor.request_plug_probe(f"lock|{self._locked_since.isoformat()}")
+
+    def _fallback(self, now: datetime, cable_flag: bool | None) -> None:
+        """Release the wallbox before a planned departure although no cable is seen."""
+        self.fallback_until = None
+        if cable_flag is True or not self.automation_enabled or self.override is not None \
+                or self.target_held:
+            return
+        home = self.values[Inp.OVMS_LOCATION]
+        if home.available and home.normalized is False:
+            return  # the car is known to be elsewhere
+        for window in self.windows:
+            needed = window.estimate.needed_kwh
+            if window.reason in (Reason.SCHEDULE, Reason.ONE_SHOT) \
+                    and window.departure - FALLBACK_BEFORE_DEPARTURE <= now < window.departure \
+                    and (needed is None or needed > 0):
+                self.fallback_until = window.departure
+                self.executor.request_fallback(
+                    window.key, window.departure.astimezone(self.tz).strftime("%H:%M"))
+                return
 
     # ------------------------------------------------------------- values
 

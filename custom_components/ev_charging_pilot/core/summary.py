@@ -127,6 +127,11 @@ def _describe(engine: Engine, now: datetime) -> tuple[str, str, str]:
         return ("Vorklimatisierung läuft",
                 f"Bis spätestens {at(engine.climate_plan.until)} · "
                 f"{_climate_source(engine)}{charging}.", "ok")
+    if engine.executor.fallback_active and engine.fallback_until is not None:
+        return ("Wallbox zur Sicherheit frei",
+                f"Stecker nicht erkannt – die Wallbox bleibt bis zur Abfahrt "
+                f"{at(engine.fallback_until)} freigegeben. Ist das Auto eingesteckt, lädt es.",
+                "warn")
     if state is ExecState.DISCONNECTED:
         if window is None:
             return "Nicht eingesteckt", "Kein Ladeplan aktiv.", "info"

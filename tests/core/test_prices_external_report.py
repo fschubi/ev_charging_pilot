@@ -172,11 +172,13 @@ def test_block_is_not_extended_when_nothing_charges():
 
 
 def test_cheap_block_while_away_is_planned_again():
-    world = World(local(2026, 10, 13, 22, 0), configured=WITH_OVMS, price_source="tibber")
+    world = World(local(2026, 10, 13, 22, 0), configured=WITH_OVMS | {Inp.OVMS_LOCATION},
+                  price_source="tibber")
     world.engine.set_prices(night_prices().slots)
     world.set(Inp.OVMS_SOC, "70")
     world.set(Inp.OVMS_CHARGING, "off")
     world.set(Inp.CABLE_CONNECTED, "off")
+    world.set(Inp.OVMS_LOCATION, "not_home")  # away: no fallback release either
     world.tick()
     block = world.engine.next_window.blocks[0]
     # The cheap block passes while the car is not at home ...
@@ -186,6 +188,7 @@ def test_cheap_block_while_away_is_planned_again():
     world.run(30)
     assert not world.commands
     # ... plugged in afterwards it still charges before the departure.
+    world.set(Inp.OVMS_LOCATION, "home")
     world.set(Inp.CABLE_CONNECTED, "on")
     world.run(30)
     assert block not in world.engine.next_window.blocks

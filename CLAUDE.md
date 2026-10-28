@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-25 – v0.27.27 Abschluss Prüfbericht.** Replay tickt in UTC; `driving_style`
-  überspringt Schritte > `STYLE_MAX_GAP_S` (45 s); `to_value` mi/mph → km(/h), °F → °C,
-  MWh → kWh; Klima-Monat nach `ended_at`. Bericht: Niedrig behoben, „Bewusst nicht geändert“.
 - **2026-10-25 – v0.27.28 Achse.** Panel `hourOf` über `Intl.DateTimeFormat.formatToParts`
   (vorher `Number("10 Uhr")` = NaN, live nach v0.27.27 gesehen); `_repair_sessions` deckelt
   gespeicherte `average_power_w` auf `max_power_w`.
@@ -160,3 +157,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   die Nachtladung 28.10., Status zeigte den Plan. `Engine.stop_charging`: nur bei
   `override.charger_enabled` → Override weg (`OVERRIDE_CLEARED`), sonst ValueError;
   `set_override(STOP)` verboten, STOP im Store wird verworfen, Select ohne „stop“.
+- **2026-10-28 – v0.27.32 Sicherheitsfreigabe.** `Engine._fallback`: Kabel nicht True, Plan
+  (SCHEDULE/ONE_SHOT) mit Bedarf, `departure − FALLBACK_BEFORE_DEPARTURE` (2 h) ≤ now <
+  departure, Automatik an, kein Override, nicht „woanders“ → `executor.request_fallback`;
+  `_fallback_hold` in IDLE/DISCONNECTED hält die Halo an (`FALLBACK_ENABLE`), Summary-Zweig.

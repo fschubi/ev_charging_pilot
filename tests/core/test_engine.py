@@ -768,18 +768,56 @@ def test_no_plug_probe_away_from_home_or_while_driving():
     assert CommandKind.ENABLE_CHARGER not in world.commands
 
 
-def test_plug_probe_when_the_charge_window_starts():
-    # Tuesday plan; the car was never locked (no lock probe).
-    world = _parked_at_home(local(2026, 10, 13, 0, 0))
-    world.now = world.engine.next_window.start - timedelta(minutes=1)
-    world.run(30)
-    assert CommandKind.ENABLE_CHARGER not in world.commands
-    world.run(120)
-    assert world.commands == [CommandKind.ENABLE_CHARGER]
-    world.run(4 * 60)
+def test_fallback_releases_the_wallbox_before_departure_without_a_cable():
+    """Frank 28.10.2026: a planned charge releases the wallbox at the latest two hours
+    before the departure, plugged in or not – and switches it off at the departure."""
+    world = _parked_at_home(local(2026, 10, 13, 0, 0))   # Tuesday plan, never locked
+    window = world.engine.next_window
+    assert window.start < window.departure - timedelta(hours=2)
+    # Window start: the short plug probe finds nothing and switches off again.
+    world.now = window.start - timedelta(seconds=30)
+    world.run(5 * 60)
     assert world.commands == [CommandKind.ENABLE_CHARGER, CommandKind.DISABLE_CHARGER]
+    # Two hours before the departure: released and held.
+    world.now = window.departure - timedelta(hours=2, minutes=1)
+    world.run(30)
+    assert len(world.commands) == 2
+    world.run(60)
+    assert world.commands[-1] is CommandKind.ENABLE_CHARGER
+    assert "FALLBACK_ENABLE" in world.events
+    from custom_components.ev_charging_pilot.core.summary import summary
+    assert summary(world.engine, world.now, True)["headline"] == "Wallbox zur Sicherheit frei"
     world.run(30 * 60)
-    assert world.commands.count(CommandKind.ENABLE_CHARGER) == 1  # once per window
+    assert world.commands.count(CommandKind.DISABLE_CHARGER) == 1   # held
+    world.now = window.departure - timedelta(seconds=30)
+    world.run(5 * 60)
+    assert world.commands[-1] is CommandKind.DISABLE_CHARGER
+    assert world.commands.count(CommandKind.ENABLE_CHARGER) == 2
+
+
+def test_fallback_finds_the_car_and_charges_normally():
+    world = _parked_at_home(local(2026, 10, 13, 0, 0))
+    world.now = world.engine.next_window.departure - timedelta(hours=2)
+    world.run(60)
+    assert world.states[Inp.CHARGER_ENABLE][0] == "on"
+    world.set(Inp.OVMS_PLUG, "yes")          # the released Halo woke the car
+    world.set(Inp.CABLE_CONNECTED, "on")
+    world.set(Inp.OVMS_CHARGING, "on")
+    world.run(180)
+    assert world.engine.executor.state is ExecState.CHARGING
+    assert "CHARGE_STABLE" in world.events
+
+
+def test_no_fallback_when_the_car_is_away_or_the_automation_is_off():
+    world = _parked_at_home(local(2026, 10, 13, 0, 0))
+    world.set(Inp.OVMS_LOCATION, "not_home")
+    world.now = world.engine.next_window.departure - timedelta(hours=1)
+    world.run(5 * 60)
+    assert CommandKind.ENABLE_CHARGER not in world.commands
+    world.set(Inp.OVMS_LOCATION, "home")
+    world.apply(world.engine.set_automation(world.now, False))
+    world.run(5 * 60)
+    assert CommandKind.ENABLE_CHARGER not in world.commands
 
 
 def test_plug_probe_survives_a_restart():

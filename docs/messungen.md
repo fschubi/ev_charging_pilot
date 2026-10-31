@@ -39,4 +39,5 @@ Jede Zeile nennt Datum, Wert und welchen Default sie ersetzt.
 | 2026-10-21 | Ladeverlust 14,2 % (9,72 kWh Wallbox, 8,34 kWh in den Akku), 51 → 100 % in 81 min; rückwirkend 19.10. 13,6 %, 20.10. 14,5 % – Jahr 13,3 % | `charge_efficiency` → ~0,86 |
 | 2026-10-21 | Verbrauch 16.–20.10. (v0.25.0): Fahrzeug 16,2 kWh/100 km, Netz fürs Fahren 19,1 kWh/100 km, 7,99 €/100 km | – |
 | 2026-10-26 | Ladeverlust 14,7 % (3,17 kWh Wallbox, 2,70 kWh Akku), 78 → 95 % | bestätigt ~14 % |
+| 2026-10-31 | Ladeverlust nach Leistung (2 Wochen): 12 A ~7,7 kW **14,2 %** (bis 100 %), 16 A ~10,4 kW **11,4 %** (meist bis 95 %); Woche 1 13,2 %, Woche 2 11,6 % – siehe `auswertung-2026-10.md` | 16 A beibehalten; Effizienz ~0,885 |
 | 2026-10-26 | M8: wach 16 s nach Freigabe, kein Wecken (Start Nr. 6+) | – |

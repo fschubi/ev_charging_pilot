@@ -64,6 +64,11 @@ views:
             icon: mdi:fan
             tap_action: {action: perform-action, perform_action: button.press, target: {entity_id: button.ev_pilot_climate_10min}}
           - type: button
+            entity: button.ev_pilot_climate_15min
+            name: Klima 15 min
+            icon: mdi:fan-plus
+            tap_action: {action: perform-action, perform_action: button.press, target: {entity_id: button.ev_pilot_climate_15min}}
+          - type: button
             entity: button.ev_pilot_climate_stop
             name: Klima stopp
             icon: mdi:fan-off

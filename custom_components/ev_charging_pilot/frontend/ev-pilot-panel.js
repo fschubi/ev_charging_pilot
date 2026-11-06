@@ -1604,6 +1604,7 @@ class EvPilotPanel extends HTMLElement {
           <button class="act" data-service="clear_override" ${s.override ? "" : "disabled"}>Override aufheben</button>
           <button class="act" data-service="cancel_one_shot" ${s.one_shot ? "" : "disabled"}>Einmalige Abfahrt löschen</button>
           ${has("ovms_soc") ? `<button class="act" data-service="start_climate" data-payload='{"minutes":10}'>Klima 10 min</button>
+          <button class="act" data-service="start_climate" data-payload='{"minutes":15}'>Klima 15 min</button>
           <button class="act" data-service="stop_climate">Klima stopp</button>
           <button class="act" data-service="vehicle_wakeup" data-confirm="Fahrzeug wirklich wecken? Jeder Wakeup kostet HV-Zyklen.">Fahrzeug wecken</button>` : ""}
           ${has("cp_relay") ? `<button class="act" data-service="cp_wakeup" data-confirm="CP-Puls auslösen?" ${s.settings.cp_failsafe_verified ? "" : "disabled title='Failsafe nicht verifiziert'"}>CP-Wakeup</button>` : ""}

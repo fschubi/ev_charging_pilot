@@ -72,7 +72,7 @@ OVMS_INPUTS: Final = (
 )
 INPUT_DOMAINS: Final = {
     Inp.CHARGER_ENABLE: "switch",
-    Inp.CABLE_CONNECTED: "binary_sensor",
+    Inp.CABLE_CONNECTED: ["binary_sensor", "sensor"],  # sensor: OCPP connector status text
     Inp.CHARGE_POWER: "sensor",
     Inp.TOTAL_ENERGY: "sensor",
     Inp.CHARGER_STATUS: "sensor",

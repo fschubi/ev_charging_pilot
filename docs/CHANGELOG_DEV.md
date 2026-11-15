@@ -1,5 +1,7 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-11-06 – v0.27.33 Klima 15 min.** Button „Klima 15 min“ im Panel (aktions-Reiter) und im
+  YAML-Dashboard; Entität `button.ev_pilot_climate_15min` und Service gab es schon.
 - **2026-10-28 – v0.27.32 Sicherheitsfreigabe.** `Engine._fallback`: Kabel nicht True, Plan
   (SCHEDULE/ONE_SHOT) mit Bedarf, `departure − FALLBACK_BEFORE_DEPARTURE` (2 h) ≤ now <
   departure, Automatik an, kein Override, nicht „woanders“ → `executor.request_fallback`;

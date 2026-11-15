@@ -142,8 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-11-06 – v0.27.33 Klima 15 min.** Button „Klima 15 min“ im Panel (aktions-Reiter) und im
-  YAML-Dashboard; Entität `button.ev_pilot_climate_15min` und Service gab es schon.
 - **2026-11-15 – v0.27.34 Standort veraltet.** OVMS hält ohne GPS die letzte Position (Feld
   07.–15.11.: „nicht eingesteckt“ trotz Stecker). `Engine._location_value`: `_location_fix`
   {key lat,lon; odometer; seeded} im Store; km − Fix > `LOCATION_STALE_KM` (0,5) → Standort
@@ -159,3 +157,4 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   offen (nicht gebaut): Zähleranstieg der Halo außerhalb einer Session wird nicht gebucht
   (14.11.: 1,47 kWh während HA-Ausfall), Kältezuschlag in der Ladedauer.
 - **2026-11-15 – v0.28.0 OCPP-Kabelstatus.** Halo läuft über die HACS-Integration „ocpp“ (`ws://…:9000`, Entitäten `*.halo_*`), kein Kabel-Sensor: `inputs.OCPP_PLUGGED_STATES` (Preparing/SuspendedEV/SuspendedEVSE/Finishing, plus Charging) → `CABLE_CONNECTED` True aus `sensor.halo_status_connector`; Available False. Ladefreigabe = `switch.halo_charge_control` (RemoteStart/Stop), Neustart aus Finishing ohne Abziehen getestet.
+- **2026-11-15 – v0.28.1 Kabel-Auswahl.** Config-Flow-Selektor für den Kabelstatus erlaubt auch `sensor` (`INPUT_DOMAINS`), sonst war der OCPP-Status-Sensor nicht wählbar.

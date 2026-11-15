@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-28 – v0.27.32 Sicherheitsfreigabe.** `Engine._fallback`: Kabel nicht True, Plan
+  (SCHEDULE/ONE_SHOT) mit Bedarf, `departure − FALLBACK_BEFORE_DEPARTURE` (2 h) ≤ now <
+  departure, Automatik an, kein Override, nicht „woanders“ → `executor.request_fallback`;
+  `_fallback_hold` in IDLE/DISCONNECTED hält die Halo an (`FALLBACK_ENABLE`), Summary-Zweig.
 - **2026-10-28 – v0.27.31 Stopp.** Dauer-Override STOP (bis Kabel ab, seit v0.1) blockierte
   die Nachtladung 28.10., Status zeigte den Plan. `Engine.stop_charging`: nur bei
   `override.charger_enabled` → Override weg (`OVERRIDE_CLEARED`), sonst ValueError;

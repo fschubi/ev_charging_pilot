@@ -102,6 +102,9 @@ KINDS: dict[Inp, Kind] = {
 SOURCES: dict[str, str] = {"cp_relay": "shelly", "outside_temp": "ha", "weather": "weather"}
 
 TRUE_STATES = {"on", "true", "1", "yes", "charging", "locked", "home"}
+# OCPP 1.6 connector status texts (HACS "ocpp") that mean "a cable is plugged in".
+# Lets the connector status sensor serve as the cable input; "available" stays False.
+OCPP_PLUGGED_STATES = {"preparing", "suspendedev", "suspendedevse", "finishing"}
 MISSING_STATES = {None, "unavailable", "unknown", "none", "None", ""}
 
 
@@ -193,6 +196,8 @@ def to_value(key: Inp, raw: RawState | None) -> Value:
                 and state in ("on", "off"):
             # A lock binary_sensor reports "on" for UNlocked.
             return Value(raw.state, state == "off", source, stamp)
+        if key is Inp.CABLE_CONNECTED and state in OCPP_PLUGGED_STATES:
+            return Value(raw.state, True, source, stamp)
         return Value(raw.state, state in TRUE_STATES, source, stamp)
     if kind is Kind.TEXT:
         return Value(raw.state, raw.state, source, stamp)

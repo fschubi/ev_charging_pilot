@@ -961,3 +961,25 @@ def test_restart_while_unplugged_reports_no_unplugging():
     restarted.set(Inp.OVMS_PLUG, "no")
     restarted.run(10)
     assert restarted.events.count("CABLE_DISCONNECTED") == 1
+
+
+def test_plug_probe_also_runs_with_a_stale_location():
+    """GPS down for a week: without the probe a car plugged in asleep stays unseen."""
+    world = World(local(2026, 11, 16, 17, 5), configured=PROBE | {Inp.OVMS_ODOMETER})
+    for key, state in ((Inp.CABLE_CONNECTED, "off"), (Inp.CHARGER_STATUS, "Unavailable"),
+                       (Inp.OVMS_PLUG, "no"), (Inp.OVMS_LOCKED, "unlocked"),
+                       (Inp.OVMS_VEHICLE_ON, "off"), (Inp.OVMS_SOC, "54"),
+                       (Inp.OVMS_CHARGING, "off")):
+        world.set(key, state)
+    world.set(Inp.OVMS_LOCATION, "not_home", **AWAY)
+    world.set(Inp.OVMS_ODOMETER, "9955.0", unit_of_measurement="km")
+    world.run(30)
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(11 * 60)
+    assert CommandKind.ENABLE_CHARGER not in world.commands  # really elsewhere: no probe
+    world.set(Inp.OVMS_LOCKED, "unlocked")
+    world.set(Inp.OVMS_ODOMETER, "9969.0", unit_of_measurement="km")  # drove on without GPS
+    world.run(30)
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(11 * 60)
+    assert "PLUG_PROBE_START" in world.events

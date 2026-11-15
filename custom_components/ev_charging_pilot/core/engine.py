@@ -420,8 +420,11 @@ class Engine:
         else:
             self._locked_since = None
         home, on = v[Inp.OVMS_LOCATION], v[Inp.OVMS_VEHICLE_ON]
+        # A stale location (no GPS fix since the last drive) may well be "home": the
+        # probe is harmless without a car, and without it a car plugged in asleep would
+        # stay unseen for as long as the GPS is down.
         at_home = Inp.OVMS_LOCATION not in self.config.configured \
-            or (home.available and bool(home.normalized))
+            or (home.available and bool(home.normalized)) or self.location_stale
         if cable_flag is not False or Inp.OVMS_PLUG not in self.config.configured \
                 or not at_home or (on.available and on.normalized):
             return

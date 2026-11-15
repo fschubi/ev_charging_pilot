@@ -142,10 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-28 – v0.27.31 Stopp.** Dauer-Override STOP (bis Kabel ab, seit v0.1) blockierte
-  die Nachtladung 28.10., Status zeigte den Plan. `Engine.stop_charging`: nur bei
-  `override.charger_enabled` → Override weg (`OVERRIDE_CLEARED`), sonst ValueError;
-  `set_override(STOP)` verboten, STOP im Store wird verworfen, Select ohne „stop“.
 - **2026-10-28 – v0.27.32 Sicherheitsfreigabe.** `Engine._fallback`: Kabel nicht True, Plan
   (SCHEDULE/ONE_SHOT) mit Bedarf, `departure − FALLBACK_BEFORE_DEPARTURE` (2 h) ≤ now <
   departure, Automatik an, kein Override, nicht „woanders“ → `executor.request_fallback`;
@@ -162,3 +158,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   busy/ok/err (außerhalb des DOM, `_applyButtonStates` nach jedem Render), CSS `.act.busy/.ok/.err`;
   `_feedback` liest nach dem Service `get_events` (seit Klick) und zeigt die Protokollmeldung,
   Warnung → roter Toast + ✕; Dry-Run-Zusatz.
+- **2026-11-15 – v0.27.36 Steckprobe bei veraltetem Standort.** `Engine._plug_probe`: `at_home`
+  auch bei `location_stale`. Durchsicht Planer/Executor/Sessions/Fahrten ohne weitere Funde;
+  offen (nicht gebaut): Zähleranstieg der Halo außerhalb einer Session wird nicht gebucht
+  (14.11.: 1,47 kWh während HA-Ausfall), Kältezuschlag in der Ladedauer.

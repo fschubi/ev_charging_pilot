@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-28 – v0.27.31 Stopp.** Dauer-Override STOP (bis Kabel ab, seit v0.1) blockierte
+  die Nachtladung 28.10., Status zeigte den Plan. `Engine.stop_charging`: nur bei
+  `override.charger_enabled` → Override weg (`OVERRIDE_CLEARED`), sonst ValueError;
+  `set_override(STOP)` verboten, STOP im Store wird verworfen, Select ohne „stop“.
 - **2026-10-27 – v0.27.30 Steckprobe.** Schlafender smart meldet Einstecken an der aus-
   geschalteten Halo nicht (Feld 27.10.). `Engine._plug_probe`: Kabel False + `OVMS_PLUG`
   + zu Hause + Zündung aus → `executor.request_plug_probe(key)` bei Fensterstart

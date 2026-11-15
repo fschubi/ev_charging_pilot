@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.27.36 – 2026-11-15
+
+- **Steckprobe auch bei veraltetem OVMS-Standort.** Solange das GPS keinen Fix hat, galt
+  das Auto für die Steckprobe als „nicht zu Hause“ – ein schlafend eingestecktes Auto
+  (OVMS meldet dann „kein Stecker“) wäre erst durch die Sicherheitsfreigabe 2 Stunden
+  vor der Abfahrt gefunden worden. Jetzt schaltet der Pilot auch dann 10 Minuten nach
+  dem Verriegeln und zum Start eines Ladefensters die Wallbox kurz ein.
+
 ## 0.27.35 – 2026-11-15
 
 Rückmeldung der Schaltflächen im Panel:

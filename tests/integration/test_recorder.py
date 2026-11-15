@@ -234,7 +234,8 @@ async def test_old_gps_fix_is_recognised_from_the_recorder(hass, halo, freezer):
                              "ovms_odometer": km, "ovms_plug": plug},
         options={"mode": "dry_run"}, version=2, minor_version=2)
     await _setup(hass, entry)
-    await hass.async_block_till_done()
+    # the lookup runs as a background task of the first tick
+    await hass.async_block_till_done(wait_background_tasks=True)
     center = entry.runtime_data
     assert center.engine.location_fix_unseeded is None
     assert center.engine.location_stale

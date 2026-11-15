@@ -202,3 +202,41 @@ async def test_older_trips_get_their_driving_style_from_the_recorder(hass, halo,
         season="autumn", soc_start_pct=54, soc_end_pct=46)]
     assert await center.async_backfill_trip_style() == 1
     assert center.monitor.data.trips[0].style["score"] >= 80
+
+
+async def test_old_gps_fix_is_recognised_from_the_recorder(hass, halo, freezer):
+    """15.11.2026: the last GPS fix was a week and 14 km old – the plugged-in car at
+    home counted as "elsewhere"."""
+    from homeassistant.components.recorder import get_instance
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.ev_charging_pilot.core.inputs import Inp
+
+    from .conftest import DATA, SOC
+
+    where, km, plug = "device_tracker.car_location", "sensor.car_odometer", "sensor.car_plug"
+    away = {"latitude": 53.658459, "longitude": 10.027832}
+    hass.states.async_set(where, "not_home", {"latitude": 53.64, "longitude": 10.0})
+    hass.states.async_set(km, "9950.0", {"unit_of_measurement": "km"})
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=5))
+    hass.states.async_set(where, "not_home", away)  # the last fix
+    hass.states.async_set(km, "9955.0", {"unit_of_measurement": "km"})
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=30))
+    hass.states.async_set(km, "9969.18", {"unit_of_measurement": "km"})  # home, no GPS
+    hass.states.async_set(plug, "yes")
+    await hass.async_block_till_done()
+    await get_instance(hass).async_block_till_done()
+    freezer.tick(timedelta(hours=5))
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={**DATA, "ovms_soc": SOC, "ovms_location": where,
+                             "ovms_odometer": km, "ovms_plug": plug},
+        options={"mode": "dry_run"}, version=2, minor_version=2)
+    await _setup(hass, entry)
+    await hass.async_block_till_done()
+    center = entry.runtime_data
+    assert center.engine.location_fix_unseeded is None
+    assert center.engine.location_stale
+    assert center.engine.values[Inp.CABLE_CONNECTED].normalized is True
+    assert await center.async_seed_location_fix() is False  # only once

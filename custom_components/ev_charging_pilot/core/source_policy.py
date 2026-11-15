@@ -74,6 +74,10 @@ class HvCycleMonitor:
     day_start: float | None = None
     last: float | None = None
     warned_day: date | None = None
+    # After a restart nobody watched the car: a counter that moved meanwhile is no
+    # "cycle without activity" (false warning after a charge during HA downtime,
+    # 14.11.2026).
+    unwatched: bool = False
 
     def update(self, value: Value, local_day: date, active: bool) -> list[str]:
         if value.quality not in (Quality.GOOD, Quality.LAST_KNOWN_VALID):
@@ -83,8 +87,10 @@ class HvCycleMonitor:
         if self.day != local_day:
             self.day = local_day
             self.day_start = cycles
-        if self.last is not None and cycles != self.last and not active:
+        if self.last is not None and cycles != self.last and not active \
+                and not self.unwatched:
             warnings.append("HV_CYCLE_WITHOUT_ACTIVITY")
+        self.unwatched = False
         self.last = cycles
         if (
             self.day_start is not None
@@ -117,6 +123,7 @@ class HvCycleMonitor:
             day_start=data.get("day_start"),
             last=data.get("last"),
             warned_day=date.fromisoformat(data["warned_day"]) if data.get("warned_day") else None,
+            unwatched=True,
         )
 
 

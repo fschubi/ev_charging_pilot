@@ -220,6 +220,11 @@ class Executor:
         # Window bookkeeping of the live mode while a dry run works on its own copy
         self._live_windows: tuple | None = None
         self._last_snap: Snapshot | None = None
+        # Unplugged before the restart and the cable not readable yet: the first
+        # "no cable" afterwards is no unplugging (field: "Kabel gezogen" after every
+        # restart, 8× in the week from 08.11.2026).
+        self._was_disconnected = False
+        self._cable_pending = False
         self._result = StepResult()
 
     # ------------------------------------------------------------------ API
@@ -238,12 +243,16 @@ class Executor:
 
         cable = _flag(snap.cable_connected)
         if cable is False and not self.cp_masked(now):
-            if self.state is not ExecState.DISCONNECTED:
+            if self._cable_pending and self.state is ExecState.IDLE:
+                self._go(ExecState.DISCONNECTED, now)  # still unplugged – no event
+            elif self.state is not ExecState.DISCONNECTED:
                 self._on_unplugged(now)
         elif cable is True and self.state is ExecState.DISCONNECTED:
             text = "Kabel gesteckt (Steckprobe)" if self._probe_until else "Kabel gesteckt"
             self._probe_until = None
             self._go(ExecState.IDLE, now, "CABLE_CONNECTED", text, Category.CHARGING)
+        if cable is not None:
+            self._cable_pending = False
 
         self._last_snap = snap
         if snap.health.blocks_automation:
@@ -405,6 +414,7 @@ class Executor:
             "pause_woken": self._pause_woken,
             "probe_until": self._probe_until.isoformat() if self._probe_until else None,
             "probe_keys": self._probe_keys,
+            "disconnected": self.state is ExecState.DISCONNECTED,
         }
 
     def restore(self, data: dict[str, Any]) -> None:
@@ -428,6 +438,7 @@ class Executor:
         probe = data.get("probe_until")
         self._probe_until = datetime.fromisoformat(probe) if probe else None
         self._probe_keys = list(data.get("probe_keys") or [])
+        self._was_disconnected = bool(data.get("disconnected", False))
 
     def prune_expired(self, now: datetime, keep_last: int = 20) -> None:
         """Drop counters of windows that ended more than a day ago – keeps the store small."""
@@ -505,6 +516,7 @@ class Executor:
         cable = _flag(snap.cable_connected)
         on = _flag(snap.charger_on)
         window = snap.desired.window_key
+        self._cable_pending = cable is None and self._was_disconnected
         if cable is False:
             state = ExecState.DISCONNECTED
         elif on and self._power_flowing():

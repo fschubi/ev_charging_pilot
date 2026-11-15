@@ -138,6 +138,7 @@ class ChargingCenter:
         self._report_due: tuple[int, int] | None = None
         self.price_fetcher = PriceFetcher(hass, self.tz, self._on_prices, self._on_price_problem)
         self.recorder = CommandRecorder()
+        self._location_seed_key: str | None = None
         self.events: deque[dict[str, Any]] = deque(maxlen=20000)
         self.statistics: dict[str, Any] = {}
         # One sample per minute for the cockpit chart (24 h, not persisted).
@@ -451,6 +452,12 @@ class ChargingCenter:
             self.engine.set_vehicle_commands(self.ports.ovms_command_available)
             self.engine.set_shadow(self.mode is not RunMode.LIVE)
             result = self.engine.tick(now, self._raw_states())
+            unseeded = self.engine.location_fix_unseeded
+            if unseeded is not None and unseeded != self._location_seed_key:
+                # once per fix: the first one after a restart may be days old
+                self._location_seed_key = unseeded
+                self.entry.async_create_background_task(
+                    self.hass, self.async_seed_location_fix(), f"{DOMAIN} location fix")
             self._sample_history(now)
             # A new month/year must be computed before any state is written: the
             # TOTAL sensors would otherwise publish last month's total under the new
@@ -529,6 +536,57 @@ class ChargingCenter:
             _LOGGER.info("Energie in den Akku für %d ältere Ladungen aus OVMS ergänzt", done)
             self.monitor_changed()
         return done
+
+    async def async_seed_location_fix(self) -> bool:
+        """Odometer at the time of the current GPS fix, from the recorder.
+
+        OVMS keeps its last position without GPS reception; the engine only sees a
+        fix from the moment it runs. Without this an old fix (07.11.2026, a week and
+        15 km ago) would count as current after the update.
+        """
+        key = self.engine.location_fix_unseeded
+        tracker = self.entity_ids.get(Inp.OVMS_LOCATION)
+        odometer = self.entity_ids.get(Inp.OVMS_ODOMETER)
+        if key is None or tracker is None or odometer is None \
+                or "recorder" not in self.hass.config.components:
+            return False
+        from homeassistant.components.recorder import get_instance, history
+
+        end = dt_util.utcnow()
+        start = end - timedelta(days=10)
+
+        def load() -> dict[str, list]:
+            return history.get_significant_states(
+                self.hass, start, end, [tracker, odometer], include_start_time_state=True,
+                significant_changes_only=False)
+
+        try:
+            states = await get_instance(self.hass).async_add_executor_job(load)
+        except Exception:  # noqa: BLE001 – a nicety, never a reason to fail
+            _LOGGER.debug("Standort aus dem Recorder nicht ladbar", exc_info=True)
+            return False
+        fix_at = None
+        for state in reversed(states.get(tracker, [])):
+            lat, lon = state.attributes.get("latitude"), state.attributes.get("longitude")
+            if lat is None or lon is None:
+                continue  # unavailable in between (restart)
+            if f"{lat},{lon}" != key:
+                break
+            fix_at = state.last_updated
+        if fix_at is None:
+            return False
+        km = None
+        for state in states.get(odometer, []):
+            if state.last_updated > fix_at and km is not None:
+                break
+            value = to_value(Inp.OVMS_ODOMETER, RawState(
+                state.state, state.last_updated, state.last_updated, dict(state.attributes)))
+            if value.available and value.normalized is not None:
+                km = float(value.normalized)
+        self.engine.seed_location_fix(key, km)
+        self._schedule_save()
+        await self.async_tick()
+        return True
 
     async def _async_backfill_trips(self) -> None:
         await self.async_backfill_trip_range()

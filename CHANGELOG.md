@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.27.34 – 2026-11-15
+
+„Nicht eingesteckt“, obwohl OVMS den Stecker meldet:
+- **Ein veralteter OVMS-Standort gilt nicht mehr als „unterwegs“.** OVMS behält ohne
+  GPS-Empfang die letzte Position. Der smart fuhr am 07.11. ohne GPS nach Hause und stand
+  für den Piloten eine Woche lang 16 km entfernt – die OVMS-Meldung „Stecker erkannt“
+  wurde deshalb als Fremdladen verworfen, Steckprobe und Sicherheitsfreigabe blieben aus.
+  Jetzt merkt sich der Pilot den Kilometerstand zum letzten GPS-Fix: ist das Auto seitdem
+  mehr als 0,5 km gefahren, ist der Standort „unbekannt“ und der Stecker zählt wieder.
+  Nach dem Update wird der Kilometerstand zum aktuellen Fix einmalig aus dem Recorder
+  gelesen. Im Protokoll steht dann „OVMS-Standort veraltet …“.
+- **Kein falsches „Kabel gezogen“ mehr nach jedem Neustart**, wenn das Auto schon vorher
+  nicht eingesteckt war.
+- **Keine falsche Warnung „HV-Kontaktor geschaltet, ohne dass das Auto lud oder fuhr“**
+  nach einem Neustart, wenn sich der Zähler währenddessen bewegt hat.
+
 ## 0.27.32 – 2026-10-28
 
 Sicherheitsfreigabe vor der Abfahrt:

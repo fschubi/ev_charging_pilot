@@ -142,9 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-26 – v0.27.29 Reichweite Start.** `TripTracker.range_parked` (Wert bei Änderung,
-  sonst alle 30 min, 12 h, geleert bei Fahrtende, im Store) → `range_start` = max(Parkwerte,
-  erste 3 min); `RANGE_RULE` 3, Backfill lädt ab max(Ende Vorfahrt, Start − 12 h).
 - **2026-10-27 – v0.27.30 Steckprobe.** Schlafender smart meldet Einstecken an der aus-
   geschalteten Halo nicht (Feld 27.10.). `Engine._plug_probe`: Kabel False + `OVMS_PLUG`
   + zu Hause + Zündung aus → `executor.request_plug_probe(key)` bei Fensterstart
@@ -160,3 +157,9 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   `_fallback_hold` in IDLE/DISCONNECTED hält die Halo an (`FALLBACK_ENABLE`), Summary-Zweig.
 - **2026-11-06 – v0.27.33 Klima 15 min.** Button „Klima 15 min“ im Panel (aktions-Reiter) und im
   YAML-Dashboard; Entität `button.ev_pilot_climate_15min` und Service gab es schon.
+- **2026-11-15 – v0.27.34 Standort veraltet.** OVMS hält ohne GPS die letzte Position (Feld
+  07.–15.11.: „nicht eingesteckt“ trotz Stecker). `Engine._location_value`: `_location_fix`
+  {key lat,lon; odometer; seeded} im Store; km − Fix > `LOCATION_STALE_KM` (0,5) → Standort
+  unavailable, Event `LOCATION_STALE`; `coordinator.async_seed_location_fix` holt den km-Stand
+  zum Fix einmal aus dem Recorder. Executor: `disconnected` im Store → `_cable_pending`, kein
+  `CABLE_DISCONNECTED` nach Neustart. `HvCycleMonitor.unwatched` nach Restore.

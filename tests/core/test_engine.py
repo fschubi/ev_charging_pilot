@@ -870,3 +870,94 @@ def test_a_stored_lasting_stop_is_dropped_on_restore():
                         "expires_at": None, "target_soc": None, "source": "override"}
     world.engine.restore(data)
     assert world.engine.override is None
+
+
+# --- stale OVMS location (field 15.11.2026) ---------------------------------------
+
+GPS = WITH_OVMS | {Inp.OVMS_PLUG, Inp.OVMS_LOCATION, Inp.OVMS_ODOMETER}
+AWAY = {"latitude": 53.658459, "longitude": 10.027832}
+
+
+def gps_world() -> World:
+    world = World(local(2026, 11, 7, 16, 0), configured=GPS)
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.set(Inp.OVMS_PLUG, "no")
+    world.set(Inp.OVMS_LOCATION, "not_home", **AWAY)
+    world.set(Inp.OVMS_ODOMETER, "9955.0", unit_of_measurement="km")
+    world.run(10)
+    return world
+
+
+def test_plug_away_from_home_is_no_home_cable():
+    world = gps_world()
+    world.set(Inp.OVMS_PLUG, "yes")
+    world.run(10)
+    assert world.engine.values[Inp.CABLE_CONNECTED].normalized is False
+    assert not world.engine.location_stale
+
+
+def test_location_goes_stale_when_the_car_drives_on_without_gps():
+    """OVMS kept the position of the last fix; the car drove 14 km home and was plugged
+    in – the pilot showed "nicht eingesteckt" for a week."""
+    world = gps_world()
+    world.set(Inp.OVMS_ODOMETER, "9969.18", unit_of_measurement="km")
+    world.set(Inp.OVMS_PLUG, "yes")
+    world.run(10)
+    assert world.engine.location_stale
+    assert world.engine.values[Inp.CABLE_CONNECTED].normalized is True
+    assert world.events.count("LOCATION_STALE") == 1
+    # a new fix makes the location count again
+    world.set(Inp.OVMS_LOCATION, "not_home", latitude=53.7, longitude=10.1)
+    world.run(10)
+    assert not world.engine.location_stale
+    assert world.engine.values[Inp.CABLE_CONNECTED].normalized is False
+
+
+def test_location_fix_survives_a_restart_and_takes_the_recorder_odometer():
+    world = gps_world()
+    restarted = World(world.now, configured=GPS)
+    restarted.states, restarted.updated = dict(world.states), dict(world.updated)
+    restarted.reported = dict(world.reported)
+    restarted.engine.restore(world.engine.as_dict())
+    restarted.set(Inp.OVMS_ODOMETER, "9969.18", unit_of_measurement="km")
+    restarted.run(10)
+    assert restarted.engine.location_stale
+
+    # First run of this release: the fix is first seen with today's odometer.
+    fresh = World(local(2026, 11, 15, 12, 0), configured=GPS)
+    fresh.set(Inp.CABLE_CONNECTED, "off")
+    fresh.set(Inp.OVMS_PLUG, "yes")
+    fresh.set(Inp.OVMS_LOCATION, "not_home", **AWAY)
+    fresh.set(Inp.OVMS_ODOMETER, "9969.18", unit_of_measurement="km")
+    fresh.run(10)
+    key = fresh.engine.location_fix_unseeded
+    assert key == "53.658459,10.027832" and not fresh.engine.location_stale
+    fresh.engine.seed_location_fix(key, 9955.0)
+    fresh.run(10)
+    assert fresh.engine.location_fix_unseeded is None
+    assert fresh.engine.location_stale
+    assert fresh.engine.values[Inp.CABLE_CONNECTED].normalized is True
+
+
+def test_restart_while_unplugged_reports_no_unplugging():
+    world = World(local(2026, 11, 14, 17, 0), configured=WITH_OVMS | {Inp.OVMS_PLUG})
+    world.set(Inp.CABLE_CONNECTED, "off")
+    world.set(Inp.OVMS_PLUG, "no")
+    world.run(10)
+    assert world.engine.executor.state is ExecState.DISCONNECTED
+    restarted = World(world.now, configured=WITH_OVMS | {Inp.OVMS_PLUG})
+    restarted.states, restarted.updated = dict(world.states), dict(world.updated)
+    restarted.reported = dict(world.reported)
+    del restarted.states[Inp.OVMS_PLUG]  # OVMS loads later than the pilot
+    restarted.engine.restore(world.engine.as_dict())
+    restarted.run(10)
+    restarted.set(Inp.OVMS_PLUG, "no")
+    restarted.run(10)
+    assert restarted.engine.executor.state is ExecState.DISCONNECTED
+    assert "CABLE_DISCONNECTED" not in restarted.events
+    # a real unplugging after a restart while plugged in is still reported
+    restarted.set(Inp.OVMS_PLUG, "yes")
+    restarted.run(10)
+    restarted.set(Inp.OVMS_PLUG, "no")
+    restarted.run(10)
+    assert restarted.events.count("CABLE_DISCONNECTED") == 1

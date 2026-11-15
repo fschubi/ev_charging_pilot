@@ -147,3 +147,20 @@ def test_ovms_plug_detects_the_cable_while_the_halo_is_disabled():
     halo_on = Value("on", True, "halo", NOW)
     assert plugged_in(halo_on, Value("no", False, "ovms", NOW), away) is halo_on
     assert plugged_in(none, Value("no", False, "ovms", NOW), home).normalized is False
+
+
+def test_hv_counter_that_moved_during_a_restart_is_no_warning():
+    from datetime import date
+
+    from custom_components.ev_charging_pilot.core.model import Value
+    from custom_components.ev_charging_pilot.core.source_policy import HvCycleMonitor
+
+    def cycles(n):
+        return Value(str(n), float(n), "ovms", None)
+
+    day = date(2026, 11, 14)
+    monitor = HvCycleMonitor()
+    assert monitor.update(cycles(100), day, active=False) == []
+    restored = HvCycleMonitor.from_dict(monitor.as_dict(), 10)
+    assert restored.update(cycles(102), day, active=False) == []  # charged while HA was down
+    assert restored.update(cycles(103), day, active=False) == ["HV_CYCLE_WITHOUT_ACTIVITY"]

@@ -117,6 +117,11 @@ PLUG_PROBE_AFTER_LOCK = timedelta(minutes=10)
 # a detected cable – a full charge of the 453 takes less (Frank, 28.10.2026).
 FALLBACK_BEFORE_DEPARTURE = timedelta(hours=2)
 CHANGE_TRACKED = (Inp.OVMS_CABIN_TEMP, Inp.OVMS_OUTSIDE_TEMP)
+# OVMS keeps its last GPS position when the fix is lost: the car drove home on
+# 07.11.2026 without GPS and stood "16 km away" for a week, so the plugged-in car was
+# reported as "not plugged in". Driven further than this since the last fix → the
+# location is unknown, not "elsewhere".
+LOCATION_STALE_KM = 0.5
 # A 100 % target is never ended by the SOC: the smart shows 100 % at a real ~93 %
 # (field 19.10.2026) and still balances. The car ends the charge itself; once it
 # has drawn no power for this long, the wallbox goes off.
@@ -247,6 +252,8 @@ class Engine:
         # Last real change per tracked input: (state, when). HA resets last_updated
         # on every restart, so this is kept in the store.
         self._changed: dict[Inp, tuple[str, datetime]] = {}
+        # Identity of the last GPS fix and the odometer when it was first seen.
+        self._location_fix: dict[str, Any] | None = None
         # Last moment the Shelly confirmed "CP closed" (for SHELLY_DROPOUT_GRACE).
         self._relay_closed_at: datetime | None = None
         self.climate_phase: str | None = None
@@ -272,6 +279,7 @@ class Engine:
         self._health_notified = HealthStatus.HEALTHY
         self._cp_alarm = False
         self._was_conflict = False
+        self._was_location_stale = False
         self._conflict_since: datetime | None = None
         self._target_hold: str | None = None
         # Window whose top-up after the target runs (until the target again).
@@ -389,6 +397,13 @@ class Engine:
         self._charge_test(now, result)
         self._monitor(now, result)
         self._notifications(now, result, plugged_in_event, cable_flag)
+        stale = self.location_stale
+        if stale and not self._was_location_stale:
+            result.events.append(Event(
+                now, Category.HEALTH, Severity.WARNING, "LOCATION_STALE",
+                "OVMS-Standort veraltet (seit dem letzten GPS-Fix weitergefahren) – "
+                "wird nicht mehr als „unterwegs“ gewertet"))
+        self._was_location_stale = stale
         if self.data_conflict and not self._was_conflict:
             result.events.append(Event(now, Category.HEALTH, Severity.WARNING, "DATA_CONFLICT",
                                        "Wallbox und Fahrzeug widersprechen sich beim Ladezustand"))
@@ -519,6 +534,8 @@ class Engine:
             # The executor still needs the raw power samples to measure stability.
             values[Inp.CHARGE_POWER] = values[Inp.CHARGE_POWER].with_quality(Quality.CONFLICT)
 
+        values[Inp.OVMS_LOCATION] = self._location_value(
+            raw.get(Inp.OVMS_LOCATION), values[Inp.OVMS_LOCATION], values[Inp.OVMS_ODOMETER])
         values[Inp.CABLE_CONNECTED] = plugged_in(
             values[Inp.CABLE_CONNECTED], values[Inp.OVMS_PLUG], values[Inp.OVMS_LOCATION])
 
@@ -531,6 +548,49 @@ class Engine:
             values[Inp.OVMS_OUTSIDE_TEMP], values[Inp.OUTSIDE_TEMP], values[Inp.WEATHER])
         self._vehicle_charging = vehicle_charging(
             values[Inp.OVMS_CHARGING], values[Inp.CHARGE_POWER], s.power_threshold_w)
+
+    def _location_value(self, raw: RawState | None, location: Value,
+                        odometer: Value) -> Value:
+        """The OVMS location, or unknown once the car has driven on since its last fix."""
+        if raw is None or not location.available:
+            return location
+        lat, lon = raw.attributes.get("latitude"), raw.attributes.get("longitude")
+        key = f"{lat},{lon}" if lat is not None and lon is not None \
+            else f"{raw.state}|{raw.last_updated.isoformat()}"
+        km = float(odometer.normalized) if odometer.available \
+            and odometer.normalized is not None else None
+        fix = self._location_fix
+        if fix is None or fix.get("key") != key:
+            # A fix first seen after a restart may be old: the recorder knows better.
+            fix = self._location_fix = {"key": key, "odometer": km, "seeded": fix is not None}
+        elif fix.get("odometer") is None and km is not None:
+            fix["odometer"] = km
+        start = fix.get("odometer")
+        if km is not None and start is not None and km - start > LOCATION_STALE_KM:
+            return Value.unavailable(location.source)
+        return location
+
+    @property
+    def location_fix_unseeded(self) -> str | None:
+        """Key of a GPS fix whose odometer still has to come from the recorder."""
+        fix = self._location_fix
+        return fix["key"] if fix is not None and not fix.get("seeded") else None
+
+    def seed_location_fix(self, key: str, odometer_km: float | None) -> None:
+        """Odometer at the time of the current GPS fix, found in the recorder."""
+        fix = self._location_fix
+        if fix is None or fix.get("key") != key:
+            return
+        fix["seeded"] = True
+        if odometer_km is not None and (fix.get("odometer") is None
+                                        or odometer_km < fix["odometer"]):
+            fix["odometer"] = odometer_km
+
+    @property
+    def location_stale(self) -> bool:
+        return Inp.OVMS_LOCATION in self.config.configured \
+            and not self.values[Inp.OVMS_LOCATION].available \
+            and self._location_fix is not None
 
     def _activity_for_quality(self) -> datetime | None:
         """Activity that makes an older vehicle value STALE.
@@ -1480,6 +1540,7 @@ class Engine:
             "plug_offer_at": self.plug_offer_at.isoformat() if self.plug_offer_at else None,
             "last_unplug_at": self.last_unplug_at.isoformat() if self.last_unplug_at else None,
             "locked_since": self._locked_since.isoformat() if self._locked_since else None,
+            "location_fix": self._location_fix,
             "changed": {k.value: [state, at.isoformat()]
                         for k, (state, at) in self._changed.items()},
             "climate_lock": {"duration_min": self._climate_lock.duration_min,
@@ -1522,6 +1583,8 @@ class Engine:
         self.last_unplug_at = datetime.fromisoformat(unplug) if unplug else None
         locked = data.get("locked_since")
         self._locked_since = datetime.fromisoformat(locked) if locked else None
+        fix = data.get("location_fix")
+        self._location_fix = dict(fix) if isinstance(fix, dict) else None
         known = {i.value for i in Inp}
         self._changed = {Inp(k): (v[0], datetime.fromisoformat(v[1]))
                          for k, v in (data.get("changed") or {}).items() if k in known}

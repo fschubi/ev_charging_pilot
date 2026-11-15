@@ -1,5 +1,8 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-26 – v0.27.29 Reichweite Start.** `TripTracker.range_parked` (Wert bei Änderung,
+  sonst alle 30 min, 12 h, geleert bei Fahrtende, im Store) → `range_start` = max(Parkwerte,
+  erste 3 min); `RANGE_RULE` 3, Backfill lädt ab max(Ende Vorfahrt, Start − 12 h).
 - **2026-10-25 – v0.27.28 Achse.** Panel `hourOf` über `Intl.DateTimeFormat.formatToParts`
   (vorher `Number("10 Uhr")` = NaN, live nach v0.27.27 gesehen); `_repair_sessions` deckelt
   gespeicherte `average_power_w` auf `max_power_w`.

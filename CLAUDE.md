@@ -142,11 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-10-27 – v0.27.30 Steckprobe.** Schlafender smart meldet Einstecken an der aus-
-  geschalteten Halo nicht (Feld 27.10.). `Engine._plug_probe`: Kabel False + `OVMS_PLUG`
-  + zu Hause + Zündung aus → `executor.request_plug_probe(key)` bei Fensterstart
-  (`window_key`) oder 10 min nach Verriegeln (`lock|…`, nur mit Location); Executor in
-  DISCONNECTED: Halo an, `PLUG_PROBE` 3 min, sonst `PLUG_PROBE_EMPTY` + aus; Keys im Store.
 - **2026-10-28 – v0.27.31 Stopp.** Dauer-Override STOP (bis Kabel ab, seit v0.1) blockierte
   die Nachtladung 28.10., Status zeigte den Plan. `Engine.stop_charging`: nur bei
   `override.charger_enabled` → Override weg (`OVERRIDE_CLEARED`), sonst ValueError;
@@ -163,3 +158,7 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   unavailable, Event `LOCATION_STALE`; `coordinator.async_seed_location_fix` holt den km-Stand
   zum Fix einmal aus dem Recorder. Executor: `disconnected` im Store → `_cable_pending`, kein
   `CABLE_DISCONNECTED` nach Neustart. `HvCycleMonitor.unwatched` nach Restore.
+- **2026-11-15 – v0.27.35 Button-Rückmeldung.** Panel: `_press` → `_buttonStates[service|payload]`
+  busy/ok/err (außerhalb des DOM, `_applyButtonStates` nach jedem Render), CSS `.act.busy/.ok/.err`;
+  `_feedback` liest nach dem Service `get_events` (seit Klick) und zeigt die Protokollmeldung,
+  Warnung → roter Toast + ✕; Dry-Run-Zusatz.

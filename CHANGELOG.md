@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.35 – 2026-11-15
+
+Rückmeldung der Schaltflächen im Panel:
+- **Jede Schaltfläche zeigt den Klick sofort**: sie wird kurz kleiner, zeigt einen
+  drehenden Kreis, solange der Befehl läuft (kein Doppelklick möglich), und danach
+  2,5 Sekunden lang ✓ (grüner Rand) oder ✕ (roter Rand).
+- **Die Meldung unten sagt, was der Pilot wirklich getan hat** – sie kommt aus dem
+  Protokoll, z. B. „Klimatisierung 15 min“ oder in Rot „Wakeup abgelehnt: Mindestabstand
+  zum letzten Wakeup“, statt immer nur „Erledigt“. Im Dry-Run steht „(Dry-Run: nichts
+  geschaltet)“ dabei. Fehler erscheinen rot und bleiben länger stehen.
+
 ## 0.27.34 – 2026-11-15
 
 „Nicht eingesteckt“, obwohl OVMS den Stecker meldet:

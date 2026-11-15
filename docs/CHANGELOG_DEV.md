@@ -1,5 +1,10 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-10-27 – v0.27.30 Steckprobe.** Schlafender smart meldet Einstecken an der aus-
+  geschalteten Halo nicht (Feld 27.10.). `Engine._plug_probe`: Kabel False + `OVMS_PLUG`
+  + zu Hause + Zündung aus → `executor.request_plug_probe(key)` bei Fensterstart
+  (`window_key`) oder 10 min nach Verriegeln (`lock|…`, nur mit Location); Executor in
+  DISCONNECTED: Halo an, `PLUG_PROBE` 3 min, sonst `PLUG_PROBE_EMPTY` + aus; Keys im Store.
 - **2026-10-26 – v0.27.29 Reichweite Start.** `TripTracker.range_parked` (Wert bei Änderung,
   sonst alle 30 min, 12 h, geleert bei Fahrtende, im Store) → `range_start` = max(Parkwerte,
   erste 3 min); `RANGE_RULE` 3, Backfill lädt ab max(Ende Vorfahrt, Start − 12 h).

@@ -567,6 +567,17 @@ const STYLE = `
   .act.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
   .act.danger { color: var(--error-color); }
   .act:disabled { opacity: .45; cursor: default; }
+  .act { transition: transform .08s, box-shadow .2s, filter .08s; }
+  .act:not(:disabled):active { transform: scale(.95); filter: brightness(.85); }
+  .act.busy { opacity: .75; cursor: progress; }
+  .act.busy::before { content: ""; display: inline-block; width: .8em; height: .8em; margin-right: 6px;
+           vertical-align: -1px; border: 2px solid currentColor; border-right-color: transparent;
+           border-radius: 50%; animation: act-spin .7s linear infinite; }
+  .act.ok { box-shadow: 0 0 0 2px var(--success-color, #43a047); opacity: 1; }
+  .act.ok::before { content: "✓ "; font-weight: 700; }
+  .act.err { box-shadow: 0 0 0 2px var(--error-color, #db4437); opacity: 1; }
+  .act.err::before { content: "✕ "; font-weight: 700; }
+  @keyframes act-spin { to { transform: rotate(360deg); } }
   .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
   .ok { background: rgba(46,125,50,.15); color: var(--success-color, #2e7d32); }
   .info { background: rgba(2,136,209,.15); color: var(--info-color, #0288d1); }
@@ -591,7 +602,8 @@ const STYLE = `
   svg text { fill: var(--secondary-text-color); font-size: 10px; }
   .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 16px;
            border-radius: 8px; background: var(--primary-text-color); color: var(--card-background-color); z-index: 200;
-           text-decoration: none; max-width: calc(100% - 32px); }
+           text-decoration: none; max-width: calc(100% - 32px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+  .toast.warn { background: var(--error-color, #db4437); color: #fff; }
   .hero { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; align-items: center; }
   .hero .col { text-align: center; }
   .hero .label { font-size: 13px; color: var(--secondary-text-color); margin-top: 2px; }
@@ -780,8 +792,9 @@ class EvPilotPanel extends HTMLElement {
 
   async _call(service, data = {}, label = "") {
     try {
+      const since = Date.now() - 1000;
       await this._hass.callService(DOMAIN, service, data);
-      this._toast(label || "Erledigt");
+      await this._feedback(since, label);
       // The system check result and open details stay: their rows are still open, and
       // they only load again on a click (an emptied cache left "Lade …" forever).
       this._cache = Object.fromEntries(Object.entries(this._cache).filter(([key]) =>
@@ -789,7 +802,7 @@ class EvPilotPanel extends HTMLElement {
       await this._refresh();
       return true;
     } catch (err) {
-      this._toast(`Fehler: ${err.message || err}`);
+      this._toast(`Fehler: ${err.message || err}`, null, true);
       return false;
     }
   }
@@ -804,15 +817,61 @@ class EvPilotPanel extends HTMLElement {
     }
   }
 
+  /** What the pilot did with the click: its own protocol entry says it best –
+   *  "Wakeup abgelehnt: Mindestabstand …" is no "Erledigt". */
+  async _feedback(since, label) {
+    let text = label || "Erledigt", warn = false;
+    try {
+      const events = (await this._ws("get_events", { limit: 10, min_severity: "info" })).items || [];
+      const fresh = events.filter((e) => Date.parse(e.timestamp) >= since);
+      const bad = fresh.find((e) => e.severity !== "info");
+      // newest first: the oldest fresh entry is the direct answer to the click
+      const first = bad || fresh[fresh.length - 1];
+      if (first) { text = first.message; warn = Boolean(bad); }
+    } catch (err) { /* the label alone is still an answer */ }
+    if (!warn && this._state && this._state.mode && this._state.mode !== "live") text += " (Dry-Run: nichts geschaltet)";
+    this._lastWarn = warn;
+    this._toast(text, null, warn);
+  }
+
+  /** Buttons show their click at once: busy while the service runs, then ✓ or ✕.
+   *  The state lives outside the DOM because every refresh re-renders the buttons. */
+  _applyButtonStates() {
+    const states = this._buttonStates || {};
+    this.shadowRoot.querySelectorAll("button[data-service]").forEach((b) => {
+      const state = states[`${b.dataset.service}|${b.dataset.payload || ""}`];
+      ["busy", "ok", "err"].forEach((c) => b.classList.toggle(c, state === c));
+      if (state === "busy" && !b.disabled) { b.disabled = true; b.dataset.lock = "1"; }
+      else if (state !== "busy" && b.dataset.lock) { b.disabled = false; delete b.dataset.lock; }
+    });
+  }
+
+  async _press(button) {
+    const key = `${button.dataset.service}|${button.dataset.payload || ""}`;
+    this._buttonStates = this._buttonStates || {};
+    if (this._buttonStates[key] === "busy") return;
+    this._buttonStates[key] = "busy";
+    this._applyButtonStates();
+    const ok = await this._call(button.dataset.service,
+      button.dataset.payload ? JSON.parse(button.dataset.payload) : {}, button.dataset.label);
+    this._buttonStates[key] = ok && !this._lastWarn ? "ok" : "err";
+    this._applyButtonStates();
+    setTimeout(() => {
+      if (this._buttonStates[key] !== "busy") delete this._buttonStates[key];
+      this._applyButtonStates();
+    }, 2500);
+  }
+
   /** Toasts live outside the re-rendered region – a render must not wipe them. */
-  _toast(text, href = null) {
+  _toast(text, href = null, warn = false) {
     const host = this.shadowRoot.getElementById("toasts") || this.shadowRoot;
     const el = document.createElement(href ? "a" : "div");
-    el.className = "toast";
+    el.className = warn ? "toast warn" : "toast";
     el.textContent = text;
     if (href) { el.href = href; el.target = "_blank"; el.rel = "noopener"; }
     host.appendChild(el);
-    setTimeout(() => el.remove(), href ? 15000 : 3500);
+    host.querySelectorAll("div.toast").forEach((old) => { if (old !== el) old.remove(); });  // no pile
+    setTimeout(() => el.remove(), href ? 15000 : warn ? 6000 : 3500);
   }
 
   /** A push about an external charge opens the panel with ?external_price=<id>. */
@@ -1028,8 +1087,9 @@ class EvPilotPanel extends HTMLElement {
     root.querySelectorAll("[data-service]").forEach((b) =>
       b.addEventListener("click", () => {
         if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
-        this._call(b.dataset.service, b.dataset.payload ? JSON.parse(b.dataset.payload) : {}, b.dataset.label);
+        this._press(b);
       }));
+    this._applyButtonStates();
     root.querySelectorAll("[data-action]").forEach((el) =>
       el.addEventListener(el.tagName === "BUTTON" ? "click" : "change", (ev) => {
         this._action(el.dataset.action, el, ev);
@@ -1601,15 +1661,15 @@ class EvPilotPanel extends HTMLElement {
           <button class="act primary" data-service="start_charging" data-label="Jetzt laden">Jetzt laden</button>
           <button class="act" data-service="stop_charging" data-label="„Jetzt laden“ gestoppt" ${s.override && s.override.mode !== "stop" ? "" : "disabled title='Nur während „Jetzt laden“'"}>Laden stoppen</button>
           <button class="act" data-service="start_one_shot" data-label="Heute Nacht laden">Heute Nacht laden</button>
-          <button class="act" data-service="clear_override" ${s.override ? "" : "disabled"}>Override aufheben</button>
-          <button class="act" data-service="cancel_one_shot" ${s.one_shot ? "" : "disabled"}>Einmalige Abfahrt löschen</button>
-          ${has("ovms_soc") ? `<button class="act" data-service="start_climate" data-payload='{"minutes":10}'>Klima 10 min</button>
-          <button class="act" data-service="start_climate" data-payload='{"minutes":15}'>Klima 15 min</button>
-          <button class="act" data-service="stop_climate">Klima stopp</button>
-          <button class="act" data-service="vehicle_wakeup" data-confirm="Fahrzeug wirklich wecken? Jeder Wakeup kostet HV-Zyklen.">Fahrzeug wecken</button>` : ""}
-          ${has("cp_relay") ? `<button class="act" data-service="cp_wakeup" data-confirm="CP-Puls auslösen?" ${s.settings.cp_failsafe_verified ? "" : "disabled title='Failsafe nicht verifiziert'"}>CP-Wakeup</button>` : ""}
+          <button class="act" data-service="clear_override" data-label="Override aufgehoben" ${s.override ? "" : "disabled"}>Override aufheben</button>
+          <button class="act" data-service="cancel_one_shot" data-label="Einmalige Abfahrt gelöscht" ${s.one_shot ? "" : "disabled"}>Einmalige Abfahrt löschen</button>
+          ${has("ovms_soc") ? `<button class="act" data-service="start_climate" data-payload='{"minutes":10}' data-label="Klima 10 min angefordert">Klima 10 min</button>
+          <button class="act" data-service="start_climate" data-payload='{"minutes":15}' data-label="Klima 15 min angefordert">Klima 15 min</button>
+          <button class="act" data-service="stop_climate" data-label="Klima gestoppt">Klima stopp</button>
+          <button class="act" data-service="vehicle_wakeup" data-label="Weckbefehl gesendet" data-confirm="Fahrzeug wirklich wecken? Jeder Wakeup kostet HV-Zyklen.">Fahrzeug wecken</button>` : ""}
+          ${has("cp_relay") ? `<button class="act" data-service="cp_wakeup" data-label="CP-Puls ausgelöst" data-confirm="CP-Puls auslösen?" ${s.settings.cp_failsafe_verified ? "" : "disabled title='Failsafe nicht verifiziert'"}>CP-Wakeup</button>` : ""}
           ${ex.failure_code ? `<button class="act primary" data-service="reset_error" data-label="Neuer Ladeversuch">Erneut versuchen</button>`
-            : `<button class="act danger" data-service="reset_error" ${health === "ERROR" ? "" : "disabled"}>Fehler zurücksetzen</button>`}
+            : `<button class="act danger" data-service="reset_error" data-label="Fehler zurückgesetzt" ${health === "ERROR" ? "" : "disabled"}>Fehler zurücksetzen</button>`}
         </div>
       </div>
     </div>`;

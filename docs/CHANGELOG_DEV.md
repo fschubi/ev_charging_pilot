@@ -1,5 +1,11 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-11-15 – v0.27.34 Standort veraltet.** OVMS hält ohne GPS die letzte Position (Feld
+  07.–15.11.: „nicht eingesteckt“ trotz Stecker). `Engine._location_value`: `_location_fix`
+  {key lat,lon; odometer; seeded} im Store; km − Fix > `LOCATION_STALE_KM` (0,5) → Standort
+  unavailable, Event `LOCATION_STALE`; `coordinator.async_seed_location_fix` holt den km-Stand
+  zum Fix einmal aus dem Recorder. Executor: `disconnected` im Store → `_cable_pending`, kein
+  `CABLE_DISCONNECTED` nach Neustart. `HvCycleMonitor.unwatched` nach Restore.
 - **2026-11-06 – v0.27.33 Klima 15 min.** Button „Klima 15 min“ im Panel (aktions-Reiter) und im
   YAML-Dashboard; Entität `button.ev_pilot_climate_15min` und Service gab es schon.
 - **2026-10-28 – v0.27.32 Sicherheitsfreigabe.** `Engine._fallback`: Kabel nicht True, Plan

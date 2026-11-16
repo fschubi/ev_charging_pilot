@@ -142,12 +142,6 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-11-15 – v0.27.34 Standort veraltet.** OVMS hält ohne GPS die letzte Position (Feld
-  07.–15.11.: „nicht eingesteckt“ trotz Stecker). `Engine._location_value`: `_location_fix`
-  {key lat,lon; odometer; seeded} im Store; km − Fix > `LOCATION_STALE_KM` (0,5) → Standort
-  unavailable, Event `LOCATION_STALE`; `coordinator.async_seed_location_fix` holt den km-Stand
-  zum Fix einmal aus dem Recorder. Executor: `disconnected` im Store → `_cable_pending`, kein
-  `CABLE_DISCONNECTED` nach Neustart. `HvCycleMonitor.unwatched` nach Restore.
 - **2026-11-15 – v0.27.35 Button-Rückmeldung.** Panel: `_press` → `_buttonStates[service|payload]`
   busy/ok/err (außerhalb des DOM, `_applyButtonStates` nach jedem Render), CSS `.act.busy/.ok/.err`;
   `_feedback` liest nach dem Service `get_events` (seit Klick) und zeigt die Protokollmeldung,
@@ -158,3 +152,4 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
   (14.11.: 1,47 kWh während HA-Ausfall), Kältezuschlag in der Ladedauer.
 - **2026-11-15 – v0.28.0 OCPP-Kabelstatus.** Halo läuft über die HACS-Integration „ocpp“ (`ws://…:9000`, Entitäten `*.halo_*`), kein Kabel-Sensor: `inputs.OCPP_PLUGGED_STATES` (Preparing/SuspendedEV/SuspendedEVSE/Finishing, plus Charging) → `CABLE_CONNECTED` True aus `sensor.halo_status_connector`; Available False. Ladefreigabe = `switch.halo_charge_control` (RemoteStart/Stop), Neustart aus Finishing ohne Abziehen getestet.
 - **2026-11-15 – v0.28.1 Kabel-Auswahl.** Config-Flow-Selektor für den Kabelstatus erlaubt auch `sensor` (`INPUT_DOMAINS`), sonst war der OCPP-Status-Sensor nicht wählbar.
+- **2026-11-16 – v0.28.2 Steckprobe/OCPP.** Eine ohne Auto freigegebene OCPP-Wallbox meldet 60 s „Preparing“ (Feld 16.11.: 4× falsches PLUGGED_IN + Push „Eingesteckt“). `Executor.awaiting_car(status)`: DISCONNECTED + Steckprobe/Sicherheitsfreigabe aktiv + Status Preparing → Kabel False (Engine vor `plugged_in()`, Executor `_cable_seen`); echtes Auto meldet sofort SuspendedEV/Charging.

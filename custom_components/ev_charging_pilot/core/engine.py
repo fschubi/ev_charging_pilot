@@ -539,6 +539,9 @@ class Engine:
 
         values[Inp.OVMS_LOCATION] = self._location_value(
             raw.get(Inp.OVMS_LOCATION), values[Inp.OVMS_LOCATION], values[Inp.OVMS_ODOMETER])
+        if values[Inp.CABLE_CONNECTED].normalized is True \
+                and self.executor.awaiting_car(values[Inp.CHARGER_STATUS]):
+            values[Inp.CABLE_CONNECTED] = replace(values[Inp.CABLE_CONNECTED], normalized=False)
         values[Inp.CABLE_CONNECTED] = plugged_in(
             values[Inp.CABLE_CONNECTED], values[Inp.OVMS_PLUG], values[Inp.OVMS_LOCATION])
 

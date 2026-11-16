@@ -739,6 +739,25 @@ def test_plug_probe_after_locking_at_home_finds_the_sleeping_car():
     assert "PLUG_PROBE_EMPTY" not in world.events
 
 
+def test_ocpp_preparing_during_probe_is_no_cable():
+    """16.11.2026: an OCPP wallbox released without a car waits in "Preparing" for its
+    connection timeout (60 s) – that must not count as a plugged cable."""
+    world = _parked_at_home(local(2026, 10, 27, 17, 5))
+    world.set(Inp.OVMS_LOCKED, "locked")
+    world.run(11 * 60)
+    assert world.commands == [CommandKind.ENABLE_CHARGER]
+    world.set(Inp.CHARGER_STATUS, "Preparing")
+    world.set(Inp.CABLE_CONNECTED, "Preparing")
+    world.run(60)
+    assert "PLUGGED_IN" not in world.events and "CABLE_CONNECTED" not in world.events
+    assert world.engine.executor.state is ExecState.DISCONNECTED
+    # A real car answers at once with SuspendedEV/Charging.
+    world.set(Inp.CHARGER_STATUS, "SuspendedEV")
+    world.set(Inp.CABLE_CONNECTED, "SuspendedEV")
+    world.run(30)
+    assert "CABLE_CONNECTED" in world.events
+
+
 def test_plug_probe_without_car_switches_off_and_runs_once_per_lock():
     world = _parked_at_home(local(2026, 10, 27, 17, 5))
     world.set(Inp.OVMS_LOCKED, "locked")

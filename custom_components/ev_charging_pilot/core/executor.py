@@ -241,7 +241,7 @@ class Executor:
         if self.state is None:
             self._initial_state(snap)
 
-        cable = _flag(snap.cable_connected)
+        cable = self._cable_seen(snap)
         if cable is False and not self.cp_masked(now):
             if self._cable_pending and self.state is ExecState.IDLE:
                 self._go(ExecState.DISCONNECTED, now)  # still unplugged – no event
@@ -272,6 +272,21 @@ class Executor:
         """Is the executor currently trying to get energy flowing?"""
         return self.state in _STARTING
 
+    def awaiting_car(self, status: Value | None) -> bool:
+        """Is the wallbox released by us without a car and only waiting for one?
+
+        An OCPP wallbox released without a car reports "Preparing" for its connection
+        timeout (60 s) although nothing is plugged in. During a plug probe or the safety
+        release that is no cable; a real car moves on to SuspendedEV/Charging at once."""
+        return self.state is ExecState.DISCONNECTED and status is not None \
+            and (self._probe_until is not None or self._fallback_key is not None
+                 or self._fallback_now is not None) \
+            and str(status.raw).strip().lower() == "preparing"
+
+    def _cable_seen(self, snap: Snapshot) -> bool | None:
+        cable = _flag(snap.cable_connected)
+        return False if cable is True and self.awaiting_car(snap.charger_status) else cable
+
     def request_plug_probe(self, key: str) -> None:
         """Ask for one plug probe (per key) in this step, e.g. after locking at home."""
         self._probe_request = key
@@ -288,7 +303,7 @@ class Executor:
         """A plan needs the car soon but no cable is seen: the wallbox is released anyway
         until the departure (Frank, 28.10.2026). Plugged in, the car charges and reports
         itself; without a car nothing happens. True while the fallback holds the Halo."""
-        if self._fallback_now is None or _flag(snap.cable_connected) is True:
+        if self._fallback_now is None or self._cable_seen(snap) is True:
             self._fallback_key = None
             return False
         key, until = self._fallback_now

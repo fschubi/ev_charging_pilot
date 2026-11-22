@@ -518,6 +518,17 @@ class Engine:
         values[Inp.CHARGE_POWER] = classify(power, now, rule(ages.halo_power_s, non_negative))
 
         self._was_conflict = self.data_conflict
+        # Power flowing through the home wallbox proves a car charges at home – nobody
+        # else charges there (22.11.2026). Without a location confirming "home" it outranks
+        # a "not charging" from OVMS (grid heating, lag) and a location saying "away".
+        halo_flowing = values[Inp.CHARGE_POWER].quality is Quality.GOOD \
+            and values[Inp.CHARGE_POWER].normalized is not None \
+            and float(values[Inp.CHARGE_POWER].normalized) > s.power_threshold_w
+        values[Inp.OVMS_LOCATION] = self._location_value(
+            raw.get(Inp.OVMS_LOCATION), values[Inp.OVMS_LOCATION], values[Inp.OVMS_ODOMETER])
+        loc = values[Inp.OVMS_LOCATION]
+        home_confirmed = loc.available and bool(loc.normalized)
+        location_used = Inp.OVMS_LOCATION in self.config.configured
         # While the car heats from the grid it draws power without charging – that is
         # no contradiction (field 19.10.2026: DATA_CONFLICT during the climate).
         # Away from home the wallbox is not involved at all (field 21.10.2026: charging
@@ -525,7 +536,9 @@ class Engine:
         at_home = values[Inp.CABLE_CONNECTED].normalized is not False
         if charging_conflict(values[Inp.CHARGE_POWER], values[Inp.OVMS_CHARGING],
                              s.power_threshold_w) and not self._climate_heating(values) \
-                and at_home:
+                and at_home \
+                and not (halo_flowing and location_used and not home_confirmed
+                         and values[Inp.OVMS_CHARGING].normalized is False):
             self._conflict_since = self._conflict_since or now
         else:
             self._conflict_since = None
@@ -537,8 +550,12 @@ class Engine:
             # The executor still needs the raw power samples to measure stability.
             values[Inp.CHARGE_POWER] = values[Inp.CHARGE_POWER].with_quality(Quality.CONFLICT)
 
-        values[Inp.OVMS_LOCATION] = self._location_value(
-            raw.get(Inp.OVMS_LOCATION), values[Inp.OVMS_LOCATION], values[Inp.OVMS_ODOMETER])
+        # A valid location stays the main criterion; wallbox power replaces only a
+        # contradicting or missing one (frozen GPS fix 16 km away while charging at home).
+        if halo_flowing and location_used and not home_confirmed:
+            values[Inp.OVMS_LOCATION] = Value("home", True, "halo",
+                                              values[Inp.CHARGE_POWER].updated_at,
+                                              Quality.ESTIMATED)
         if values[Inp.CABLE_CONNECTED].normalized is True \
                 and self.executor.awaiting_car(values[Inp.CHARGER_STATUS]):
             values[Inp.CABLE_CONNECTED] = replace(values[Inp.CABLE_CONNECTED], normalized=False)

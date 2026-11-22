@@ -1002,3 +1002,31 @@ def test_plug_probe_also_runs_with_a_stale_location():
     world.set(Inp.OVMS_LOCKED, "locked")
     world.run(11 * 60)
     assert "PLUG_PROBE_START" in world.events
+
+
+# --- Wallbox-Leistung beweist Laden zuhause (22.11.2026) ---------------------------
+
+
+def test_wallbox_power_beats_a_frozen_away_location():
+    """Tracker stuck 16 km away, car charging at the home wallbox: no DATA_CONFLICT, the
+    location counts as home."""
+    world = gps_world()
+    world.set(Inp.CABLE_CONNECTED, "on")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.engine.set_override(world.now, OverrideMode.UNTIL_UNPLUGGED)
+    world.run(200)
+    assert world.engine.values[Inp.CHARGE_POWER].normalized > 1000
+    assert world.engine.values[Inp.OVMS_LOCATION].normalized is True
+    assert "DATA_CONFLICT" not in world.events
+    assert not world.engine.data_conflict
+
+
+def test_home_location_stays_main_criterion():
+    """With a confirmed home location a contradiction is still reported."""
+    world = gps_world()
+    world.set(Inp.OVMS_LOCATION, "home", latitude=53.65683, longitude=9.78112)
+    world.set(Inp.CABLE_CONNECTED, "on")
+    world.set(Inp.OVMS_CHARGING, "off")
+    world.engine.set_override(world.now, OverrideMode.UNTIL_UNPLUGGED)
+    world.run(200)
+    assert world.engine.data_conflict

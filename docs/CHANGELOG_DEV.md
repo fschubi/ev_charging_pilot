@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-11-15 – v0.27.35 Button-Rückmeldung.** Panel: `_press` → `_buttonStates[service|payload]`
+  busy/ok/err (außerhalb des DOM, `_applyButtonStates` nach jedem Render), CSS `.act.busy/.ok/.err`;
+  `_feedback` liest nach dem Service `get_events` (seit Klick) und zeigt die Protokollmeldung,
+  Warnung → roter Toast + ✕; Dry-Run-Zusatz.
 - **2026-11-15 – v0.27.34 Standort veraltet.** OVMS hält ohne GPS die letzte Position (Feld
   07.–15.11.: „nicht eingesteckt“ trotz Stecker). `Engine._location_value`: `_location_fix`
   {key lat,lon; odometer; seeded} im Store; km − Fix > `LOCATION_STALE_KM` (0,5) → Standort

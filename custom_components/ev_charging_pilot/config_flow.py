@@ -262,8 +262,13 @@ class EvChargingPilotConfigFlow(ConfigFlow, domain=DOMAIN):
             data = _clean(self._data)
             if self._reconfigure:
                 entry = self._get_reconfigure_entry()
-                return self.async_update_reload_and_abort(
+                self.hass.config_entries.async_update_entry(
                     entry, data=data, title=title_for(entry.options.get(CONF_VEHICLE_NAME)))
+                # A loaded entry reloads through its update listener; HA 2026.12 forbids
+                # doing both. Without a listener (setup had failed) reload here.
+                if not entry.update_listeners:
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_abort(reason="reconfigure_successful")
             return self.async_create_entry(
                 title=title_for(self._options.get(CONF_VEHICLE_NAME)), data=data,
                 options=self._options)

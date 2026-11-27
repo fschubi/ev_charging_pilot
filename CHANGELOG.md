@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.4 – 2026-11-27
+
+- **Neu konfigurieren mit Home Assistant 2026.12.** Home Assistant verbietet ab 2026.12,
+  dass eine Integration beim Neukonfigurieren selbst neu lädt und zugleich auf Änderungen
+  lauscht. Das Neuladen übernimmt jetzt allein der Update-Listener – bei neuen Entitäten
+  wie bei geänderten Optionen. An der Bedienung ändert sich nichts.
+
 ## 0.27.36 – 2026-11-15
 
 - **Steckprobe auch bei veraltetem OVMS-Standort.** Solange das GPS keinen Fix hat, galt

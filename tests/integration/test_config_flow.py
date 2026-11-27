@@ -61,6 +61,7 @@ async def test_reconfigure_removes_cleared_fields(hass, full_entry, halo):
     full_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(full_entry.entry_id)
     await hass.async_block_till_done()
+    before = full_entry.runtime_data
     result = await full_entry.start_reconfigure_flow(hass)
     assert result["step_id"] == "halo"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], HALO)
@@ -71,6 +72,8 @@ async def test_reconfigure_removes_cleared_fields(hass, full_entry, halo):
     assert "cp_relay" not in full_entry.data
     assert "ovms_soc" not in full_entry.data
     await hass.async_block_till_done()
+    # The update listener reloaded the entry with the new entities.
+    assert full_entry.runtime_data is not before
 
 
 async def test_migration_from_v1(hass, halo):

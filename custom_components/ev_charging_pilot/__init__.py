@@ -51,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> 
     entry.runtime_data = center
     if entry.title != center.name:
         hass.config_entries.async_update_entry(entry, title=center.name)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = dict(entry.options)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = _snapshot(entry)
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
@@ -65,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargingConfigEntry) -> 
         hass.http.register_view(ReportView())
         hass.http.register_view(VehicleImageView())
     await _async_register_panel(hass, center.name)
-    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
     return True
 
 
@@ -97,17 +97,25 @@ async def async_unload_entry(hass: HomeAssistant, entry: ChargingConfigEntry) ->
     return unloaded
 
 
-async def _async_options_updated(hass: HomeAssistant, entry: ChargingConfigEntry) -> None:
-    """Mode and manual target apply live; every other change reloads (§13.2)."""
-    previous = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
-    current = dict(entry.options)
+def _snapshot(entry: ConfigEntry) -> tuple[dict, dict]:
+    return dict(entry.data), dict(entry.options)
+
+
+async def _async_entry_updated(hass: HomeAssistant, entry: ChargingConfigEntry) -> None:
+    """Mode and manual target apply live; every other change reloads (§13.2).
+
+    This listener is the only place that reloads: new entities from the
+    reconfigure flow (data) as well as changed options.
+    """
+    data, options = hass.data.get(DOMAIN, {}).get(entry.entry_id, ({}, {}))
+    current = _snapshot(entry)
     hass.data[DOMAIN][entry.entry_id] = current
 
-    def without_live(options: dict) -> dict:
-        return {k: v for k, v in options.items() if k not in LIVE_OPTIONS}
+    def without_live(values: dict) -> dict:
+        return {k: v for k, v in values.items() if k not in LIVE_OPTIONS}
 
-    if without_live(previous) == without_live(current):
-        entry.runtime_data.apply_options(current)
+    if data == current[0] and without_live(options) == without_live(current[1]):
+        entry.runtime_data.apply_options(current[1])
         return
     await hass.config_entries.async_reload(entry.entry_id)
 

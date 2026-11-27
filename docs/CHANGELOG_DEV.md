@@ -1,5 +1,9 @@
 # Entwickler-Changelog (vollständige Historie)
 
+- **2026-11-15 – v0.27.36 Steckprobe bei veraltetem Standort.** `Engine._plug_probe`: `at_home`
+  auch bei `location_stale`. Durchsicht Planer/Executor/Sessions/Fahrten ohne weitere Funde;
+  offen (nicht gebaut): Zähleranstieg der Halo außerhalb einer Session wird nicht gebucht
+  (14.11.: 1,47 kWh während HA-Ausfall), Kältezuschlag in der Ladedauer.
 - **2026-11-15 – v0.27.35 Button-Rückmeldung.** Panel: `_press` → `_buttonStates[service|payload]`
   busy/ok/err (außerhalb des DOM, `_applyButtonStates` nach jedem Render), CSS `.act.busy/.ok/.err`;
   `_feedback` liest nach dem Service `get_events` (seit Klick) und zeigt die Protokollmeldung,

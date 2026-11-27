@@ -142,11 +142,10 @@ CI: `tests.yaml` (pytest, ruff, Panel-Syntax), `validate.yaml` (hassfest, HACS).
 
 ## Fortschritts-Log (letzte fünf)
 
-- **2026-11-15 – v0.27.36 Steckprobe bei veraltetem Standort.** `Engine._plug_probe`: `at_home`
-  auch bei `location_stale`. Durchsicht Planer/Executor/Sessions/Fahrten ohne weitere Funde;
-  offen (nicht gebaut): Zähleranstieg der Halo außerhalb einer Session wird nicht gebucht
-  (14.11.: 1,47 kWh während HA-Ausfall), Kältezuschlag in der Ladedauer.
 - **2026-11-15 – v0.28.0 OCPP-Kabelstatus.** Halo läuft über die HACS-Integration „ocpp“ (`ws://…:9000`, Entitäten `*.halo_*`), kein Kabel-Sensor: `inputs.OCPP_PLUGGED_STATES` (Preparing/SuspendedEV/SuspendedEVSE/Finishing, plus Charging) → `CABLE_CONNECTED` True aus `sensor.halo_status_connector`; Available False. Ladefreigabe = `switch.halo_charge_control` (RemoteStart/Stop), Neustart aus Finishing ohne Abziehen getestet.
 - **2026-11-15 – v0.28.1 Kabel-Auswahl.** Config-Flow-Selektor für den Kabelstatus erlaubt auch `sensor` (`INPUT_DOMAINS`), sonst war der OCPP-Status-Sensor nicht wählbar.
 - **2026-11-16 – v0.28.2 Steckprobe/OCPP.** Eine ohne Auto freigegebene OCPP-Wallbox meldet 60 s „Preparing“ (Feld 16.11.: 4× falsches PLUGGED_IN + Push „Eingesteckt“). `Executor.awaiting_car(status)`: DISCONNECTED + Steckprobe/Sicherheitsfreigabe aktiv + Status Preparing → Kabel False (Engine vor `plugged_in()`, Executor `_cable_seen`); echtes Auto meldet sofort SuspendedEV/Charging.
 - **2026-11-22 – v0.28.3 Wallbox beweist Heimladung.** OVMS-Standort funktioniert wieder (Antenne) und bleibt Hauptkriterium. Fließt Halo-Leistung (GOOD > Schwelle) und bestätigt der Standort „home“ nicht (not_home eingefroren, unavailable), zählt das Auto als zuhause (`Engine._read_values`: Location = Value „home“, ESTIMATED, Quelle halo) und „OVMS lädt nicht“ erzeugt kein `DATA_CONFLICT` (Feld 22.11.: Klima-Ladung, Tracker 16 km entfernt). Mit bestätigtem Standort bleibt der Konflikt.
+- **2026-11-27 – v0.28.4 Reload nur über den Update-Listener** (HA 2026.12). `_async_entry_updated`
+  vergleicht data + options; Reconfigure lädt nur ohne Listener selbst. Franks Shelly ist seit heute
+  ausgebaut (`cp_relay` leer), die CP-Funktion bleibt für andere Nutzer in der Integration.
